@@ -11,9 +11,37 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <iostream>
+#include <fstream>
+#include <string>
+
+#include "lexer.hpp"
+
 using namespace llvm;
 
-int main() {
+bool lexemeValid(const Lexeme& l)
+{
+	return l.type != LexUnknown && l.type != LexEOF;
+}
+
+int main()
+{
+	std::ifstream in("../tests/simple.a");
+	in.unsetf(std::ios::skipws);
+	std::string data;
+	std::copy(std::istream_iterator<char>(in), std::istream_iterator<char>(), std::back_inserter(data));
+
+	Lexer lexer = { data, 0 };
+	Lexeme l;
+
+	while (lexemeValid(l = readnext(lexer)))
+	{
+		std::cout << l.type << " " << l.contents << " " << l.number << std::endl;
+	}
+
+	if (l.type == LexUnknown)
+		std::cout << "Failed at " << lexer.position << std::endl;
+
   
   InitializeNativeTarget();
 
