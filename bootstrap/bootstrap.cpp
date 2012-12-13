@@ -19,7 +19,7 @@ using namespace llvm;
 
 int main()
 {
-	std::ifstream in("../tests/simple.a");
+	std::ifstream in("../tests/simple.aike");
 	in.unsetf(std::ios::skipws);
 	std::string data;
 	std::copy(std::istream_iterator<char>(in), std::istream_iterator<char>(), std::back_inserter(data));
