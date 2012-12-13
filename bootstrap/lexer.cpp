@@ -92,7 +92,7 @@ Lexeme readnext(Lexer& lexer)
 		if (peekch(lexer) == '/')
 		{
 			consume(lexer);
-			if (peekch(lexer) != '/') return LexUnknown;
+			if (peekch(lexer) != '/') return LexDivide;
 
 			while (peekch(lexer) && peekch(lexer) != '\n') consume(lexer);
 		}
@@ -113,6 +113,7 @@ Lexeme readnext(Lexer& lexer)
 	case '>': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexGreaterEqual) : LexGreater);
 	case '!': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexNotEqual) : LexNot);
 	case '|': return consume(lexer), LexPipe;
+	case '*': return consume(lexer), LexMultiply;
 	}
 
 	if (isdigit(peekch(lexer)))
@@ -143,4 +144,9 @@ Lexeme readnext(Lexer& lexer)
 	}
 
 	return LexUnknown;
+}
+
+void movenext(Lexer& lexer)
+{
+	lexer.current = readnext(lexer);
 }

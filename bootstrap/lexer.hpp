@@ -24,6 +24,8 @@ enum LexemeType
 	LexNotEqual,
 	LexEqualEqual,
 	LexPipe,
+	LexMultiply,
+	LexDivide,
 	LexKeyword,
 	LexIdentifier,
 	LexNumber
@@ -56,6 +58,8 @@ struct Lexer
 {
 	std::string data;
 	size_t position;
+
+	Lexeme current;
 };
 
-Lexeme readnext(Lexer& lexer);
+void movenext(Lexer& lexer);

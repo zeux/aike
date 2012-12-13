@@ -1,41 +1,8 @@
-// this is a single-line comment
-1023
-102_102_102
-0x123
-0b0000__0001__0010_1010
-let x = 5
-let x: int = 5
-
-// some examples below require type inference & generics to work
-// (as in, syntax will be more or less like this, but no actual support in v1)
-let fib(n) = fib(n-1) + fib(n-2)
-
-let max(x, y) = x
-let max(x: int, y) = x
-let max(x, y: int) = y
-let max(x, y): int = y
-let max(x: int, y: int): int = y
-
-let fib(n) =
-    if n < 2 then 1 else fib(n-1) + fib(n-2)
-
-let fib(n) =
-    match n with
-    | 0 | 1 -> 1
-    | n -> fib(n-1) + fib(n-2)
-
-// let fib(n) = (n < 2) ? 1 : fib(n-1) + fib(n-2) // do we need this form?
-
-// full form
-let test(n) =
-    print(1);
-    let x = 2 in
-        print(2);
-        3
-
-// short form - insert fake lexemes based on indentation
-let test(n) =
-    print(1)
-    let x = 2
-    print(2)
-    3
+let div2(n: int): int =
+    n / 2
+in
+let main() =
+    let x = div2(5) - 1 in
+        x / 4 + 2 * 2 - div2(5)
+in
+main()

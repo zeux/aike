@@ -16,13 +16,9 @@
 #include <string>
 
 #include "lexer.hpp"
+#include "parser.hpp"
 
 using namespace llvm;
-
-bool lexemeValid(const Lexeme& l)
-{
-	return l.type != LexUnknown && l.type != LexEOF;
-}
 
 int main()
 {
@@ -32,17 +28,10 @@ int main()
 	std::copy(std::istream_iterator<char>(in), std::istream_iterator<char>(), std::back_inserter(data));
 
 	Lexer lexer = { data, 0 };
-	Lexeme l;
+	movenext(lexer);
 
-	while (lexemeValid(l = readnext(lexer)))
-	{
-		std::cout << l.type << " " << l.contents << " " << l.number << std::endl;
-	}
+	AstBase* root = parse(lexer);
 
-	if (l.type == LexUnknown)
-		std::cout << "Failed at " << lexer.position << std::endl;
-
-  
   InitializeNativeTarget();
 
   LLVMContext Context;
