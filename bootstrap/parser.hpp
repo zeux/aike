@@ -106,7 +106,7 @@ struct AstLetFunc: AstBase
 	}
 };
 
-#define ASTCASE(var, type, node) type* var = dynamic_cast<type*>(node)
+#define ASTCASE(type, node) type* _ = dynamic_cast<type*>(node)
 
 struct Lexer;
 

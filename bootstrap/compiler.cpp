@@ -1,69 +1,168 @@
 #include "compiler.hpp"
 
+#include "parser.hpp"
+
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/IRBuilder.h"
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
 
+#include <exception>
+#include <cassert>
+
 using namespace llvm;
 
-void compile(LLVMContext& context, Module* M, AstBase* root)
+inline void error(const char* msg)
 {
-	// Create the add1 function entry and insert this entry into module M.  The
-	// function will have a return type of "int" and take an argument of "int".
-	// The '0' terminates the list of argument types.
-	Function *Add1F =
-		cast<Function>(M->getOrInsertFunction("add1", Type::getInt32Ty(context),
-		Type::getInt32Ty(context),
+	throw std::runtime_error(msg);
+}
+
+struct Binding
+{
+	std::string name;
+	Value* value;
+};
+
+/*
+struct AstLetVar: AstBase
+struct AstLetFunc: AstBase
+*/
+
+Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, AstBase* node, std::vector<Binding>& bindings)
+{
+	if (ASTCASE(AstLiteralNumber, node))
+	{
+		return builder.getInt32(_->value);
+	}
+
+	if (ASTCASE(AstVariableReference, node))
+	{
+		for (size_t i = 0; i < bindings.size(); ++i)
+			if (bindings[i].name == _->name)
+				return bindings[i].value;
+
+		error("1");
+		assert(false);
+		return 0;
+	}
+
+	if (ASTCASE(AstUnaryOp, node))
+	{
+		Value* ev = compileExpr(context, module, builder, _->expr, bindings);
+
+		switch (_->type)
+		{
+		case AstUnaryOpPlus: return ev;
+		case AstUnaryOpMinus: return builder.CreateNeg(ev);
+		case AstUnaryOpNot: return builder.CreateNot(ev);
+		default: error("1"); assert(false); return 0;
+		}
+	}
+
+	if (ASTCASE(AstBinaryOp, node))
+	{
+		Value* lv = compileExpr(context, module, builder, _->left, bindings);
+		Value* rv = compileExpr(context, module, builder, _->right, bindings);
+
+		switch (_->type)
+		{
+		case AstBinaryOpAdd: return builder.CreateAdd(lv, rv);
+		case AstBinaryOpSubtract: return builder.CreateSub(lv, rv);
+		case AstBinaryOpMultiply: return builder.CreateMul(lv, rv);
+		case AstBinaryOpDivide: return builder.CreateSDiv(lv, rv);
+		case AstBinaryOpLess: return builder.CreateICmpSLT(lv, rv);
+		case AstBinaryOpLessEqual: return builder.CreateICmpSLE(lv, rv);
+		case AstBinaryOpGreater: return builder.CreateICmpSGT(lv, rv);
+		case AstBinaryOpGreaterEqual: return builder.CreateICmpSGE(lv, rv);
+		case AstBinaryOpEqual: return builder.CreateICmpEQ(lv, rv);
+		case AstBinaryOpNotEqual: return builder.CreateICmpNE(lv, rv);
+		default: error("1"); assert(false); return 0;
+		}
+	}
+
+	if (ASTCASE(AstCall, node))
+	{
+		AstVariableReference* var = dynamic_cast<AstVariableReference*>(_->expr);
+		if (!var) error("2"); // no first-class functions yet
+
+		Function* func = module->getFunction(var->name);
+		if (!func) error("3");
+
+		std::vector<Value*> args;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(compileExpr(context, module, builder, _->args[i], bindings));
+
+		return builder.CreateCall(func, args);
+	}
+
+	if (ASTCASE(AstLetVar, node))
+	{
+		Value* value = compileExpr(context, module, builder, _->body, bindings);
+
+		Binding bind = {_->var.name, value};
+		bindings.push_back(bind);
+
+		Value* result = compileExpr(context, module, builder, _->expr, bindings);
+
+		bindings.pop_back();
+
+		return result;
+	}
+
+	if (ASTCASE(AstLetFunc, node))
+	{
+		std::vector<Type*> args;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(Type::getInt32Ty(context));
+
+		FunctionType* functy = FunctionType::get(Type::getInt32Ty(context), args, false);
+
+		Function* func = cast<Function>(module->getOrInsertFunction(_->var.name, functy));
+
+		BasicBlock* bb = BasicBlock::Create(context, "entry", func);
+
+		IRBuilder<> funcbuilder(bb);
+
+		Function::arg_iterator argi = func->arg_begin();
+
+		for (size_t i = 0; i < _->args.size(); ++i, ++argi)
+		{
+			argi->setName(_->args[i].name);
+
+			Binding bind = {_->args[i].name, argi};
+			bindings.push_back(bind);
+		}
+
+		Value* value = compileExpr(context, module, funcbuilder, _->body, bindings);
+
+		funcbuilder.CreateRet(value);
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			bindings.pop_back();
+
+		return compileExpr(context, module, builder, _->expr, bindings);
+	}
+
+	error("1");
+	assert(false);
+	return 0;
+}
+
+void compile(LLVMContext& context, Module* module, AstBase* root)
+{
+	Function* entryf =
+		cast<Function>(module->getOrInsertFunction("entrypoint", Type::getInt32Ty(context),
 		(Type *)0));
 
-	// Add a basic block to the function. As before, it automatically inserts
-	// because of the last argument.
-	BasicBlock *BB = BasicBlock::Create(context, "EntryBlock", Add1F);
+	BasicBlock* bb = BasicBlock::Create(context, "entry", entryf);
 
-	// Create a basic block builder with default parameters.  The builder will
-	// automatically append instructions to the basic block `BB'.
-	IRBuilder<> builder(BB);
+	IRBuilder<> builder(bb);
 
-	// Get pointers to the constant `1'.
-	Value *One = builder.getInt32(1);
+	std::vector<Binding> bindings;
+	Value* result = compileExpr(context, module, builder, root, bindings);
 
-	// Get pointers to the integer argument of the add1 function...
-	assert(Add1F->arg_begin() != Add1F->arg_end()); // Make sure there's an arg
-	Argument *ArgX = Add1F->arg_begin();  // Get the arg
-	ArgX->setName("AnArg");            // Give it a nice symbolic name for fun.
-
-	// Create the add instruction, inserting it into the end of BB.
-	Value *Add = builder.CreateAdd(One, ArgX);
-
-	// Create the return instruction and add it to the basic block
-	builder.CreateRet(Add);
-
-	// Now, function add1 is ready.
-
-
-	// Now we're going to create function `foo', which returns an int and takes no
-	// arguments.
-	Function *FooF =
-		cast<Function>(M->getOrInsertFunction("entrypoint", Type::getInt32Ty(context),
-		(Type *)0));
-
-	// Add a basic block to the FooF function.
-	BB = BasicBlock::Create(context, "EntryBlock", FooF);
-
-	// Tell the basic block builder to attach itself to the new basic block
-	builder.SetInsertPoint(BB);
-
-	// Get pointer to the constant `10'.
-	Value *Ten = builder.getInt32(10);
-
-	// Pass Ten to the call to Add1F
-	CallInst *Add1CallRes = builder.CreateCall(Add1F, Ten);
-	Add1CallRes->setTailCall(true);
-
-	// Create the return instruction and add it to the basic block.
-	builder.CreateRet(Add1CallRes);
-
-	// Now we create the JIT.
+	builder.CreateRet(result);
 }

@@ -5,12 +5,12 @@
 #include <exception>
 #include <cassert>
 
-void error(const char* msg)
+inline void error(const char* msg)
 {
 	throw std::runtime_error(msg);
 }
 
-bool iskeyword(Lexer& lexer, const char* expected)
+inline bool iskeyword(Lexer& lexer, const char* expected)
 {
 	return lexer.current.type == LexKeyword && lexer.current.contents == expected;
 }
