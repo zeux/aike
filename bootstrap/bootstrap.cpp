@@ -14,6 +14,7 @@
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "compiler.hpp"
+#include "optimizer.hpp"
 
 using namespace llvm;
 
@@ -39,8 +40,13 @@ int main()
 
 	ExecutionEngine* EE = EngineBuilder(module).create();
 
-	outs() << "We just constructed this LLVM module:\n\n" << *module;
-	outs() << "\n\nRunning foo: ";
+	outs() << *module;
+
+	outs() << "\n\nOptimized:";
+
+	optimize(context, module, *EE->getDataLayout());
+
+	outs() << *module;
 	outs().flush();
 
 	std::vector<GenericValue> noargs;

@@ -13,9 +13,9 @@ include_directories( ${LLVM_ROOT}/include )
 link_directories( ${LLVM_ROOT}/lib )
 add_definitions( ${LLVM_DEFINITIONS} )
 
-# Include JIT compiler
-llvm_map_components_to_libraries(REQ_LLVM_LIBRARIES jit interpreter native)
+# Include various LLVM components
+llvm_map_components_to_libraries(REQ_LLVM_LIBRARIES jit interpreter native scalaropts ipo vectorize)
 
 # Bootstrap project
-add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/lexer.cpp bootstrap/parser.cpp bootstrap/compiler.cpp)
+add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/lexer.cpp bootstrap/parser.cpp bootstrap/compiler.cpp bootstrap/optimizer.cpp)
 target_link_libraries(bootstrap ${REQ_LLVM_LIBRARIES})

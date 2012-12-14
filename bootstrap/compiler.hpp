@@ -8,4 +8,4 @@ namespace llvm
 
 struct AstBase;
 
-void compile(llvm::LLVMContext& context, llvm::Module* M, AstBase* root);
+void compile(llvm::LLVMContext& context, llvm::Module* module, AstBase* root);
