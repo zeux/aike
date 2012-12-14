@@ -1,8 +1,11 @@
 let div2(n: int): int =
-    n / 2
+    if n == 0 then
+        42
+    else
+        n / 2
 in
 let main() =
     let x = div2(5) - 1 in
         x / 4 + 2 * 2 - div2(5)
 in
-main()
+main() + div2(0)

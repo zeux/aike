@@ -75,7 +75,7 @@ AstBinaryOpType getBinaryOp(LexemeType type)
 	case LexLessEqual: return AstBinaryOpLessEqual;
 	case LexGreater: return AstBinaryOpGreater;
 	case LexGreaterEqual: return AstBinaryOpGreaterEqual;
-	case LexEqual: return AstBinaryOpEqual;
+	case LexEqualEqual: return AstBinaryOpEqual;
 	case LexNotEqual: return AstBinaryOpNotEqual;
 	default: return AstBinaryOpUnknown;
 	}
@@ -202,6 +202,26 @@ AstBase* parseLet(Lexer& lexer)
 	return new AstLetVar(AstTypedVar(name, type), body, expr);
 }
 
+AstBase* parseIfThenElse(Lexer& lexer)
+{
+	assert(iskeyword(lexer, "if"));
+	movenext(lexer);
+
+	AstBase* cond = parseExpr(lexer);
+
+	if (!iskeyword(lexer, "then")) error("42");
+	movenext(lexer);
+
+	AstBase* thenbody = parseExpr(lexer);
+
+	AstBase* elsebody =
+		iskeyword(lexer, "else")
+		? (movenext(lexer), parseExpr(lexer))
+		: new AstUnit();
+
+	return new AstIfThenElse(cond, thenbody, elsebody);
+}
+
 AstBase* parsePrimary(Lexer& lexer)
 {
 	AstUnaryOpType uop = getUnaryOp(lexer.current.type);
@@ -211,6 +231,9 @@ AstBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
+
+	if (iskeyword(lexer, "if"))
+		return parseIfThenElse(lexer);
 
 	AstBase* result = parseTerm(lexer);
 

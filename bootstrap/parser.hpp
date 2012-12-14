@@ -18,6 +18,11 @@ struct AstBase
 	virtual ~AstBase() {}
 };
 
+struct AstUnit: AstBase
+{
+	AstUnit() {}
+};
+
 struct AstLiteralNumber: AstBase
 {
 	long long value;
@@ -104,6 +109,15 @@ struct AstLetFunc: AstBase
 	AstLetFunc(const AstTypedVar& var, const std::vector<AstTypedVar>& args, AstBase* body, AstBase* expr): var(var), args(args), body(body), expr(expr)
 	{
 	}
+};
+
+struct AstIfThenElse: AstBase
+{
+	AstBase* cond;
+	AstBase* thenbody;
+	AstBase* elsebody;
+
+	AstIfThenElse(AstBase* cond, AstBase* thenbody, AstBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody) {}
 };
 
 #define ASTCASE(type, node) type* _ = dynamic_cast<type*>(node)

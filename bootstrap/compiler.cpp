@@ -24,13 +24,14 @@ struct Binding
 	Value* value;
 };
 
-/*
-struct AstLetVar: AstBase
-struct AstLetFunc: AstBase
-*/
-
 Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, AstBase* node, std::vector<Binding>& bindings)
 {
+	if (ASTCASE(AstUnit, node))
+	{
+		// since we only have int type right now, unit should be int :)
+		return builder.getInt32(0);
+	}
+
 	if (ASTCASE(AstLiteralNumber, node))
 	{
 		return builder.getInt32(_->value);
@@ -144,6 +145,40 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 			bindings.pop_back();
 
 		return compileExpr(context, module, builder, _->expr, bindings);
+	}
+
+	if (ASTCASE(AstIfThenElse, node))
+	{
+		Function* func = builder.GetInsertBlock()->getParent();
+
+		Value* cond = compileExpr(context, module, builder, _->cond, bindings);
+
+		BasicBlock* thenbb = BasicBlock::Create(context, "then", func);
+		BasicBlock* elsebb = BasicBlock::Create(context, "else");
+		BasicBlock* ifendbb = BasicBlock::Create(context, "ifend");
+
+		builder.CreateCondBr(cond, thenbb, elsebb);
+
+		builder.SetInsertPoint(thenbb);
+		Value* thenbody = compileExpr(context, module, builder, _->thenbody, bindings);
+		builder.CreateBr(ifendbb);
+		thenbb = builder.GetInsertBlock();
+
+		func->getBasicBlockList().push_back(elsebb);
+
+		builder.SetInsertPoint(elsebb);
+		Value* elsebody = compileExpr(context, module, builder, _->elsebody, bindings);
+		builder.CreateBr(ifendbb);
+		elsebb = builder.GetInsertBlock();
+
+		func->getBasicBlockList().push_back(ifendbb);
+		builder.SetInsertPoint(ifendbb);
+		PHINode* pn = builder.CreatePHI(Type::getInt32Ty(context), 2);
+
+		pn->addIncoming(thenbody, thenbb);
+		pn->addIncoming(elsebody, elsebb);
+
+		return pn;
 	}
 
 	error("1");
