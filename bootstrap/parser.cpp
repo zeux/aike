@@ -198,6 +198,19 @@ AstBase* parseLet(Lexer& lexer)
 	return new AstLetVar(AstTypedVar(name, type), body, expr);
 }
 
+AstBase* parseLLVM(Lexer& lexer)
+{
+	assert(iskeyword(lexer, "llvm"));
+	movenext(lexer);
+
+	if (lexer.current.type != LexString) errorf("String expected after llvm keyword");
+
+	std::string body = lexer.current.contents;
+	movenext(lexer);
+
+	return new AstLLVM(body);
+}
+
 AstBase* parseIfThenElse(Lexer& lexer)
 {
 	assert(iskeyword(lexer, "if"));
@@ -227,6 +240,9 @@ AstBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
+
+	if (iskeyword(lexer, "llvm"))
+		return parseLLVM(lexer);
 
 	if (iskeyword(lexer, "if"))
 		return parseIfThenElse(lexer);

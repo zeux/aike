@@ -28,7 +28,8 @@ enum LexemeType
 	LexDivide,
 	LexKeyword,
 	LexIdentifier,
-	LexNumber
+	LexNumber,
+	LexString
 };
 
 struct Lexeme

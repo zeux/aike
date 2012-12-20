@@ -8,9 +8,13 @@
 #include "llvm/IRBuilder.h"
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
+#include "llvm/Assembly/Parser.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 #include <exception>
 #include <cassert>
+#include <sstream>
 
 using namespace llvm;
 
@@ -30,7 +34,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 
 	if (ASTCASE(AstLiteralNumber, node))
 	{
-		return builder.getInt32(_->value);
+		return builder.getInt32(uint32_t(_->value));
 	}
 
 	if (ASTCASE(AstVariableReference, node))
@@ -139,6 +143,34 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 			bindings.pop_back();
 
 		return compileExpr(context, module, builder, _->expr, bindings);
+	}
+
+	if (ASTCASE(AstLLVM, node))
+	{
+		Function* func = builder.GetInsertBlock()->getParent();
+
+		std::string name = "autogen_" + func->getName().str();
+
+		std::stringstream stream;
+		llvm::raw_os_ostream os_stream(stream);
+
+		os_stream << "define " << *func->getReturnType() << " @" << name << "(";
+
+		for (Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
+			os_stream << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
+
+		os_stream << "){ %out = " + _->body + " ret " << *func->getReturnType() << " %out }";
+		os_stream.flush();
+
+		llvm::SMDiagnostic err;
+		if(!llvm::ParseAssemblyString(stream.str().c_str(), module, err, context))
+			errorf("Failed to parse llvm inline code: %s", err.getMessage().c_str());
+
+		std::vector<llvm::Value*> arguments;
+		for (Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
+			arguments.push_back(argi);
+
+		return builder.CreateCall(module->getFunction(name.c_str()), arguments);
 	}
 
 	if (ASTCASE(AstIfThenElse, node))

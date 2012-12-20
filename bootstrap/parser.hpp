@@ -99,6 +99,15 @@ struct AstLetVar: AstBase
 	}
 };
 
+struct AstLLVM: AstBase
+{
+	std::string body;
+
+	AstLLVM(const std::string& body): body(body)
+	{
+	}
+};
+
 struct AstLetFunc: AstBase
 {
 	AstTypedVar var;

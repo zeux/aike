@@ -77,7 +77,7 @@ Lexeme readident(Lexer& lexer)
 		consume(lexer);
 	}
 
-	if (data == "let" || data == "in" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else")
+	if (data == "let" || data == "in" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm")
 		return Lexeme(LexKeyword, data);
 	else
 		return Lexeme(LexIdentifier, data);
@@ -137,6 +137,22 @@ Lexeme readnext(Lexer& lexer)
 		}
 		else
 			return readnumber(lexer, 10);
+	}
+	else if (peekch(lexer) == '\"')
+	{
+		consume(lexer);
+
+		std::string data;
+
+		while (peekch(lexer) && peekch(lexer) != '\"')
+		{
+			data += peekch(lexer);
+			consume(lexer);
+		}
+
+		consume(lexer);
+
+		return Lexeme(LexString, data);
 	}
 	else if (isidentstart(peekch(lexer)))
 	{
