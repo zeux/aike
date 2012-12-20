@@ -17,5 +17,5 @@ add_definitions( ${LLVM_DEFINITIONS} )
 llvm_map_components_to_libraries(REQ_LLVM_LIBRARIES jit interpreter native scalaropts ipo vectorize)
 
 # Bootstrap project
-add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/lexer.cpp bootstrap/parser.cpp bootstrap/compiler.cpp bootstrap/optimizer.cpp)
+add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/lexer.cpp bootstrap/parser.cpp bootstrap/compiler.cpp bootstrap/optimizer.cpp bootstrap/output.cpp)
 target_link_libraries(bootstrap ${REQ_LLVM_LIBRARIES})

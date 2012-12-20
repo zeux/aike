@@ -1,14 +1,10 @@
 #include "parser.hpp"
 
 #include "lexer.hpp"
+#include "output.hpp"
 
 #include <exception>
 #include <cassert>
-
-inline void error(const char* msg)
-{
-	throw std::runtime_error(msg);
-}
 
 inline bool iskeyword(Lexer& lexer, const char* expected)
 {
@@ -26,7 +22,7 @@ AstBase* parseTerm(Lexer& lexer)
 		AstBase* expr = parseExpr(lexer);
 
 		if (lexer.current.type != LexCloseBrace)
-			error("2");
+			errorf("Expected closing brace");
 
 		movenext(lexer);
 
@@ -46,9 +42,7 @@ AstBase* parseTerm(Lexer& lexer)
 	}
 	else
 	{
-		error("1");
-		assert(false); // unreachable
-		return 0;
+		errorf("Unexpected lexeme %d", lexer.current.type);
 	}
 }
 
@@ -101,7 +95,8 @@ int getBinaryOpPrecedence(AstBinaryOpType op)
 
 std::string parseType(Lexer& lexer)
 {
-	if (lexer.current.type != LexIdentifier) error("5");
+	if (lexer.current.type != LexIdentifier)
+		errorf("Expected identifier");
 
 	std::string result = lexer.current.contents;
 
@@ -119,7 +114,8 @@ AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	while (lexer.current.type != LexCloseBrace)
 	{
-		if (lexer.current.type != LexIdentifier) error("5");
+		if (lexer.current.type != LexIdentifier)
+			errorf("Expected identifier");
 
 		std::string name = lexer.current.contents;
 		movenext(lexer);
@@ -139,7 +135,7 @@ AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
 		else if (lexer.current.type == LexCloseBrace)
 			;
 		else
-			error("2");
+			errorf("Expected comma or closing brace");
 	}
 
 	movenext(lexer);
@@ -152,13 +148,13 @@ AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
 		rettype = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) error("6");
+	if (lexer.current.type != LexEqual) errorf("Expected =");
 
 	movenext(lexer);
 
 	AstBase* body = parseExpr(lexer);
 
-	if (!iskeyword(lexer, "in")) error("8");
+	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
 	movenext(lexer);
 
 	AstBase* expr = parseExpr(lexer);
@@ -171,7 +167,7 @@ AstBase* parseLet(Lexer& lexer)
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
 
-	if (lexer.current.type != LexIdentifier) error("4");
+	if (lexer.current.type != LexIdentifier) errorf("Expected identifier");
 
 	std::string name = lexer.current.contents;
 	movenext(lexer);
@@ -188,13 +184,13 @@ AstBase* parseLet(Lexer& lexer)
 		type = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) error("7");
+	if (lexer.current.type != LexEqual) errorf("Expected =");
 
 	movenext(lexer);
 
 	AstBase* body = parseExpr(lexer);
 
-	if (!iskeyword(lexer, "in")) error("8");
+	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
 	movenext(lexer);
 
 	AstBase* expr = parseExpr(lexer);
@@ -209,7 +205,7 @@ AstBase* parseIfThenElse(Lexer& lexer)
 
 	AstBase* cond = parseExpr(lexer);
 
-	if (!iskeyword(lexer, "then")) error("42");
+	if (!iskeyword(lexer, "then")) errorf("Expected 'then'");
 	movenext(lexer);
 
 	AstBase* thenbody = parseExpr(lexer);
@@ -252,7 +248,7 @@ AstBase* parsePrimary(Lexer& lexer)
 			else if (lexer.current.type == LexCloseBrace)
 				;
 			else
-				error("2");
+				errorf("Expected comma or closing brace");
 		}
 
 		movenext(lexer);

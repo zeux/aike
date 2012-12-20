@@ -1,6 +1,7 @@
 #include "compiler.hpp"
 
 #include "parser.hpp"
+#include "output.hpp"
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
@@ -12,11 +13,6 @@
 #include <cassert>
 
 using namespace llvm;
-
-inline void error(const char* msg)
-{
-	throw std::runtime_error(msg);
-}
 
 struct Binding
 {
@@ -43,9 +39,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 			if (bindings[i].name == _->name)
 				return bindings[i].value;
 
-		error("1");
-		assert(false);
-		return 0;
+		errorf("Unresolved variable reference %s", _->name.c_str());
 	}
 
 	if (ASTCASE(AstUnaryOp, node))
@@ -57,7 +51,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		case AstUnaryOpPlus: return ev;
 		case AstUnaryOpMinus: return builder.CreateNeg(ev);
 		case AstUnaryOpNot: return builder.CreateNot(ev);
-		default: error("1"); assert(false); return 0;
+		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
 
@@ -78,17 +72,17 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		case AstBinaryOpGreaterEqual: return builder.CreateICmpSGE(lv, rv);
 		case AstBinaryOpEqual: return builder.CreateICmpEQ(lv, rv);
 		case AstBinaryOpNotEqual: return builder.CreateICmpNE(lv, rv);
-		default: error("1"); assert(false); return 0;
+		default: assert(!"Unknown binary operation"); return 0;
 		}
 	}
 
 	if (ASTCASE(AstCall, node))
 	{
 		AstVariableReference* var = dynamic_cast<AstVariableReference*>(_->expr);
-		if (!var) error("2"); // no first-class functions yet
+		if (!var) errorf("Dynamic function calls are not supported");
 
 		Function* func = module->getFunction(var->name);
-		if (!func) error("3");
+		if (!func) errorf("Unresolved function reference %s", var->name.c_str());
 
 		std::vector<Value*> args;
 
@@ -181,8 +175,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		return pn;
 	}
 
-	error("1");
-	assert(false);
+	assert(!"Unknown AST node type");
 	return 0;
 }
 
