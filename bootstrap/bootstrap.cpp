@@ -13,6 +13,7 @@
 
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "typecheck.hpp"
 #include "compiler.hpp"
 #include "optimizer.hpp"
 
@@ -29,6 +30,7 @@ int main()
 	movenext(lexer);
 
 	SynBase* root = parse(lexer);
+	Expr* roote = typecheck(root);
 
 	InitializeNativeTarget();
 
