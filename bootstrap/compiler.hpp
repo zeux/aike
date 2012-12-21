@@ -6,6 +6,6 @@ namespace llvm
 	class LLVMContext;
 }
 
-struct AstBase;
+struct SynBase;
 
-void compile(llvm::LLVMContext& context, llvm::Module* module, AstBase* root);
+void compile(llvm::LLVMContext& context, llvm::Module* module, SynBase* root);

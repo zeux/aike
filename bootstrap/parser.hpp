@@ -3,134 +3,134 @@
 #include <string>
 #include <vector>
 
-struct AstTypedVar
+struct SynTypedVar
 {
 	std::string name;
 	std::string type;
 
-	AstTypedVar(const std::string& name, const std::string& type): name(name), type(type)
+	SynTypedVar(const std::string& name, const std::string& type): name(name), type(type)
 	{
 	}
 };
 
-struct AstBase
+struct SynBase
 {
-	virtual ~AstBase() {}
+	virtual ~SynBase() {}
 };
 
-struct AstUnit: AstBase
+struct SynUnit: SynBase
 {
-	AstUnit() {}
+	SynUnit() {}
 };
 
-struct AstLiteralNumber: AstBase
+struct SynLiteralNumber: SynBase
 {
 	long long value;
 
-	AstLiteralNumber(long long value): value(value) {}
+	SynLiteralNumber(long long value): value(value) {}
 };
 
-struct AstVariableReference: AstBase
+struct SynVariableReference: SynBase
 {
 	std::string name;
 
-	AstVariableReference(std::string name): name(name) {}
+	SynVariableReference(std::string name): name(name) {}
 };
 
-enum AstUnaryOpType
+enum SynUnaryOpType
 {
-	AstUnaryOpUnknown,
-	AstUnaryOpPlus,
-	AstUnaryOpMinus,
-	AstUnaryOpNot
+	SynUnaryOpUnknown,
+	SynUnaryOpPlus,
+	SynUnaryOpMinus,
+	SynUnaryOpNot
 };
 
-struct AstUnaryOp: AstBase
+struct SynUnaryOp: SynBase
 {
-	AstUnaryOpType type;
-	AstBase* expr;
+	SynUnaryOpType type;
+	SynBase* expr;
 
-	AstUnaryOp(AstUnaryOpType type, AstBase* expr): type(type), expr(expr) {}
+	SynUnaryOp(SynUnaryOpType type, SynBase* expr): type(type), expr(expr) {}
 };
 
-enum AstBinaryOpType
+enum SynBinaryOpType
 {
-	AstBinaryOpUnknown,
+	SynBinaryOpUnknown,
 
-	AstBinaryOpAdd,
-	AstBinaryOpSubtract,
-	AstBinaryOpMultiply,
-	AstBinaryOpDivide,
-	AstBinaryOpLess,
-	AstBinaryOpLessEqual,
-	AstBinaryOpGreater,
-	AstBinaryOpGreaterEqual,
-	AstBinaryOpEqual,
-	AstBinaryOpNotEqual
+	SynBinaryOpAdd,
+	SynBinaryOpSubtract,
+	SynBinaryOpMultiply,
+	SynBinaryOpDivide,
+	SynBinaryOpLess,
+	SynBinaryOpLessEqual,
+	SynBinaryOpGreater,
+	SynBinaryOpGreaterEqual,
+	SynBinaryOpEqual,
+	SynBinaryOpNotEqual
 };
 
-struct AstBinaryOp: AstBase
+struct SynBinaryOp: SynBase
 {
-	AstBinaryOpType type;
-	AstBase* left;
-	AstBase* right;
+	SynBinaryOpType type;
+	SynBase* left;
+	SynBase* right;
 
-	AstBinaryOp(AstBinaryOpType type, AstBase* left, AstBase* right): type(type), left(left), right(right) {}
+	SynBinaryOp(SynBinaryOpType type, SynBase* left, SynBase* right): type(type), left(left), right(right) {}
 };
 
-struct AstCall: AstBase
+struct SynCall: SynBase
 {
-	AstBase* expr;
-	std::vector<AstBase*> args;
+	SynBase* expr;
+	std::vector<SynBase*> args;
 
-	AstCall(AstBase* expr, const std::vector<AstBase*>& args): expr(expr), args(args)
+	SynCall(SynBase* expr, const std::vector<SynBase*>& args): expr(expr), args(args)
 	{
 	}
 };
 
-struct AstLetVar: AstBase
+struct SynLetVar: SynBase
 {
-	AstTypedVar var;
-	AstBase* body;
-	AstBase* expr;
+	SynTypedVar var;
+	SynBase* body;
+	SynBase* expr;
 
-	AstLetVar(const AstTypedVar& var, AstBase* body, AstBase* expr): var(var), body(body), expr(expr)
+	SynLetVar(const SynTypedVar& var, SynBase* body, SynBase* expr): var(var), body(body), expr(expr)
 	{
 	}
 };
 
-struct AstLLVM: AstBase
+struct SynLLVM: SynBase
 {
 	std::string body;
 
-	AstLLVM(const std::string& body): body(body)
+	SynLLVM(const std::string& body): body(body)
 	{
 	}
 };
 
-struct AstLetFunc: AstBase
+struct SynLetFunc: SynBase
 {
-	AstTypedVar var;
-	std::vector<AstTypedVar> args;
-	AstBase* body;
-	AstBase* expr;
+	SynTypedVar var;
+	std::vector<SynTypedVar> args;
+	SynBase* body;
+	SynBase* expr;
 
-	AstLetFunc(const AstTypedVar& var, const std::vector<AstTypedVar>& args, AstBase* body, AstBase* expr): var(var), args(args), body(body), expr(expr)
+	SynLetFunc(const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body, SynBase* expr): var(var), args(args), body(body), expr(expr)
 	{
 	}
 };
 
-struct AstIfThenElse: AstBase
+struct SynIfThenElse: SynBase
 {
-	AstBase* cond;
-	AstBase* thenbody;
-	AstBase* elsebody;
+	SynBase* cond;
+	SynBase* thenbody;
+	SynBase* elsebody;
 
-	AstIfThenElse(AstBase* cond, AstBase* thenbody, AstBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody) {}
+	SynIfThenElse(SynBase* cond, SynBase* thenbody, SynBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody) {}
 };
 
-#define ASTCASE(type, node) type* _ = dynamic_cast<type*>(node)
+#define CASE(type, node) type* _ = dynamic_cast<type*>(node)
 
 struct Lexer;
 
-AstBase* parse(Lexer& lexer);
+SynBase* parse(Lexer& lexer);

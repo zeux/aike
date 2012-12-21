@@ -24,20 +24,20 @@ struct Binding
 	Value* value;
 };
 
-Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, AstBase* node, std::vector<Binding>& bindings)
+Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, SynBase* node, std::vector<Binding>& bindings)
 {
-	if (ASTCASE(AstUnit, node))
+	if (CASE(SynUnit, node))
 	{
 		// since we only have int type right now, unit should be int :)
 		return builder.getInt32(0);
 	}
 
-	if (ASTCASE(AstLiteralNumber, node))
+	if (CASE(SynLiteralNumber, node))
 	{
 		return builder.getInt32(uint32_t(_->value));
 	}
 
-	if (ASTCASE(AstVariableReference, node))
+	if (CASE(SynVariableReference, node))
 	{
 		for (size_t i = 0; i < bindings.size(); ++i)
 			if (bindings[i].name == _->name)
@@ -46,43 +46,43 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		errorf("Unresolved variable reference %s", _->name.c_str());
 	}
 
-	if (ASTCASE(AstUnaryOp, node))
+	if (CASE(SynUnaryOp, node))
 	{
 		Value* ev = compileExpr(context, module, builder, _->expr, bindings);
 
 		switch (_->type)
 		{
-		case AstUnaryOpPlus: return ev;
-		case AstUnaryOpMinus: return builder.CreateNeg(ev);
-		case AstUnaryOpNot: return builder.CreateNot(ev);
+		case SynUnaryOpPlus: return ev;
+		case SynUnaryOpMinus: return builder.CreateNeg(ev);
+		case SynUnaryOpNot: return builder.CreateNot(ev);
 		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
 
-	if (ASTCASE(AstBinaryOp, node))
+	if (CASE(SynBinaryOp, node))
 	{
 		Value* lv = compileExpr(context, module, builder, _->left, bindings);
 		Value* rv = compileExpr(context, module, builder, _->right, bindings);
 
 		switch (_->type)
 		{
-		case AstBinaryOpAdd: return builder.CreateAdd(lv, rv);
-		case AstBinaryOpSubtract: return builder.CreateSub(lv, rv);
-		case AstBinaryOpMultiply: return builder.CreateMul(lv, rv);
-		case AstBinaryOpDivide: return builder.CreateSDiv(lv, rv);
-		case AstBinaryOpLess: return builder.CreateICmpSLT(lv, rv);
-		case AstBinaryOpLessEqual: return builder.CreateICmpSLE(lv, rv);
-		case AstBinaryOpGreater: return builder.CreateICmpSGT(lv, rv);
-		case AstBinaryOpGreaterEqual: return builder.CreateICmpSGE(lv, rv);
-		case AstBinaryOpEqual: return builder.CreateICmpEQ(lv, rv);
-		case AstBinaryOpNotEqual: return builder.CreateICmpNE(lv, rv);
+		case SynBinaryOpAdd: return builder.CreateAdd(lv, rv);
+		case SynBinaryOpSubtract: return builder.CreateSub(lv, rv);
+		case SynBinaryOpMultiply: return builder.CreateMul(lv, rv);
+		case SynBinaryOpDivide: return builder.CreateSDiv(lv, rv);
+		case SynBinaryOpLess: return builder.CreateICmpSLT(lv, rv);
+		case SynBinaryOpLessEqual: return builder.CreateICmpSLE(lv, rv);
+		case SynBinaryOpGreater: return builder.CreateICmpSGT(lv, rv);
+		case SynBinaryOpGreaterEqual: return builder.CreateICmpSGE(lv, rv);
+		case SynBinaryOpEqual: return builder.CreateICmpEQ(lv, rv);
+		case SynBinaryOpNotEqual: return builder.CreateICmpNE(lv, rv);
 		default: assert(!"Unknown binary operation"); return 0;
 		}
 	}
 
-	if (ASTCASE(AstCall, node))
+	if (CASE(SynCall, node))
 	{
-		AstVariableReference* var = dynamic_cast<AstVariableReference*>(_->expr);
+		SynVariableReference* var = dynamic_cast<SynVariableReference*>(_->expr);
 		if (!var) errorf("Dynamic function calls are not supported");
 
 		Function* func = module->getFunction(var->name);
@@ -96,7 +96,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		return builder.CreateCall(func, args);
 	}
 
-	if (ASTCASE(AstLetVar, node))
+	if (CASE(SynLetVar, node))
 	{
 		Value* value = compileExpr(context, module, builder, _->body, bindings);
 
@@ -110,7 +110,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		return result;
 	}
 
-	if (ASTCASE(AstLetFunc, node))
+	if (CASE(SynLetFunc, node))
 	{
 		std::vector<Type*> args;
 
@@ -145,7 +145,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		return compileExpr(context, module, builder, _->expr, bindings);
 	}
 
-	if (ASTCASE(AstLLVM, node))
+	if (CASE(SynLLVM, node))
 	{
 		Function* func = builder.GetInsertBlock()->getParent();
 
@@ -173,7 +173,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 		return builder.CreateCall(module->getFunction(name.c_str()), arguments);
 	}
 
-	if (ASTCASE(AstIfThenElse, node))
+	if (CASE(SynIfThenElse, node))
 	{
 		Function* func = builder.GetInsertBlock()->getParent();
 
@@ -211,7 +211,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, A
 	return 0;
 }
 
-void compile(LLVMContext& context, Module* module, AstBase* root)
+void compile(LLVMContext& context, Module* module, SynBase* root)
 {
 	Function* entryf =
 		cast<Function>(module->getOrInsertFunction("entrypoint", Type::getInt32Ty(context),

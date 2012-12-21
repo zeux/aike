@@ -28,15 +28,7 @@ int main()
 	Lexer lexer = { data, 0 };
 	movenext(lexer);
 
-	AstBase* root = 0;
-	
-	try
-	{
-		root = parse(lexer);
-	}catch(std::runtime_error& error){
-		std::cout << "Parse error: " << error.what() << std::endl;
-		throw;
-	}
+	SynBase* root = parse(lexer);
 
 	InitializeNativeTarget();
 
@@ -44,13 +36,7 @@ int main()
 
 	Module* module = new Module("test", context);
 
-	try
-	{
-		compile(context, module, root);
-	}catch(std::runtime_error& error){
-		std::cout << "Compilation error: " << error.what() << std::endl;
-		throw;
-	}
+    compile(context, module, root);
 
 	ExecutionEngine* EE = EngineBuilder(module).create();
 

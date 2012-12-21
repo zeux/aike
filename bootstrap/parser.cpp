@@ -11,15 +11,15 @@ inline bool iskeyword(Lexer& lexer, const char* expected)
 	return lexer.current.type == LexKeyword && lexer.current.contents == expected;
 }
 
-AstBase* parseExpr(Lexer& lexer);
+SynBase* parseExpr(Lexer& lexer);
 
-AstBase* parseTerm(Lexer& lexer)
+SynBase* parseTerm(Lexer& lexer)
 {
 	if (lexer.current.type == LexOpenBrace)
 	{
 		movenext(lexer);
 
-		AstBase* expr = parseExpr(lexer);
+		SynBase* expr = parseExpr(lexer);
 
 		if (lexer.current.type != LexCloseBrace)
 			errorf("Expected closing brace");
@@ -30,13 +30,13 @@ AstBase* parseTerm(Lexer& lexer)
 	}
 	else if (lexer.current.type == LexNumber)
 	{
-		AstBase* result = new AstLiteralNumber(lexer.current.number);
+		SynBase* result = new SynLiteralNumber(lexer.current.number);
 		movenext(lexer);
 		return result;
 	}
 	else if (lexer.current.type == LexIdentifier)
 	{
-		AstBase* result = new AstVariableReference(lexer.current.contents);
+		SynBase* result = new SynVariableReference(lexer.current.contents);
 		movenext(lexer);
 		return result;
 	}
@@ -46,49 +46,49 @@ AstBase* parseTerm(Lexer& lexer)
 	}
 }
 
-AstUnaryOpType getUnaryOp(LexemeType type)
+SynUnaryOpType getUnaryOp(LexemeType type)
 {
 	switch (type)
 	{
-	case LexPlus: return AstUnaryOpPlus;
-	case LexMinus: return AstUnaryOpMinus;
-	case LexNot: return AstUnaryOpNot;
-	default: return AstUnaryOpUnknown;
+	case LexPlus: return SynUnaryOpPlus;
+	case LexMinus: return SynUnaryOpMinus;
+	case LexNot: return SynUnaryOpNot;
+	default: return SynUnaryOpUnknown;
 	}
 }
 
-AstBinaryOpType getBinaryOp(LexemeType type)
+SynBinaryOpType getBinaryOp(LexemeType type)
 {
 	switch (type)
 	{
-	case LexPlus: return AstBinaryOpAdd;
-	case LexMinus: return AstBinaryOpSubtract;
-	case LexMultiply: return AstBinaryOpMultiply;
-	case LexDivide: return AstBinaryOpDivide;
-	case LexLess: return AstBinaryOpLess;
-	case LexLessEqual: return AstBinaryOpLessEqual;
-	case LexGreater: return AstBinaryOpGreater;
-	case LexGreaterEqual: return AstBinaryOpGreaterEqual;
-	case LexEqualEqual: return AstBinaryOpEqual;
-	case LexNotEqual: return AstBinaryOpNotEqual;
-	default: return AstBinaryOpUnknown;
+	case LexPlus: return SynBinaryOpAdd;
+	case LexMinus: return SynBinaryOpSubtract;
+	case LexMultiply: return SynBinaryOpMultiply;
+	case LexDivide: return SynBinaryOpDivide;
+	case LexLess: return SynBinaryOpLess;
+	case LexLessEqual: return SynBinaryOpLessEqual;
+	case LexGreater: return SynBinaryOpGreater;
+	case LexGreaterEqual: return SynBinaryOpGreaterEqual;
+	case LexEqualEqual: return SynBinaryOpEqual;
+	case LexNotEqual: return SynBinaryOpNotEqual;
+	default: return SynBinaryOpUnknown;
 	}
 }
 
-int getBinaryOpPrecedence(AstBinaryOpType op)
+int getBinaryOpPrecedence(SynBinaryOpType op)
 {
 	switch (op)
 	{
-	case AstBinaryOpAdd: return 3;
-	case AstBinaryOpSubtract: return 3;
-	case AstBinaryOpMultiply: return 4;
-	case AstBinaryOpDivide: return 4;
-	case AstBinaryOpLess: return 2;
-	case AstBinaryOpLessEqual: return 2;
-	case AstBinaryOpGreater: return 2;
-	case AstBinaryOpGreaterEqual: return 2;
-	case AstBinaryOpEqual: return 1;
-	case AstBinaryOpNotEqual: return 1;
+	case SynBinaryOpAdd: return 3;
+	case SynBinaryOpSubtract: return 3;
+	case SynBinaryOpMultiply: return 4;
+	case SynBinaryOpDivide: return 4;
+	case SynBinaryOpLess: return 2;
+	case SynBinaryOpLessEqual: return 2;
+	case SynBinaryOpGreater: return 2;
+	case SynBinaryOpGreaterEqual: return 2;
+	case SynBinaryOpEqual: return 1;
+	case SynBinaryOpNotEqual: return 1;
 	default: return 0;
 	}
 }
@@ -105,12 +105,12 @@ std::string parseType(Lexer& lexer)
 	return result;
 }
 
-AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
+SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 {
 	assert(lexer.current.type == LexOpenBrace);
 	movenext(lexer);
 
-	std::vector<AstTypedVar> args;
+	std::vector<SynTypedVar> args;
 
 	while (lexer.current.type != LexCloseBrace)
 	{
@@ -128,7 +128,7 @@ AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
 			type = parseType(lexer);
 		}
 
-		args.push_back(AstTypedVar(name, type));
+		args.push_back(SynTypedVar(name, type));
 
 		if (lexer.current.type == LexComma)
 			movenext(lexer);
@@ -152,17 +152,17 @@ AstBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	movenext(lexer);
 
-	AstBase* body = parseExpr(lexer);
+	SynBase* body = parseExpr(lexer);
 
 	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
 	movenext(lexer);
 
-	AstBase* expr = parseExpr(lexer);
+	SynBase* expr = parseExpr(lexer);
 
-	return new AstLetFunc(AstTypedVar(name, rettype), args, body, expr);
+	return new SynLetFunc(SynTypedVar(name, rettype), args, body, expr);
 }
 
-AstBase* parseLet(Lexer& lexer)
+SynBase* parseLet(Lexer& lexer)
 {
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
@@ -188,17 +188,17 @@ AstBase* parseLet(Lexer& lexer)
 
 	movenext(lexer);
 
-	AstBase* body = parseExpr(lexer);
+	SynBase* body = parseExpr(lexer);
 
 	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
 	movenext(lexer);
 
-	AstBase* expr = parseExpr(lexer);
+	SynBase* expr = parseExpr(lexer);
 
-	return new AstLetVar(AstTypedVar(name, type), body, expr);
+	return new SynLetVar(SynTypedVar(name, type), body, expr);
 }
 
-AstBase* parseLLVM(Lexer& lexer)
+SynBase* parseLLVM(Lexer& lexer)
 {
 	assert(iskeyword(lexer, "llvm"));
 	movenext(lexer);
@@ -208,35 +208,35 @@ AstBase* parseLLVM(Lexer& lexer)
 	std::string body = lexer.current.contents;
 	movenext(lexer);
 
-	return new AstLLVM(body);
+	return new SynLLVM(body);
 }
 
-AstBase* parseIfThenElse(Lexer& lexer)
+SynBase* parseIfThenElse(Lexer& lexer)
 {
 	assert(iskeyword(lexer, "if"));
 	movenext(lexer);
 
-	AstBase* cond = parseExpr(lexer);
+	SynBase* cond = parseExpr(lexer);
 
 	if (!iskeyword(lexer, "then")) errorf("Expected 'then'");
 	movenext(lexer);
 
-	AstBase* thenbody = parseExpr(lexer);
+	SynBase* thenbody = parseExpr(lexer);
 
-	AstBase* elsebody =
+	SynBase* elsebody =
 		iskeyword(lexer, "else")
 		? (movenext(lexer), parseExpr(lexer))
-		: new AstUnit();
+		: new SynUnit();
 
-	return new AstIfThenElse(cond, thenbody, elsebody);
+	return new SynIfThenElse(cond, thenbody, elsebody);
 }
 
-AstBase* parsePrimary(Lexer& lexer)
+SynBase* parsePrimary(Lexer& lexer)
 {
-	AstUnaryOpType uop = getUnaryOp(lexer.current.type);
+	SynUnaryOpType uop = getUnaryOp(lexer.current.type);
 
-	if (uop != AstUnaryOpUnknown)
-		return new AstUnaryOp(uop, parsePrimary(lexer));
+	if (uop != SynUnaryOpUnknown)
+		return new SynUnaryOp(uop, parsePrimary(lexer));
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
@@ -247,13 +247,13 @@ AstBase* parsePrimary(Lexer& lexer)
 	if (iskeyword(lexer, "if"))
 		return parseIfThenElse(lexer);
 
-	AstBase* result = parseTerm(lexer);
+	SynBase* result = parseTerm(lexer);
 
 	if (lexer.current.type == LexOpenBrace)
 	{
 		movenext(lexer);
 
-		std::vector<AstBase*> args;
+		std::vector<SynBase*> args;
 
 		while (lexer.current.type != LexCloseBrace)
 		{
@@ -269,32 +269,32 @@ AstBase* parsePrimary(Lexer& lexer)
 
 		movenext(lexer);
 
-		return new AstCall(result, args);
+		return new SynCall(result, args);
 	}
 
 	return result;
 }
 
-AstBase* parseExprClimb(Lexer& lexer, AstBase* left, int limit)
+SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 {
-	AstBinaryOpType op = getBinaryOp(lexer.current.type);
+	SynBinaryOpType op = getBinaryOp(lexer.current.type);
 
-	while (op != AstBinaryOpUnknown && getBinaryOpPrecedence(op) >= limit)
+	while (op != SynBinaryOpUnknown && getBinaryOpPrecedence(op) >= limit)
 	{
 		movenext(lexer);
 
-		AstBase* right = parsePrimary(lexer);
+		SynBase* right = parsePrimary(lexer);
 
-		AstBinaryOpType nextop = getBinaryOp(lexer.current.type);
+		SynBinaryOpType nextop = getBinaryOp(lexer.current.type);
 
-		while (nextop != AstBinaryOpUnknown && getBinaryOpPrecedence(nextop) > getBinaryOpPrecedence(op))
+		while (nextop != SynBinaryOpUnknown && getBinaryOpPrecedence(nextop) > getBinaryOpPrecedence(op))
 		{
 			right = parseExprClimb(lexer, right, getBinaryOpPrecedence(nextop));
 
 			nextop = getBinaryOp(lexer.current.type);
 		}
 
-		left = new AstBinaryOp(op, left, right);
+		left = new SynBinaryOp(op, left, right);
 
 		op = getBinaryOp(lexer.current.type);
 	}
@@ -302,12 +302,12 @@ AstBase* parseExprClimb(Lexer& lexer, AstBase* left, int limit)
 	return left;
 }
 
-AstBase* parseExpr(Lexer& lexer)
+SynBase* parseExpr(Lexer& lexer)
 {
 	return parseExprClimb(lexer, parsePrimary(lexer), 0);
 }
 
-AstBase* parse(Lexer& lexer)
+SynBase* parse(Lexer& lexer)
 {
 	return parseExpr(lexer);
 }
