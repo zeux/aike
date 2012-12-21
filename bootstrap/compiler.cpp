@@ -50,7 +50,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 	{
 		Value* ev = compileExpr(context, module, builder, _->expr, bindings);
 
-		switch (_->type)
+		switch (_->op)
 		{
 		case SynUnaryOpPlus: return ev;
 		case SynUnaryOpMinus: return builder.CreateNeg(ev);
@@ -64,7 +64,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		Value* lv = compileExpr(context, module, builder, _->left, bindings);
 		Value* rv = compileExpr(context, module, builder, _->right, bindings);
 
-		switch (_->type)
+		switch (_->op)
 		{
 		case SynBinaryOpAdd: return builder.CreateAdd(lv, rv);
 		case SynBinaryOpSubtract: return builder.CreateSub(lv, rv);

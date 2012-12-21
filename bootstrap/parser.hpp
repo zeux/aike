@@ -34,7 +34,7 @@ struct SynVariableReference: SynBase
 {
 	std::string name;
 
-	SynVariableReference(std::string name): name(name) {}
+	SynVariableReference(const std::string& name): name(name) {}
 };
 
 enum SynUnaryOpType
@@ -47,10 +47,10 @@ enum SynUnaryOpType
 
 struct SynUnaryOp: SynBase
 {
-	SynUnaryOpType type;
+	SynUnaryOpType op;
 	SynBase* expr;
 
-	SynUnaryOp(SynUnaryOpType type, SynBase* expr): type(type), expr(expr) {}
+	SynUnaryOp(SynUnaryOpType op, SynBase* expr): op(op), expr(expr) {}
 };
 
 enum SynBinaryOpType
@@ -71,11 +71,11 @@ enum SynBinaryOpType
 
 struct SynBinaryOp: SynBase
 {
-	SynBinaryOpType type;
+	SynBinaryOpType op;
 	SynBase* left;
 	SynBase* right;
 
-	SynBinaryOp(SynBinaryOpType type, SynBase* left, SynBase* right): type(type), left(left), right(right) {}
+	SynBinaryOp(SynBinaryOpType op, SynBase* left, SynBase* right): op(op), left(left), right(right) {}
 };
 
 struct SynCall: SynBase
@@ -129,7 +129,9 @@ struct SynIfThenElse: SynBase
 	SynIfThenElse(SynBase* cond, SynBase* thenbody, SynBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody) {}
 };
 
+#ifndef CASE
 #define CASE(type, node) type* _ = dynamic_cast<type*>(node)
+#endif
 
 struct Lexer;
 
