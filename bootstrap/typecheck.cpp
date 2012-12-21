@@ -4,52 +4,99 @@
 
 #include <cassert>
 
-Expr* resolve(SynBase* root)
+struct Binding
 {
-	if (CASE(SynUnit, root))
+	std::string name;
+	BindingBase* binding;
+
+	Binding(const std::string& name, BindingBase* binding): name(name), binding(binding)
+	{
+	}
+};
+
+Expr* resolveExpr(SynBase* node, std::vector<Binding>& bindings)
+{
+	if (CASE(SynUnit, node))
 		return new ExprUnit();
 
-	if (CASE(SynLiteralNumber, root))
+	if (CASE(SynLiteralNumber, node))
 		return new ExprLiteralNumber(_->value);
 
-	if (CASE(SynVariableReference, root))
-		return new ExprVariableReference(_->name);
+	if (CASE(SynVariableReference, node))
+	{
+		for (size_t i = bindings.size(); i > 0; --i)
+			if (bindings[i - 1].name == _->name)
+				return new ExprBinding(bindings[i - 1].binding);
 
-	if (CASE(SynUnaryOp, root))
-		return new ExprUnaryOp(_->op, resolve(_->expr));
+		errorf("Unresolved variable reference %s", _->name.c_str());
+	}
 
-	if (CASE(SynBinaryOp, root))
-		return new ExprBinaryOp(_->op, resolve(_->left), resolve(_->right));
+	if (CASE(SynUnaryOp, node))
+		return new ExprUnaryOp(_->op, resolveExpr(_->expr, bindings));
 
-	if (CASE(SynCall, root))
+	if (CASE(SynBinaryOp, node))
+		return new ExprBinaryOp(_->op, resolveExpr(_->left, bindings), resolveExpr(_->right, bindings));
+
+	if (CASE(SynCall, node))
 	{
 		std::vector<Expr*> args;
 		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(resolve(_->args[i]));
+			args.push_back(resolveExpr(_->args[i], bindings));
 
-		return new ExprCall(resolve(_->expr), args);
+		return new ExprCall(resolveExpr(_->expr, bindings), args);
 	}
 
-	if (CASE(SynLetVar, root))
-		return new ExprLetVar(ExprTypedVar(_->var.name, _->var.type), resolve(_->body), resolve(_->expr));
+	if (CASE(SynLetVar, node))
+	{
+		BindingTarget* target = new BindingTarget();
 
-	if (CASE(SynLLVM, root))
+		Expr* body = resolveExpr(_->body, bindings);
+
+		bindings.push_back(Binding(_->var.name, new BindingLet(target)));
+
+		Expr* result = new ExprLetVar(target, body, resolveExpr(_->expr, bindings));
+
+		bindings.pop_back();
+
+		return result;
+	}
+
+	if (CASE(SynLLVM, node))
 		return new ExprLLVM(_->body);
 
-	if (CASE(SynLetFunc, root))
+	if (CASE(SynLetFunc, node))
 	{
-		std::vector<ExprTypedVar> args;
-		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(ExprTypedVar(_->args[i].name, _->args[i].type));
+		BindingTarget* target = new BindingTarget();
 
-		return new ExprLetFunc(ExprTypedVar(_->var.name, _->var.type), args, resolve(_->body), resolve(_->expr));
+		for (size_t i = 0; i < _->args.size(); ++i)
+			bindings.push_back(Binding(_->args[i].name, new BindingFunarg(target, i)));
+
+		Expr* body = resolveExpr(_->body, bindings);
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			bindings.pop_back();
+
+		bindings.push_back(Binding(_->var.name, new BindingLet(target)));
+
+		Expr* result = new ExprLetFunc(body, resolveExpr(_->expr, bindings));
+
+		bindings.pop_back();
+
+		return result;
 	}
 
-	if (CASE(SynIfThenElse, root))
-		return new ExprIfThenElse(resolve(_->cond), resolve(_->thenbody), resolve(_->elsebody));
+	if (CASE(SynIfThenElse, node))
+		return new ExprIfThenElse(resolveExpr(_->cond, bindings), resolveExpr(_->thenbody, bindings), resolveExpr(_->elsebody, bindings));
 
 	assert(!"Unrecognized AST type");
 	return 0;
+}
+
+Expr* resolve(SynBase* root)
+{
+	std::vector<Binding> bindings;
+
+	return resolveExpr(root, bindings);
 }
 
 Expr* typecheck(SynBase* root)

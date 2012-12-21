@@ -6,14 +6,28 @@
 #include "parser.hpp"
 #include "type.hpp"
 
-struct ExprTypedVar
+struct BindingTarget
 {
-	std::string name;
-	std::string type;
+};
 
-	ExprTypedVar(const std::string& name, const std::string& type): name(name), type(type)
-	{
-	}
+struct BindingBase
+{
+	virtual ~BindingBase() {}
+};
+
+struct BindingLet: BindingBase
+{
+	BindingTarget* target;
+
+	BindingLet(BindingTarget* target): target(target) {}
+};
+
+struct BindingFunarg: BindingBase
+{
+	BindingTarget* target;
+	size_t index;
+
+	BindingFunarg(BindingTarget* target, size_t index): target(target), index(index) {}
 };
 
 struct Expr
@@ -33,11 +47,11 @@ struct ExprLiteralNumber: Expr
 	ExprLiteralNumber(long long value): value(value) {}
 };
 
-struct ExprVariableReference: Expr
+struct ExprBinding: Expr
 {
-	std::string name;
+	BindingBase* binding;
 
-	ExprVariableReference(const std::string& name): name(name) {}
+	ExprBinding(BindingBase* binding): binding(binding) {}
 };
 
 struct ExprUnaryOp: Expr
@@ -69,11 +83,11 @@ struct ExprCall: Expr
 
 struct ExprLetVar: Expr
 {
-	ExprTypedVar var;
+	BindingTarget* target;
 	Expr* body;
 	Expr* expr;
 
-	ExprLetVar(const ExprTypedVar& var, Expr* body, Expr* expr): var(var), body(body), expr(expr)
+	ExprLetVar(BindingTarget* target, Expr* body, Expr* expr): target(target), body(body), expr(expr)
 	{
 	}
 };
@@ -89,12 +103,11 @@ struct ExprLLVM: Expr
 
 struct ExprLetFunc: Expr
 {
-	ExprTypedVar var;
-	std::vector<ExprTypedVar> args;
+	BindingTarget* target;
 	Expr* body;
 	Expr* expr;
 
-	ExprLetFunc(const ExprTypedVar& var, const std::vector<ExprTypedVar>& args, Expr* body, Expr* expr): var(var), args(args), body(body), expr(expr)
+	ExprLetFunc(Expr* body, Expr* expr): target(target), body(body), expr(expr)
 	{
 	}
 };
