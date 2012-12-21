@@ -123,7 +123,19 @@ struct ExprIfThenElse: Expr
 	Expr* thenbody;
 	Expr* elsebody;
 
-	ExprIfThenElse(Type* type, Expr* cond, Expr* thenbody, Expr* elsebody): Expr(type), cond(cond), thenbody(thenbody), elsebody(elsebody) {}
+	ExprIfThenElse(Type* type, Expr* cond, Expr* thenbody, Expr* elsebody): Expr(type), cond(cond), thenbody(thenbody), elsebody(elsebody)
+	{
+	}
+};
+
+struct ExprSequence: Expr
+{
+	Expr* head;
+	Expr* tail;
+
+	ExprSequence(Type* type, Expr* head, Expr* tail): Expr(type), head(head), tail(tail)
+	{
+	}
 };
 
 #ifndef CASE

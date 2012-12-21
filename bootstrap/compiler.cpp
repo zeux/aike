@@ -207,6 +207,13 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		return pn;
 	}
 
+	if (CASE(SynSequence, node))
+	{
+		compileExpr(context, module, builder, _->head, bindings);
+
+		return compileExpr(context, module, builder, _->tail, bindings);
+	}
+
 	assert(!"Unknown AST node type");
 	return 0;
 }

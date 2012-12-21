@@ -126,7 +126,17 @@ struct SynIfThenElse: SynBase
 	SynBase* thenbody;
 	SynBase* elsebody;
 
-	SynIfThenElse(SynBase* cond, SynBase* thenbody, SynBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody) {}
+	SynIfThenElse(SynBase* cond, SynBase* thenbody, SynBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody)
+	{
+	}
+};
+
+struct SynSequence: SynBase
+{
+	SynBase* head;
+	SynBase* tail;
+
+	SynSequence(SynBase* head, SynBase* tail): head(head), tail(tail) {}
 };
 
 #ifndef CASE

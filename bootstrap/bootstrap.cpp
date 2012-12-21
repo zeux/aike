@@ -7,6 +7,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/TypeBuilder.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -18,6 +20,12 @@
 #include "optimizer.hpp"
 
 using namespace llvm;
+
+extern "C"
+void aike_print(int value)
+{
+	printf("Print from aike: %d\n", value);
+}
 
 int main()
 {
@@ -38,9 +46,13 @@ int main()
 
 	Module* module = new Module("test", context);
 
+	Function* aikeprintf = Function::Create(FunctionType::get(llvm::Type::getInt32Ty(context), std::vector<llvm::Type*>(1, llvm::Type::getInt32Ty(context)), false), Function::ExternalLinkage, "aike_print", module);
+
     compile(context, module, root);
 
 	ExecutionEngine* EE = EngineBuilder(module).create();
+
+	EE->addGlobalMapping(aikeprintf, aike_print);
 
 	outs() << *module;
 

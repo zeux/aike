@@ -146,6 +146,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynIfThenElse, node))
 		return new ExprIfThenElse(new TypeGeneric(), resolveExpr(_->cond, env), resolveExpr(_->thenbody, env), resolveExpr(_->elsebody, env));
 
+	if (CASE(SynSequence, node))
+		return new ExprSequence(new TypeGeneric(), resolveExpr(_->head, env), resolveExpr(_->tail, env));
+
 	assert(!"Unrecognized AST type");
 	return 0;
 }
