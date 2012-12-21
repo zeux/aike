@@ -18,6 +18,7 @@
 #include "typecheck.hpp"
 #include "compiler.hpp"
 #include "optimizer.hpp"
+#include "dump.hpp"
 
 using namespace llvm;
 
@@ -39,6 +40,8 @@ int main()
 
 	SynBase* root = parse(lexer);
 	Expr* roote = typecheck(root);
+
+	dump(std::cout, roote);
 
 	InitializeNativeTarget();
 

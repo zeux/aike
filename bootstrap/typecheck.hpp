@@ -8,6 +8,11 @@
 
 struct BindingTarget
 {
+	std::string name;
+
+	BindingTarget(const std::string& name): name(name)
+	{
+	}
 };
 
 struct BindingBase

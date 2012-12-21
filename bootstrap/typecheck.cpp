@@ -101,7 +101,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynLetVar, node))
 	{
-		BindingTarget* target = new BindingTarget();
+		BindingTarget* target = new BindingTarget(_->var.name);
 
 		Expr* body = resolveExpr(_->body, env);
 
@@ -119,7 +119,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynLetFunc, node))
 	{
-		BindingTarget* target = new BindingTarget();
+		BindingTarget* target = new BindingTarget(_->var.name);
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			env.bindings.push_back(Binding(_->args[i].name, new BindingFunarg(target, i)));
