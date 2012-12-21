@@ -1,3 +1,6 @@
+let add(x: int, y: int): int =
+    llvm "add i32 %x, %y"
+in
 let div2(n: int): int =
     if n == 0 then
         42
@@ -8,4 +11,4 @@ let main() =
     let x = div2(5) - 1 in
         x / 4 + 2 * 2 - div2(5)
 in
-main() + div2(0)
+main() + div2(0) + add(4, 5)
