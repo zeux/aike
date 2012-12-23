@@ -129,14 +129,6 @@ struct SynIfThenElse: SynBase
 	}
 };
 
-struct SynSequence: SynBase
-{
-	SynBase* head;
-	SynBase* tail;
-
-	SynSequence(SynBase* head, SynBase* tail): head(head), tail(tail) {}
-};
-
 struct SynBlock: SynBase
 {
 	std::vector<SynBase*> expressions;

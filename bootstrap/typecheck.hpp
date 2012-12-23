@@ -131,16 +131,6 @@ struct ExprIfThenElse: Expr
 	}
 };
 
-struct ExprSequence: Expr
-{
-	Expr* head;
-	Expr* tail;
-
-	ExprSequence(Type* type, Expr* head, Expr* tail): Expr(type), head(head), tail(tail)
-	{
-	}
-};
-
 struct ExprBlock: Expr
 {
 	std::vector<Expr*> expressions;

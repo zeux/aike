@@ -142,11 +142,6 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "else\n";
 		dump(os, _->elsebody, indent + 1);
 	}
-	else if (CASE(SynSequence, root))
-	{
-		dump(os, _->head, indent);
-		dump(os, _->tail, indent);
-	}
 	else if (CASE(SynBlock, root))
 	{
 		os << "SynBlock\n";
@@ -233,11 +228,6 @@ void dump(std::ostream& os, Expr* root, int indent)
 		indentout(os, indent);
 		os << "else\n";
 		dump(os, _->elsebody, indent + 1);
-	}
-	else if (CASE(ExprSequence, root))
-	{
-		dump(os, _->head, indent);
-		dump(os, _->tail, indent);
 	}
 	else if (CASE(ExprBlock, root))
 	{

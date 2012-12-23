@@ -203,13 +203,6 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		return pn;
 	}
 
-	if (CASE(SynSequence, node))
-	{
-		compileExpr(context, module, builder, _->head, bindings);
-
-		return compileExpr(context, module, builder, _->tail, bindings);
-	}
-
 	if (CASE(SynBlock, node))
 	{
 		Value *value = 0;
@@ -219,7 +212,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		for (size_t i = 0; i < _->expressions.size(); ++i)
 			value = compileExpr(context, module, builder, _->expressions[i], bindings);
 
-		while(bindings.size() > bind_count)
+		while (bindings.size() > bind_count)
 			bindings.pop_back();
 
 		return value;

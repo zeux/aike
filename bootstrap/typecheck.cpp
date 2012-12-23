@@ -138,17 +138,21 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynIfThenElse, node))
 		return new ExprIfThenElse(new TypeGeneric(), resolveExpr(_->cond, env), resolveExpr(_->thenbody, env), resolveExpr(_->elsebody, env));
 
-	if (CASE(SynSequence, node))
-	{
-		return new ExprSequence(new TypeGeneric(), resolveExpr(_->head, env), resolveExpr(_->tail, env));
-	}
-
 	if (CASE(SynBlock, node))
 	{
 		ExprBlock *expression = new ExprBlock(new TypeGeneric());
 		
+		size_t bind_count = env.bindings.size();
+		size_t type_count = env.types.size();
+
 		for (size_t i = 0; i < _->expressions.size(); ++i)
 			expression->expressions.push_back(resolveExpr(_->expressions[i], env));
+
+		while (env.bindings.size() > bind_count)
+			env.bindings.pop_back();
+
+		while (env.types.size() > type_count)
+			env.types.pop_back();
 
 		return expression;
 	}

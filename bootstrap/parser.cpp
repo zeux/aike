@@ -294,25 +294,9 @@ SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 	return left;
 }
 
-SynBase* parseExprSingle(Lexer& lexer)
-{
-	return parseExprClimb(lexer, parsePrimary(lexer), 0);
-}
-
 SynBase* parseExpr(Lexer& lexer)
 {
-	SynBase* result = parseExprSingle(lexer);
-
-	while (lexer.current.type == LexSemicolon)
-	{
-		movenext(lexer);
-
-		SynBase* next = parseExprSingle(lexer);
-
-		result = new SynSequence(result, next);
-	}
-
-	return result;
+	return parseExprClimb(lexer, parsePrimary(lexer), 0);
 }
 
 SynBase* parseBlock(Lexer& lexer)
