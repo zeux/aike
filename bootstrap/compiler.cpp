@@ -43,7 +43,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 			if (bindings[i].name == _->name)
 				return bindings[i].value;
 
-		errorf("Unresolved variable reference %s", _->name.c_str());
+		errorf(_->location, "Unresolved variable reference %s", _->name.c_str());
 	}
 
 	if (CASE(SynUnaryOp, node))
@@ -86,7 +86,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		if (!var) errorf("Dynamic function calls are not supported");
 
 		Function* func = module->getFunction(var->name);
-		if (!func) errorf("Unresolved function reference %s", var->name.c_str());
+		if (!func) errorf(var->location, "Unresolved function reference %s", var->name.c_str());
 
 		std::vector<Value*> args;
 

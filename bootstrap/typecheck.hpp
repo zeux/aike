@@ -37,6 +37,8 @@ struct BindingFunarg: BindingBase
 
 struct Expr
 {
+	Location location;
+
 	Type* type;
 
 	Expr(Type* type): type(type) {}

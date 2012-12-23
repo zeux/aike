@@ -56,7 +56,7 @@ Type* tryResolveType(const std::string& name, Environment& env)
 	return 0;
 }
 
-Type* resolveType(const std::string& name, Environment& env)
+Type* resolveType(const std::string& name, Environment& env, Location location = Location())
 {
 	if (name == "")
 		return new TypeGeneric();
@@ -64,7 +64,7 @@ Type* resolveType(const std::string& name, Environment& env)
 	if (Type* type = tryResolveType(name, env))
 		return type;
 
-	errorf("Unknown type %s", name.c_str());
+	errorf(location, "Unknown type %s", name.c_str());
 }
 
 Expr* resolveExpr(SynBase* node, Environment& env)
@@ -81,7 +81,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			if (env.bindings[i - 1].name == _->name)
 				return new ExprBinding(new TypeGeneric(), env.bindings[i - 1].binding);
 
-		errorf("Unresolved variable reference %s", _->name.c_str());
+		errorf(_->location, "Unresolved variable reference %s", _->name.c_str());
 	}
 
 	if (CASE(SynUnaryOp, node))
@@ -107,7 +107,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
 
-		return new ExprLetVar(new TypeGeneric(), target, resolveType(_->var.type, env), body);
+		return new ExprLetVar(new TypeGeneric(), target, resolveType(_->var.type, env, _->var.type_location), body);
 	}
 
 	if (CASE(SynLLVM, node))
@@ -128,11 +128,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		std::vector<Type*> argtys;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
-			argtys.push_back(resolveType(_->args[i].type, env));
+			argtys.push_back(resolveType(_->args[i].type, env, _->args[i].type_location));
 
 		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
 
-		return new ExprLetFunc(new TypeGeneric(), target, new TypeFunction(resolveType(_->var.type, env), argtys), body);
+		return new ExprLetFunc(new TypeGeneric(), target, new TypeFunction(resolveType(_->var.type, env, _->var.type_location), argtys), body);
 	}
 
 	if (CASE(SynIfThenElse, node))

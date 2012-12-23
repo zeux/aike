@@ -3,18 +3,25 @@
 #include <string>
 #include <vector>
 
+#include "lexer.hpp"
+
 struct SynTypedVar
 {
+	Location name_location;
+	Location type_location;
+
 	std::string name;
 	std::string type;
 
-	SynTypedVar(const std::string& name, const std::string& type): name(name), type(type)
+	SynTypedVar(const std::string& name, const std::string& type, Location name_location = Location(), Location type_location = Location()): name(name), type(type), name_location(name_location), type_location(type_location)
 	{
 	}
 };
 
 struct SynBase
 {
+	Location location;
+
 	virtual ~SynBase() {}
 };
 

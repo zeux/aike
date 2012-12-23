@@ -7,6 +7,11 @@ inline char peekch(const Lexer& lexer)
 	return lexer.position < lexer.data.size() ? lexer.data[lexer.position] : 0;
 }
 
+inline char peekch(const Lexer& lexer, size_t offset)
+{
+	return lexer.position + offset < lexer.data.size() ? lexer.data[lexer.position + offset] : 0;
+}
+
 inline void consume(Lexer& lexer)
 {
 	assert(lexer.position < lexer.data.size());
@@ -85,28 +90,6 @@ Lexeme readident(Lexer& lexer)
 
 Lexeme readnext(Lexer& lexer)
 {
-	while (isspace(peekch(lexer)) || peekch(lexer) == '/')
-	{
-		while (peekch(lexer) != '\n' && isspace(peekch(lexer)))
-			consume(lexer);
-
-		if (peekch(lexer) == '\n')
-		{
-			consume(lexer);
-			lexer.line_start_pos = lexer.position;
-		}
-
-		if (peekch(lexer) == '/')
-		{
-			consume(lexer);
-			if (peekch(lexer) != '/') return LexDivide;
-
-			while (peekch(lexer) && peekch(lexer) != '\n') consume(lexer);
-		}
-	}
-
-	size_t column = lexer.position - lexer.line_start_pos;
-
 	switch (peekch(lexer))
 	{
 	case 0: return LexEOF;
@@ -123,33 +106,30 @@ Lexeme readnext(Lexer& lexer)
 	case '!': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexNotEqual) : LexNot);
 	case '|': return consume(lexer), LexPipe;
 	case '*': return consume(lexer), LexMultiply;
+	case '/': return consume(lexer), LexDivide;
 	}
 
 	if (isdigit(peekch(lexer)))
 	{
-		Lexeme lex;
-
 		if (peekch(lexer) == '0')
 		{
 			consume(lexer);
 
 			if (peekch(lexer) == 'x')
-				lex = (consume(lexer), readnumber(lexer, 16));
+				return consume(lexer), readnumber(lexer, 16);
 			else if (peekch(lexer) == 'b')
-				lex = (consume(lexer), readnumber(lexer, 2));
+				return consume(lexer), readnumber(lexer, 2);
 			else if (isdigit(peekch(lexer)))
 				// can handle oct here, but we'd rather not...
-				lex = LexUnknown;
+				return LexUnknown;
 			else if (isalpha(peekch(lexer)))
 				// HUH?
-				lex = LexUnknown;
+				return LexUnknown;
 			else
-				lex = Lexeme(LexNumber, 0);
+				return Lexeme(LexNumber, 0);
 		}
 		else
-			lex = readnumber(lexer, 10);
-
-		return lex.column = column, lex;
+			return readnumber(lexer, 10);
 	}
 	else if (peekch(lexer) == '\"')
 	{
@@ -169,9 +149,7 @@ Lexeme readnext(Lexer& lexer)
 	}
 	else if (isidentstart(peekch(lexer)))
 	{
-		Lexeme lex = readident(lexer);
-
-		return lex.column = column, lex;
+		return readident(lexer);
 	}
 
 	return LexUnknown;
@@ -179,5 +157,35 @@ Lexeme readnext(Lexer& lexer)
 
 void movenext(Lexer& lexer)
 {
+	while (isspace(peekch(lexer)) || peekch(lexer) == '/')
+	{
+		while (peekch(lexer) != '\n' && isspace(peekch(lexer)))
+			consume(lexer);
+
+		if (peekch(lexer) == '\n')
+		{
+			consume(lexer);
+			lexer.line_start_pos = lexer.position;
+			lexer.line++;
+		}
+
+		if (peekch(lexer) == '/')
+		{
+			if(peekch(lexer, 1) == '/')
+			{
+				while (peekch(lexer) && peekch(lexer) != '\n')
+					consume(lexer);
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	size_t column = lexer.position - lexer.line_start_pos;
+
 	lexer.current = readnext(lexer);
+
+	lexer.current.location = Location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, column, lexer.position - lexer.line_start_pos - column);
 }

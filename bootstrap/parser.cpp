@@ -13,7 +13,7 @@ inline bool iskeyword(Lexer& lexer, const char* expected)
 
 inline bool islower(Lexeme& start, Lexeme& current)
 {
-	return current.column < start.column || current.type == LexEOF;
+	return current.location.column < start.location.column || current.type == LexEOF;
 }
 
 SynBase* parseExpr(Lexer& lexer);
@@ -28,7 +28,7 @@ SynBase* parseTerm(Lexer& lexer)
 		SynBase* expr = parseExpr(lexer);
 
 		if (lexer.current.type != LexCloseBrace)
-			errorf("Expected closing brace");
+			errorf(lexer.current.location, "Expected closing brace");
 
 		movenext(lexer);
 
@@ -43,12 +43,13 @@ SynBase* parseTerm(Lexer& lexer)
 	else if (lexer.current.type == LexIdentifier)
 	{
 		SynBase* result = new SynVariableReference(lexer.current.contents);
+		result->location = lexer.current.location;
 		movenext(lexer);
 		return result;
 	}
 	else
 	{
-		errorf("Unexpected lexeme %d", lexer.current.type);
+		errorf(lexer.current.location, "Unexpected lexeme %d", lexer.current.type);
 	}
 }
 
@@ -102,7 +103,7 @@ int getBinaryOpPrecedence(SynBinaryOpType op)
 std::string parseType(Lexer& lexer)
 {
 	if (lexer.current.type != LexIdentifier)
-		errorf("Expected identifier");
+		errorf(lexer.current.location, "Expected identifier");
 
 	std::string result = lexer.current.contents;
 
@@ -121,44 +122,49 @@ SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 	while (lexer.current.type != LexCloseBrace)
 	{
 		if (lexer.current.type != LexIdentifier)
-			errorf("Expected identifier");
+			errorf(lexer.current.location, "Expected identifier");
 
+		Location name_location = lexer.current.location;
 		std::string name = lexer.current.contents;
 		movenext(lexer);
 
+		Location type_location;
 		std::string type;
 
 		if (lexer.current.type == LexColon)
 		{
 			movenext(lexer);
+			type_location = lexer.current.location;
 			type = parseType(lexer);
 		}
 
-		args.push_back(SynTypedVar(name, type));
+		args.push_back(SynTypedVar(name, type, name_location, type_location));
 
 		if (lexer.current.type == LexComma)
 			movenext(lexer);
 		else if (lexer.current.type == LexCloseBrace)
 			;
 		else
-			errorf("Expected comma or closing brace");
+			errorf(lexer.current.location, "Expected comma or closing brace");
 	}
 
 	movenext(lexer);
 
+	Location rettype_location;
 	std::string rettype;
 
 	if (lexer.current.type == LexColon)
 	{
 		movenext(lexer);
+		rettype_location = lexer.current.location;
 		rettype = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) errorf("Expected =");
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
 
 	movenext(lexer);
 
-	return new SynLetFunc(SynTypedVar(name, rettype), args, parseBlock(lexer));
+	return new SynLetFunc(SynTypedVar(name, rettype, Location(), rettype_location), args, parseBlock(lexer));
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -166,28 +172,30 @@ SynBase* parseLet(Lexer& lexer)
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
 
-	if (lexer.current.type != LexIdentifier) errorf("Expected identifier");
+	if (lexer.current.type != LexIdentifier) errorf(lexer.current.location, "Expected identifier");
 
+	Location name_location = lexer.current.location;
 	std::string name = lexer.current.contents;
 	movenext(lexer);
 
 	if (lexer.current.type == LexOpenBrace)
 		return parseLetFunc(lexer, name);
 
+	Location type_location;
 	std::string type;
 
 	if (lexer.current.type == LexColon)
 	{
 		movenext(lexer);
-
+		type_location = lexer.current.location;
 		type = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) errorf("Expected =");
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
 
 	movenext(lexer);
 
-	return new SynLetVar(SynTypedVar(name, type), parseBlock(lexer));
+	return new SynLetVar(SynTypedVar(name, type, name_location, type_location), parseBlock(lexer));
 }
 
 SynBase* parseLLVM(Lexer& lexer)
@@ -195,7 +203,7 @@ SynBase* parseLLVM(Lexer& lexer)
 	assert(iskeyword(lexer, "llvm"));
 	movenext(lexer);
 
-	if (lexer.current.type != LexString) errorf("String expected after llvm keyword");
+	if (lexer.current.type != LexString) errorf(lexer.current.location, "String expected after llvm keyword");
 
 	std::string body = lexer.current.contents;
 	movenext(lexer);
@@ -210,7 +218,7 @@ SynBase* parseIfThenElse(Lexer& lexer)
 
 	SynBase* cond = parseExpr(lexer);
 
-	if (!iskeyword(lexer, "then")) errorf("Expected 'then'");
+	if (!iskeyword(lexer, "then")) errorf(lexer.current.location, "Expected 'then'");
 	movenext(lexer);
 
 	SynBase* thenbody = parseBlock(lexer);
@@ -256,7 +264,7 @@ SynBase* parsePrimary(Lexer& lexer)
 			else if (lexer.current.type == LexCloseBrace)
 				;
 			else
-				errorf("Expected comma or closing brace");
+				errorf(lexer.current.location, "Expected comma or closing brace");
 		}
 
 		movenext(lexer);
