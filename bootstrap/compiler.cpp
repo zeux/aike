@@ -103,11 +103,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		Binding bind = {_->var.name, value};
 		bindings.push_back(bind);
 
-		Value* result = compileExpr(context, module, builder, _->expr, bindings);
-
-		bindings.pop_back();
-
-		return result;
+		return value;
 	}
 
 	if (CASE(SynLetFunc, node))
@@ -142,7 +138,7 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		for (size_t i = 0; i < _->args.size(); ++i)
 			bindings.pop_back();
 
-		return compileExpr(context, module, builder, _->expr, bindings);
+		return func;
 	}
 
 	if (CASE(SynLLVM, node))
@@ -212,6 +208,21 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		compileExpr(context, module, builder, _->head, bindings);
 
 		return compileExpr(context, module, builder, _->tail, bindings);
+	}
+
+	if (CASE(SynBlock, node))
+	{
+		Value *value = 0;
+
+		size_t bind_count = bindings.size();
+
+		for (size_t i = 0; i < _->expressions.size(); ++i)
+			value = compileExpr(context, module, builder, _->expressions[i], bindings);
+
+		while(bindings.size() > bind_count)
+			bindings.pop_back();
+
+		return value;
 	}
 
 	assert(!"Unknown AST node type");

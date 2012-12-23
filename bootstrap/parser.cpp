@@ -11,7 +11,13 @@ inline bool iskeyword(Lexer& lexer, const char* expected)
 	return lexer.current.type == LexKeyword && lexer.current.contents == expected;
 }
 
+inline bool islower(Lexeme& start, Lexeme& current)
+{
+	return current.column < start.column || current.type == LexEOF;
+}
+
 SynBase* parseExpr(Lexer& lexer);
+SynBase* parseBlock(Lexer& lexer);
 
 SynBase* parseTerm(Lexer& lexer)
 {
@@ -152,14 +158,7 @@ SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	movenext(lexer);
 
-	SynBase* body = parseExpr(lexer);
-
-	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
-	movenext(lexer);
-
-	SynBase* expr = parseExpr(lexer);
-
-	return new SynLetFunc(SynTypedVar(name, rettype), args, body, expr);
+	return new SynLetFunc(SynTypedVar(name, rettype), args, parseBlock(lexer));
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -188,14 +187,7 @@ SynBase* parseLet(Lexer& lexer)
 
 	movenext(lexer);
 
-	SynBase* body = parseExpr(lexer);
-
-	if (!iskeyword(lexer, "in")) errorf("Expected 'in'");
-	movenext(lexer);
-
-	SynBase* expr = parseExpr(lexer);
-
-	return new SynLetVar(SynTypedVar(name, type), body, expr);
+	return new SynLetVar(SynTypedVar(name, type), parseBlock(lexer));
 }
 
 SynBase* parseLLVM(Lexer& lexer)
@@ -221,11 +213,11 @@ SynBase* parseIfThenElse(Lexer& lexer)
 	if (!iskeyword(lexer, "then")) errorf("Expected 'then'");
 	movenext(lexer);
 
-	SynBase* thenbody = parseExpr(lexer);
+	SynBase* thenbody = parseBlock(lexer);
 
 	SynBase* elsebody =
 		iskeyword(lexer, "else")
-		? (movenext(lexer), parseExpr(lexer))
+		? (movenext(lexer), parseBlock(lexer))
 		: new SynUnit();
 
 	return new SynIfThenElse(cond, thenbody, elsebody);
@@ -323,7 +315,19 @@ SynBase* parseExpr(Lexer& lexer)
 	return result;
 }
 
+SynBase* parseBlock(Lexer& lexer)
+{
+	Lexeme start = lexer.current;
+
+	SynBlock* result = new SynBlock(parseExpr(lexer));
+
+	while (!islower(start, lexer.current))
+		result->expressions.push_back(parseExpr(lexer));
+
+	return result;
+}
+
 SynBase* parse(Lexer& lexer)
 {
-	return parseExpr(lexer);
+	return parseBlock(lexer);
 }

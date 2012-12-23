@@ -80,6 +80,89 @@ void dump(std::ostream& os, SynBinaryOpType op)
 	}
 }
 
+void dump(std::ostream& os, SynBase* root, int indent)
+{
+	indentout(os, indent);
+
+	if (CASE(SynUnit, root))
+		os << "()\n";
+	else if (CASE(SynLiteralNumber, root))
+		os << _->value << "\n";
+	else if (CASE(SynVariableReference, root))
+	{
+		os << _->name << "\n";
+	}
+	else if (CASE(SynUnaryOp, root))
+	{
+		dump(os, _->op);
+		os << "\n";
+		dump(os, _->expr, indent + 1);
+	}
+	else if (CASE(SynBinaryOp, root))
+	{
+		dump(os, _->op);
+		os << "\n";
+		dump(os, _->left, indent + 1);
+		dump(os, _->right, indent + 1);
+	}
+	else if (CASE(SynCall, root))
+	{
+		os << "call\n";
+		dump(os, _->expr, indent + 1);
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+		{
+			indentout(os, indent);
+			os << "arg " << i << "\n";
+			dump(os, _->args[i], indent + 1);
+		}
+	}
+	else if (CASE(SynLetVar, root))
+	{
+		os << "let " << _->var.name << ": " << _->var.type << " =\n";
+		dump(os, _->body, indent + 1);
+	}
+	else if (CASE(SynLLVM, root))
+	{
+		os << "llvm \"" << _->body << "\"\n";
+	}
+	else if (CASE(SynLetFunc, root))
+	{
+		os << "let " << _->var.name << ": " << _->var.type << " =\n";
+		dump(os, _->body, indent + 1);
+	}
+	else if (CASE(SynIfThenElse, root))
+	{
+		os << "if\n";
+		dump(os, _->cond, indent + 1);
+		indentout(os, indent);
+		os << "then\n";
+		dump(os, _->thenbody, indent + 1);
+		indentout(os, indent);
+		os << "else\n";
+		dump(os, _->elsebody, indent + 1);
+	}
+	else if (CASE(SynSequence, root))
+	{
+		dump(os, _->head, indent);
+		dump(os, _->tail, indent);
+	}
+	else if (CASE(SynBlock, root))
+	{
+		os << "SynBlock\n";
+		indentout(os, indent);
+		os << "{\n";
+		for (size_t i = 0; i < _->expressions.size(); ++i)
+			dump(os, _->expressions[i], indent + 1);
+		indentout(os, indent);
+		os << "}\n";
+	}
+	else
+	{
+		assert(!"Unknown node");
+	}
+}
+
 void dump(std::ostream& os, Expr* root, int indent)
 {
 	indentout(os, indent);
@@ -128,13 +211,10 @@ void dump(std::ostream& os, Expr* root, int indent)
 		dump(os, _->vartype);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
-		indentout(os, indent);
-		os << "in\n";
-		dump(os, _->expr, indent + 1);
 	}
 	else if (CASE(ExprLLVM, root))
 	{
-		os << "llvm \"" << _->body << "\"";
+		os << "llvm \"" << _->body << "\"\n";
 	}
 	else if (CASE(ExprLetFunc, root))
 	{
@@ -142,9 +222,6 @@ void dump(std::ostream& os, Expr* root, int indent)
 		dump(os, _->funtype);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
-		indentout(os, indent);
-		os << "in\n";
-		dump(os, _->expr, indent + 1);
 	}
 	else if (CASE(ExprIfThenElse, root))
 	{
@@ -161,6 +238,12 @@ void dump(std::ostream& os, Expr* root, int indent)
 	{
 		dump(os, _->head, indent);
 		dump(os, _->tail, indent);
+	}
+	else if (CASE(ExprBlock, root))
+	{
+		os << "block\n";
+		for (size_t i = 0; i < _->expressions.size(); ++i)
+			dump(os, _->expressions[i], indent + 1);
 	}
 	else
 	{

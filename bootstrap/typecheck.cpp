@@ -107,11 +107,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
 
-		Expr* result = new ExprLetVar(new TypeGeneric(), target, resolveType(_->var.type, env), body, resolveExpr(_->expr, env));
-
-		env.bindings.pop_back();
-
-		return result;
+		return new ExprLetVar(new TypeGeneric(), target, resolveType(_->var.type, env), body);
 	}
 
 	if (CASE(SynLLVM, node))
@@ -136,18 +132,26 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
 
-		Expr* result = new ExprLetFunc(new TypeGeneric(), target, new TypeFunction(resolveType(_->var.type, env), argtys), body, resolveExpr(_->expr, env));
-
-		env.bindings.pop_back();
-
-		return result;
+		return new ExprLetFunc(new TypeGeneric(), target, new TypeFunction(resolveType(_->var.type, env), argtys), body);
 	}
 
 	if (CASE(SynIfThenElse, node))
 		return new ExprIfThenElse(new TypeGeneric(), resolveExpr(_->cond, env), resolveExpr(_->thenbody, env), resolveExpr(_->elsebody, env));
 
 	if (CASE(SynSequence, node))
+	{
 		return new ExprSequence(new TypeGeneric(), resolveExpr(_->head, env), resolveExpr(_->tail, env));
+	}
+
+	if (CASE(SynBlock, node))
+	{
+		ExprBlock *expression = new ExprBlock(new TypeGeneric());
+		
+		for (size_t i = 0; i < _->expressions.size(); ++i)
+			expression->expressions.push_back(resolveExpr(_->expressions[i], env));
+
+		return expression;
+	}
 
 	assert(!"Unrecognized AST type");
 	return 0;

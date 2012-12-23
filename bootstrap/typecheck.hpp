@@ -94,9 +94,8 @@ struct ExprLetVar: Expr
 	BindingTarget* target;
 	Type* vartype;
 	Expr* body;
-	Expr* expr;
 
-	ExprLetVar(Type* type, BindingTarget* target, Type* vartype, Expr* body, Expr* expr): Expr(type), target(target), vartype(vartype), body(body), expr(expr)
+	ExprLetVar(Type* type, BindingTarget* target, Type* vartype, Expr* body): Expr(type), target(target), vartype(vartype), body(body)
 	{
 	}
 };
@@ -115,9 +114,8 @@ struct ExprLetFunc: Expr
 	BindingTarget* target;
 	Type* funtype;
 	Expr* body;
-	Expr* expr;
 
-	ExprLetFunc(Type* type, BindingTarget* target, Type* funtype, Expr* body, Expr* expr): Expr(type), target(target), funtype(funtype), body(body), expr(expr)
+	ExprLetFunc(Type* type, BindingTarget* target, Type* funtype, Expr* body): Expr(type), target(target), funtype(funtype), body(body)
 	{
 	}
 };
@@ -139,6 +137,15 @@ struct ExprSequence: Expr
 	Expr* tail;
 
 	ExprSequence(Type* type, Expr* head, Expr* tail): Expr(type), head(head), tail(tail)
+	{
+	}
+};
+
+struct ExprBlock: Expr
+{
+	std::vector<Expr*> expressions;
+
+	ExprBlock(Type* type): Expr(type)
 	{
 	}
 };

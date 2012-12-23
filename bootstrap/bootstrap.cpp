@@ -39,6 +39,9 @@ int main()
 	movenext(lexer);
 
 	SynBase* root = parse(lexer);
+
+	dump(std::cout, root);
+
 	Expr* roote = typecheck(root);
 
 	dump(std::cout, roote);
@@ -51,7 +54,7 @@ int main()
 
 	Function* aikeprintf = Function::Create(FunctionType::get(llvm::Type::getInt32Ty(context), std::vector<llvm::Type*>(1, llvm::Type::getInt32Ty(context)), false), Function::ExternalLinkage, "aike_print", module);
 
-    compile(context, module, root);
+	compile(context, module, root);
 
 	ExecutionEngine* EE = EngineBuilder(module).create();
 

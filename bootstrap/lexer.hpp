@@ -37,20 +37,21 @@ struct Lexeme
 	LexemeType type;
 	std::string contents;
 	long long number;
+	size_t column;
 
-	Lexeme(): type(LexUnknown), number(0)
+	Lexeme(): type(LexUnknown), number(0), column(0)
 	{
 	}
 
-	Lexeme(LexemeType type): type(type), number(0)
+	Lexeme(LexemeType type): type(type), number(0), column(0)
 	{
 	}
 
-	Lexeme(LexemeType type, const std::string& contents): type(type), contents(contents), number(0)
+	Lexeme(LexemeType type, const std::string& contents): type(type), contents(contents), number(0), column(0)
 	{
 	}
 
-	Lexeme(LexemeType type, long long number): type(type), number(number)
+	Lexeme(LexemeType type, long long number): type(type), number(number), column(0)
 	{
 	}
 };
@@ -59,6 +60,7 @@ struct Lexer
 {
 	std::string data;
 	size_t position;
+	size_t line_start_pos;
 
 	Lexeme current;
 };

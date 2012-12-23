@@ -92,9 +92,8 @@ struct SynLetVar: SynBase
 {
 	SynTypedVar var;
 	SynBase* body;
-	SynBase* expr;
 
-	SynLetVar(const SynTypedVar& var, SynBase* body, SynBase* expr): var(var), body(body), expr(expr)
+	SynLetVar(const SynTypedVar& var, SynBase* body): var(var), body(body)
 	{
 	}
 };
@@ -113,9 +112,8 @@ struct SynLetFunc: SynBase
 	SynTypedVar var;
 	std::vector<SynTypedVar> args;
 	SynBase* body;
-	SynBase* expr;
 
-	SynLetFunc(const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body, SynBase* expr): var(var), args(args), body(body), expr(expr)
+	SynLetFunc(const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body): var(var), args(args), body(body)
 	{
 	}
 };
@@ -137,6 +135,16 @@ struct SynSequence: SynBase
 	SynBase* tail;
 
 	SynSequence(SynBase* head, SynBase* tail): head(head), tail(tail) {}
+};
+
+struct SynBlock: SynBase
+{
+	std::vector<SynBase*> expressions;
+
+	SynBlock(SynBase* head)
+	{
+		expressions.push_back(head);
+	}
 };
 
 #ifndef CASE

@@ -1,18 +1,18 @@
 let print(x: int): unit =
     llvm "call i32 @aike_print(i32 %x)"
-in
+
 let add(x: int, y: int): int =
     llvm "add i32 %x, %y"
-in
+
 let div2(n: int): int =
     if n == 0 then
         42
     else
-        print(n) ;
+        print(n)
         n / 2
-in
+
 let main() =
-    let x = div2(5) - 1 in
+    let x = div2(5) - 1
         x / 4 + 2 * 2 - div2(5)
-in
+
 main() + div2(0) + add(4, 5)

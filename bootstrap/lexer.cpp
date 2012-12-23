@@ -87,7 +87,14 @@ Lexeme readnext(Lexer& lexer)
 {
 	while (isspace(peekch(lexer)) || peekch(lexer) == '/')
 	{
-		while (isspace(peekch(lexer))) consume(lexer);
+		while (peekch(lexer) != '\n' && isspace(peekch(lexer)))
+			consume(lexer);
+
+		if (peekch(lexer) == '\n')
+		{
+			consume(lexer);
+			lexer.line_start_pos = lexer.position;
+		}
 
 		if (peekch(lexer) == '/')
 		{
@@ -97,6 +104,8 @@ Lexeme readnext(Lexer& lexer)
 			while (peekch(lexer) && peekch(lexer) != '\n') consume(lexer);
 		}
 	}
+
+	size_t column = lexer.position - lexer.line_start_pos;
 
 	switch (peekch(lexer))
 	{
@@ -118,25 +127,29 @@ Lexeme readnext(Lexer& lexer)
 
 	if (isdigit(peekch(lexer)))
 	{
+		Lexeme lex;
+
 		if (peekch(lexer) == '0')
 		{
 			consume(lexer);
 
 			if (peekch(lexer) == 'x')
-				return consume(lexer), readnumber(lexer, 16);
+				lex = (consume(lexer), readnumber(lexer, 16));
 			else if (peekch(lexer) == 'b')
-				return consume(lexer), readnumber(lexer, 2);
+				lex = (consume(lexer), readnumber(lexer, 2));
 			else if (isdigit(peekch(lexer)))
 				// can handle oct here, but we'd rather not...
-				return LexUnknown;
+				lex = LexUnknown;
 			else if (isalpha(peekch(lexer)))
 				// HUH?
-				return LexUnknown;
+				lex = LexUnknown;
 			else
-				return Lexeme(LexNumber, 0);
+				lex = Lexeme(LexNumber, 0);
 		}
 		else
-			return readnumber(lexer, 10);
+			lex = readnumber(lexer, 10);
+
+		return lex.column = column, lex;
 	}
 	else if (peekch(lexer) == '\"')
 	{
@@ -156,7 +169,9 @@ Lexeme readnext(Lexer& lexer)
 	}
 	else if (isidentstart(peekch(lexer)))
 	{
-		return readident(lexer);
+		Lexeme lex = readident(lexer);
+
+		return lex.column = column, lex;
 	}
 
 	return LexUnknown;
