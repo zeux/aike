@@ -190,10 +190,11 @@ struct SynLetFunc: SynBase
 
 struct SynExternFunc: SynBase
 {
-	SynTypedVar var;
+	SynIdentifier var;
+	SynType* ret_type;
 	std::vector<SynTypedVar> args;
 
-	SynExternFunc(const Location& location, const SynTypedVar& var, const std::vector<SynTypedVar>& args): SynBase(location), var(var), args(args)
+	SynExternFunc(const Location& location, const SynIdentifier& var, SynType* ret_type, const std::vector<SynTypedVar>& args): SynBase(location), var(var), ret_type(ret_type), args(args)
 	{
 	}
 };

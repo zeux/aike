@@ -186,23 +186,60 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetFunc, root))
 	{
-		os << (_->body ? "let " : "extern ") << _->var.name << ": (";
+		bool anonymous = _->var.name.empty();
+
+		if (anonymous)
+			os << "fun ";
+		else
+			os << "let " << _->var.name;
+
+		os << "(";
+
 		for (size_t i = 0; i < _->args.size(); i++)
 		{
-			if(i != 0)
-				os << ",";
-			dump(os, _->args[i].type);
-		}
-		os << ")->";
-		dump(os, _->ret_type);
+			if (i != 0)
+				os << ", ";
 
-		os << " =\n";
+			os << _->args[i].name.name;
+
+			if (_->args[i].type)
+			{
+				os << ": ";
+				dump(os, _->args[i].type);
+			}
+		}
+
+		os << ")";
+
+		if (_->ret_type)
+		{
+			os << ": ";
+			dump(os, _->ret_type);
+		}
+
+		if (anonymous)
+			os << " ->\n";
+		else
+			os << " =\n";
+
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(SynExternFunc, root))
 	{
-		os << "extern " << _->var.name.name << ": ";
-		dump(os, _->var.type);
+		os << "extern " << _->var.name << "(";
+
+		for (size_t i = 0; i < _->args.size(); i++)
+		{
+			if(i != 0)
+				os << ", ";
+
+			os << _->args[i].name.name;
+			os << ": ";
+			dump(os, _->args[i].type);
+		}
+
+		os << "): ";
+		dump(os, _->ret_type);
 
 		os << "\n";
 	}

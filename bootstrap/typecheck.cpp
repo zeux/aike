@@ -204,7 +204,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			env.bindings.push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		Type* funty = resolveFunctionType(_->var.type, _->args, env);
+		Type* funty = resolveFunctionType(_->ret_type, _->args, env);
 
 		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
@@ -220,20 +220,20 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynExternFunc, node))
 	{
-		BindingTarget* target = new BindingTarget(_->var.name.name);
+		Type* funty = resolveFunctionType(_->ret_type, _->args, env);
+
+		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
 		std::vector<BindingTarget*> args;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->args[i].name.name);
+			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
 		}
 
-		Type* funty = resolveFunctionType(_->var.type, _->args, env);
-
-		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
+		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
 
 		return new ExprExternFunc(funty, _->location, target, args);
 	}
