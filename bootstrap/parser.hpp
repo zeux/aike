@@ -5,15 +5,26 @@
 
 #include "lexer.hpp"
 
+struct SynIdentifier
+{
+	std::string name;
+	Location location;
+
+	SynIdentifier()
+	{
+	}
+
+	SynIdentifier(const std::string& name, const Location& location): name(name), location(location)
+	{
+	}
+};
+
 struct SynTypedVar
 {
-	Location name_location;
-	Location type_location;
+	SynIdentifier name;
+	SynIdentifier type;
 
-	std::string name;
-	std::string type;
-
-	SynTypedVar(const std::string& name, const std::string& type, Location name_location = Location(), Location type_location = Location()): name(name), type(type), name_location(name_location), type_location(type_location)
+	SynTypedVar(const SynIdentifier& name, const SynIdentifier& type): name(name), type(type)
 	{
 	}
 };
@@ -22,26 +33,27 @@ struct SynBase
 {
 	Location location;
 
+	SynBase(const Location& location): location(location) {}
 	virtual ~SynBase() {}
 };
 
 struct SynUnit: SynBase
 {
-	SynUnit() {}
+	SynUnit(const Location& location): SynBase(location) {}
 };
 
 struct SynLiteralNumber: SynBase
 {
 	long long value;
 
-	SynLiteralNumber(long long value): value(value) {}
+	SynLiteralNumber(const Location& location, long long value): SynBase(location), value(value) {}
 };
 
 struct SynVariableReference: SynBase
 {
 	std::string name;
 
-	SynVariableReference(const std::string& name): name(name) {}
+	SynVariableReference(const Location& location, const std::string& name): SynBase(location), name(name) {}
 };
 
 enum SynUnaryOpType
@@ -57,7 +69,7 @@ struct SynUnaryOp: SynBase
 	SynUnaryOpType op;
 	SynBase* expr;
 
-	SynUnaryOp(SynUnaryOpType op, SynBase* expr): op(op), expr(expr) {}
+	SynUnaryOp(const Location& location, SynUnaryOpType op, SynBase* expr): SynBase(location), op(op), expr(expr) {}
 };
 
 enum SynBinaryOpType
@@ -82,7 +94,7 @@ struct SynBinaryOp: SynBase
 	SynBase* left;
 	SynBase* right;
 
-	SynBinaryOp(SynBinaryOpType op, SynBase* left, SynBase* right): op(op), left(left), right(right) {}
+	SynBinaryOp(const Location& location, SynBinaryOpType op, SynBase* left, SynBase* right): SynBase(location), op(op), left(left), right(right) {}
 };
 
 struct SynCall: SynBase
@@ -90,7 +102,7 @@ struct SynCall: SynBase
 	SynBase* expr;
 	std::vector<SynBase*> args;
 
-	SynCall(SynBase* expr, const std::vector<SynBase*>& args): expr(expr), args(args)
+	SynCall(const Location& location, SynBase* expr, const std::vector<SynBase*>& args): SynBase(location), expr(expr), args(args)
 	{
 	}
 };
@@ -100,7 +112,7 @@ struct SynLetVar: SynBase
 	SynTypedVar var;
 	SynBase* body;
 
-	SynLetVar(const SynTypedVar& var, SynBase* body): var(var), body(body)
+	SynLetVar(const Location& location, const SynTypedVar& var, SynBase* body): SynBase(location), var(var), body(body)
 	{
 	}
 };
@@ -109,7 +121,7 @@ struct SynLLVM: SynBase
 {
 	std::string body;
 
-	SynLLVM(const std::string& body): body(body)
+	SynLLVM(const Location& location, const std::string& body): SynBase(location), body(body)
 	{
 	}
 };
@@ -120,7 +132,7 @@ struct SynLetFunc: SynBase
 	std::vector<SynTypedVar> args;
 	SynBase* body;
 
-	SynLetFunc(const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body): var(var), args(args), body(body)
+	SynLetFunc(const Location& location, const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body): SynBase(location), var(var), args(args), body(body)
 	{
 	}
 };
@@ -131,7 +143,7 @@ struct SynIfThenElse: SynBase
 	SynBase* thenbody;
 	SynBase* elsebody;
 
-	SynIfThenElse(SynBase* cond, SynBase* thenbody, SynBase* elsebody): cond(cond), thenbody(thenbody), elsebody(elsebody)
+	SynIfThenElse(const Location& location, SynBase* cond, SynBase* thenbody, SynBase* elsebody): SynBase(location), cond(cond), thenbody(thenbody), elsebody(elsebody)
 	{
 	}
 };
@@ -140,9 +152,8 @@ struct SynBlock: SynBase
 {
 	std::vector<SynBase*> expressions;
 
-	SynBlock(SynBase* head)
+	SynBlock(const Location& location, const std::vector<SynBase*> expressions): SynBase(location), expressions(expressions)
 	{
-		expressions.push_back(head);
 	}
 };
 

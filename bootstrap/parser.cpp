@@ -36,14 +36,13 @@ SynBase* parseTerm(Lexer& lexer)
 	}
 	else if (lexer.current.type == LexNumber)
 	{
-		SynBase* result = new SynLiteralNumber(lexer.current.number);
+		SynBase* result = new SynLiteralNumber(lexer.current.location, lexer.current.number);
 		movenext(lexer);
 		return result;
 	}
 	else if (lexer.current.type == LexIdentifier)
 	{
-		SynBase* result = new SynVariableReference(lexer.current.contents);
-		result->location = lexer.current.location;
+		SynBase* result = new SynVariableReference(lexer.current.location, lexer.current.contents);
 		movenext(lexer);
 		return result;
 	}
@@ -100,19 +99,24 @@ int getBinaryOpPrecedence(SynBinaryOpType op)
 	}
 }
 
-std::string parseType(Lexer& lexer)
+SynIdentifier parseIdentifier(Lexer& lexer)
 {
 	if (lexer.current.type != LexIdentifier)
 		errorf(lexer.current.location, "Expected identifier");
 
-	std::string result = lexer.current.contents;
-
+	Location location = lexer.current.location;
+	std::string name = lexer.current.contents;
 	movenext(lexer);
 
-	return result;
+	return SynIdentifier(name, location);
 }
 
-SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
+SynIdentifier parseType(Lexer& lexer)
+{
+	return parseIdentifier(lexer);
+}
+
+SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
 {
 	assert(lexer.current.type == LexOpenBrace);
 	movenext(lexer);
@@ -121,24 +125,17 @@ SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	while (lexer.current.type != LexCloseBrace)
 	{
-		if (lexer.current.type != LexIdentifier)
-			errorf(lexer.current.location, "Expected identifier");
-
-		Location name_location = lexer.current.location;
-		std::string name = lexer.current.contents;
-		movenext(lexer);
-
-		Location type_location;
-		std::string type;
+		SynIdentifier argname = parseIdentifier(lexer);
+		SynIdentifier argtype;
 
 		if (lexer.current.type == LexColon)
 		{
 			movenext(lexer);
-			type_location = lexer.current.location;
-			type = parseType(lexer);
+
+			argtype = parseType(lexer);
 		}
 
-		args.push_back(SynTypedVar(name, type, name_location, type_location));
+		args.push_back(SynTypedVar(argname, argtype));
 
 		if (lexer.current.type == LexComma)
 			movenext(lexer);
@@ -150,13 +147,12 @@ SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	movenext(lexer);
 
-	Location rettype_location;
-	std::string rettype;
+	SynIdentifier rettype;
 
 	if (lexer.current.type == LexColon)
 	{
 		movenext(lexer);
-		rettype_location = lexer.current.location;
+		
 		rettype = parseType(lexer);
 	}
 
@@ -164,7 +160,7 @@ SynBase* parseLetFunc(Lexer& lexer, const std::string& name)
 
 	movenext(lexer);
 
-	return new SynLetFunc(SynTypedVar(name, rettype, Location(), rettype_location), args, parseBlock(lexer));
+	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, parseBlock(lexer));
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -172,22 +168,17 @@ SynBase* parseLet(Lexer& lexer)
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
 
-	if (lexer.current.type != LexIdentifier) errorf(lexer.current.location, "Expected identifier");
-
-	Location name_location = lexer.current.location;
-	std::string name = lexer.current.contents;
-	movenext(lexer);
+	SynIdentifier name = parseIdentifier(lexer);
 
 	if (lexer.current.type == LexOpenBrace)
 		return parseLetFunc(lexer, name);
 
-	Location type_location;
-	std::string type;
+	SynIdentifier type;
 
 	if (lexer.current.type == LexColon)
 	{
 		movenext(lexer);
-		type_location = lexer.current.location;
+
 		type = parseType(lexer);
 	}
 
@@ -195,7 +186,7 @@ SynBase* parseLet(Lexer& lexer)
 
 	movenext(lexer);
 
-	return new SynLetVar(SynTypedVar(name, type, name_location, type_location), parseBlock(lexer));
+	return new SynLetVar(name.location, SynTypedVar(name, type), parseBlock(lexer));
 }
 
 SynBase* parseLLVM(Lexer& lexer)
@@ -206,13 +197,15 @@ SynBase* parseLLVM(Lexer& lexer)
 	if (lexer.current.type != LexString) errorf(lexer.current.location, "String expected after llvm keyword");
 
 	std::string body = lexer.current.contents;
+	Location location = lexer.current.location;
 	movenext(lexer);
 
-	return new SynLLVM(body);
+	return new SynLLVM(location, body);
 }
 
 SynBase* parseIfThenElse(Lexer& lexer)
 {
+	Location location = lexer.current.location;
 	assert(iskeyword(lexer, "if"));
 	movenext(lexer);
 
@@ -226,9 +219,9 @@ SynBase* parseIfThenElse(Lexer& lexer)
 	SynBase* elsebody =
 		iskeyword(lexer, "else")
 		? (movenext(lexer), parseBlock(lexer))
-		: new SynUnit();
+		: new SynUnit(lexer.current.location);
 
-	return new SynIfThenElse(cond, thenbody, elsebody);
+	return new SynIfThenElse(location, cond, thenbody, elsebody);
 }
 
 SynBase* parsePrimary(Lexer& lexer)
@@ -236,7 +229,10 @@ SynBase* parsePrimary(Lexer& lexer)
 	SynUnaryOpType uop = getUnaryOp(lexer.current.type);
 
 	if (uop != SynUnaryOpUnknown)
-		return new SynUnaryOp(uop, parsePrimary(lexer));
+	{
+		Location location = lexer.current.location;
+		return new SynUnaryOp(location, uop, parsePrimary(lexer));
+	}
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
@@ -251,6 +247,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (lexer.current.type == LexOpenBrace)
 	{
+		Location location = lexer.current.location;
 		movenext(lexer);
 
 		std::vector<SynBase*> args;
@@ -269,7 +266,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 		movenext(lexer);
 
-		return new SynCall(result, args);
+		return new SynCall(location, result, args);
 	}
 
 	return result;
@@ -277,6 +274,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 {
+	Location location = lexer.current.location;
 	SynBinaryOpType op = getBinaryOp(lexer.current.type);
 
 	while (op != SynBinaryOpUnknown && getBinaryOpPrecedence(op) >= limit)
@@ -294,8 +292,9 @@ SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 			nextop = getBinaryOp(lexer.current.type);
 		}
 
-		left = new SynBinaryOp(op, left, right);
+		left = new SynBinaryOp(location, op, left, right);
 
+		location = lexer.current.location;
 		op = getBinaryOp(lexer.current.type);
 	}
 
@@ -311,12 +310,21 @@ SynBase* parseBlock(Lexer& lexer)
 {
 	Lexeme start = lexer.current;
 
-	SynBlock* result = new SynBlock(parseExpr(lexer));
+	SynBase* head = parseExpr(lexer);
 
-	while (!islower(start, lexer.current))
-		result->expressions.push_back(parseExpr(lexer));
+	if (!islower(start, lexer.current))
+	{
+		std::vector<SynBase*> exprs;
 
-	return result;
+		exprs.push_back(head);
+
+		while (!islower(start, lexer.current))
+			exprs.push_back(parseExpr(lexer));
+		
+		return new SynBlock(start.location, exprs);
+	}
+	else
+		return head;
 }
 
 SynBase* parse(Lexer& lexer)

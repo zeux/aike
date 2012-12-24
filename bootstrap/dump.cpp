@@ -117,7 +117,7 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetVar, root))
 	{
-		os << "let " << _->var.name << ": " << _->var.type << " =\n";
+		os << "let " << _->var.name.name << ": " << _->var.type.name << " =\n";
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(SynLLVM, root))
@@ -126,7 +126,7 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetFunc, root))
 	{
-		os << "let " << _->var.name << ": " << _->var.type << " =\n";
+		os << "let " << _->var.name.name << ": " << _->var.type.name << " =\n";
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(SynIfThenElse, root))

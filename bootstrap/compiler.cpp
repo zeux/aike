@@ -202,7 +202,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		llvm::SMDiagnostic err;
 		if(!llvm::ParseAssemblyString(stream.str().c_str(), context.module, err, *context.context))
-			errorf("Failed to parse llvm inline code: %s", err.getMessage().c_str());
+			errorf(_->location, "Failed to parse llvm inline code: %s", err.getMessage().c_str());
 
 		std::vector<llvm::Value*> arguments;
 		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)

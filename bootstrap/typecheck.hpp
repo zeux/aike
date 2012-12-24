@@ -29,31 +29,30 @@ struct BindingLocal: BindingBase
 
 struct Expr
 {
+	Type* type;
 	Location location;
 
-	Type* type;
-
-	Expr(Type* type): type(type) {}
+	Expr(Type* type, const Location& location): type(type), location(location) {}
 	virtual ~Expr() {}
 };
 
 struct ExprUnit: Expr
 {
-	ExprUnit(Type* type): Expr(type) {}
+	ExprUnit(Type* type, const Location& location): Expr(type, location) {}
 };
 
 struct ExprLiteralNumber: Expr
 {
 	long long value;
 
-	ExprLiteralNumber(Type* type, long long value): Expr(type), value(value) {}
+	ExprLiteralNumber(Type* type, const Location& location, long long value): Expr(type, location), value(value) {}
 };
 
 struct ExprBinding: Expr
 {
 	BindingBase* binding;
 
-	ExprBinding(Type* type, BindingBase* binding): Expr(type), binding(binding) {}
+	ExprBinding(Type* type, const Location& location, BindingBase* binding): Expr(type, location), binding(binding) {}
 };
 
 struct ExprUnaryOp: Expr
@@ -61,7 +60,7 @@ struct ExprUnaryOp: Expr
 	SynUnaryOpType op;
 	Expr* expr;
 
-	ExprUnaryOp(Type* type, SynUnaryOpType op, Expr* expr): Expr(type), op(op), expr(expr) {}
+	ExprUnaryOp(Type* type, const Location& location, SynUnaryOpType op, Expr* expr): Expr(type, location), op(op), expr(expr) {}
 };
 
 struct ExprBinaryOp: Expr
@@ -70,7 +69,7 @@ struct ExprBinaryOp: Expr
 	Expr* left;
 	Expr* right;
 
-	ExprBinaryOp(Type* type, SynBinaryOpType op, Expr* left, Expr* right): Expr(type), op(op), left(left), right(right) {}
+	ExprBinaryOp(Type* type, const Location& location, SynBinaryOpType op, Expr* left, Expr* right): Expr(type, location), op(op), left(left), right(right) {}
 };
 
 struct ExprCall: Expr
@@ -78,7 +77,7 @@ struct ExprCall: Expr
 	Expr* expr;
 	std::vector<Expr*> args;
 
-	ExprCall(Type* type, Expr* expr, const std::vector<Expr*>& args): Expr(type), expr(expr), args(args)
+	ExprCall(Type* type, const Location& location, Expr* expr, const std::vector<Expr*>& args): Expr(type, location), expr(expr), args(args)
 	{
 	}
 };
@@ -88,7 +87,7 @@ struct ExprLetVar: Expr
 	BindingTarget* target;
 	Expr* body;
 
-	ExprLetVar(Type* type, BindingTarget* target, Expr* body): Expr(type), target(target), body(body)
+	ExprLetVar(Type* type, const Location& location, BindingTarget* target, Expr* body): Expr(type, location), target(target), body(body)
 	{
 	}
 };
@@ -99,7 +98,7 @@ struct ExprLetFunc: Expr
 	std::vector<BindingTarget*> args;
 	Expr* body;
 
-	ExprLetFunc(Type* type, BindingTarget* target, std::vector<BindingTarget*> args, Expr* body): Expr(type), target(target), args(args), body(body)
+	ExprLetFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args, Expr* body): Expr(type, location), target(target), args(args), body(body)
 	{
 	}
 };
@@ -108,7 +107,7 @@ struct ExprLLVM: Expr
 {
 	std::string body;
 
-	ExprLLVM(Type* type, const std::string& body): Expr(type), body(body)
+	ExprLLVM(Type* type, const Location& location, const std::string& body): Expr(type, location), body(body)
 	{
 	}
 };
@@ -119,7 +118,7 @@ struct ExprIfThenElse: Expr
 	Expr* thenbody;
 	Expr* elsebody;
 
-	ExprIfThenElse(Type* type, Expr* cond, Expr* thenbody, Expr* elsebody): Expr(type), cond(cond), thenbody(thenbody), elsebody(elsebody)
+	ExprIfThenElse(Type* type, const Location& location, Expr* cond, Expr* thenbody, Expr* elsebody): Expr(type, location), cond(cond), thenbody(thenbody), elsebody(elsebody)
 	{
 	}
 };
@@ -128,7 +127,7 @@ struct ExprBlock: Expr
 {
 	std::vector<Expr*> expressions;
 
-	ExprBlock(Type* type): Expr(type)
+	ExprBlock(Type* type, const Location& location): Expr(type, location)
 	{
 	}
 };
