@@ -274,10 +274,10 @@ SynBase* parseExternFunc(Lexer& lexer)
 
 	for (size_t i = 0; i < args.size(); ++i)
 		if (!args[i].type)
-			errorf(args[i].name.location, "Type declaration missing for argument %s", args[i].name.name.c_str());
+			errorf(args[i].name.location, "Extern function '%s': type declaration missing for argument '%s'", name.name.c_str(), args[i].name.name.c_str());
 
 	if (lexer.current.type != LexColon)
-		errorf(lexer.current.location, "Type declaration missing for return type");
+		errorf(name.location, "Extern function '%s': type declaration missing for return type", name.name.c_str());
 
 	movenext(lexer);
 	

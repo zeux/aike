@@ -1,0 +1,4 @@
+extern print(x: int)
+
+// ERRORS:
+// (1,8): Extern function 'print': type declaration missing for return type

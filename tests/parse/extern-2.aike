@@ -1,0 +1,4 @@
+extern print(x)
+
+// ERRORS:
+// (1,14): Extern function 'print': type declaration missing for argument 'x'
