@@ -46,18 +46,22 @@ void print(int value)
 	*gOutput << value << "\n";
 }
 
-void dumpError(std::ostream& os, const std::string& path, const Location& location, const std::string& error)
+void dumpError(std::ostream& os, const std::string& path, const Location& location, const std::string& error, bool outputErrorLocation)
 {
 	os << path << "(" << (location.line + 1) << "," << (location.column + 1) << "): " << error << "\n";
 
-	if (location.lineStart)
+	if (location.lineStart && outputErrorLocation)
 	{
 		const char *lineEnd = strchr(location.lineStart, '\n');
+
+		os << "\n";
 
 		if (lineEnd)
 			os << std::string(location.lineStart, lineEnd);
 		else
 			os << location.lineStart;
+
+		os << "\n";
 
 		for (size_t i = 0; i < location.column; i++)
 			os << ' ';
@@ -108,7 +112,7 @@ std::string extractCommentBlock(const std::string& data, const std::string& name
 	return result;
 }
 
-bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel)
+bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
 {
 	gOutput = &output;
 
@@ -157,7 +161,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 	}
 	catch (const ErrorAtLocation& e)
 	{
-		dumpError(errors, path, e.location, e.error);
+		dumpError(errors, path, e.location, e.error, outputErrorLocation);
 		result = false;
 	}
 	catch (const std::exception& e)
@@ -180,11 +184,11 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 
 	std::ostringstream output, errors;
 
-	bool result = runCode(path, data, output, errors, debugFlags, optimizationLevel);
+	bool result = runCode(path, data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
 
 	if (output.str() != expectedOutput || errors.str() != expectedErrors || result != expectedErrors.empty())
 	{
-		std::cout << path << " FAILED (O" << optimizationLevel << ")\n";
+		std::cout << "\n" << path << " FAILED (O" << optimizationLevel << ")\n";
 		std::cout << "Expected output:\n";
 		std::cout << expectedOutput;
 		std::cout << "Actual output:\n";
@@ -291,7 +295,7 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		runTest(testName, debugFlags, optimizationLevel);
+		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 
 	llvm::llvm_shutdown();
