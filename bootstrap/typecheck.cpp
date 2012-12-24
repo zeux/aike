@@ -105,9 +105,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		Expr* body = resolveExpr(_->body, env);
 
-		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
+		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
 
-		return new ExprLetVar(new TypeGeneric(), target, resolveType(_->var.type, env, _->var.type_location), body);
+		return new ExprLetVar(resolveType(_->var.type, env, _->var.type_location), target, body);
 	}
 
 	if (CASE(SynLLVM, node))
@@ -117,22 +117,29 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		BindingTarget* target = new BindingTarget(_->var.name);
 
+		std::vector<BindingTarget*> args;
+		std::vector<Type*> argtys;
+
 		for (size_t i = 0; i < _->args.size(); ++i)
-			env.bindings.push_back(Binding(_->args[i].name, new BindingFunarg(target, i)));
+		{
+			BindingTarget* target = new BindingTarget(_->args[i].name);
+
+			args.push_back(target);
+			argtys.push_back(resolveType(_->args[i].type, env, _->args[i].type_location));
+
+			env.bindings.push_back(Binding(_->args[i].name, new BindingLocal(target)));
+		}
+
+		Type* funty = new TypeFunction(resolveType(_->var.type, env, _->var.type_location), argtys);
 
 		Expr* body = resolveExpr(_->body, env);
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			env.bindings.pop_back();
 
-		std::vector<Type*> argtys;
+		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
 
-		for (size_t i = 0; i < _->args.size(); ++i)
-			argtys.push_back(resolveType(_->args[i].type, env, _->args[i].type_location));
-
-		env.bindings.push_back(Binding(_->var.name, new BindingLet(target)));
-
-		return new ExprLetFunc(new TypeGeneric(), target, new TypeFunction(resolveType(_->var.type, env, _->var.type_location), argtys), body);
+		return new ExprLetFunc(funty, target, args, body);
 	}
 
 	if (CASE(SynIfThenElse, node))

@@ -41,10 +41,8 @@ void dump(std::ostream& os, Type* type)
 
 void dump(std::ostream& os, BindingBase* binding)
 {
-	if (CASE(BindingLet, binding))
+	if (CASE(BindingLocal, binding))
 		os << _->target->name;
-	else if (CASE(BindingFunarg, binding))
-		os << _->target->name << "#" << _->index;
 	else
 	{
 		assert(!"Unknown binding");
@@ -203,7 +201,7 @@ void dump(std::ostream& os, Expr* root, int indent)
 	else if (CASE(ExprLetVar, root))
 	{
 		os << "let " << _->target->name << ": ";
-		dump(os, _->vartype);
+		dump(os, _->type);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
 	}
@@ -214,7 +212,7 @@ void dump(std::ostream& os, Expr* root, int indent)
 	else if (CASE(ExprLetFunc, root))
 	{
 		os << "let " << _->target->name << ": ";
-		dump(os, _->funtype);
+		dump(os, _->type);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
 	}

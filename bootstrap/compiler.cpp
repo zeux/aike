@@ -2,6 +2,7 @@
 
 #include "parser.hpp"
 #include "output.hpp"
+#include "typecheck.hpp"
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
@@ -16,39 +17,89 @@
 #include <cassert>
 #include <sstream>
 
-using namespace llvm;
-
-struct Binding
+struct Context
 {
-	std::string name;
-	Value* value;
+	llvm::LLVMContext* context;
+	llvm::Module* module;
+
+	std::map<BindingTarget*, llvm::Value*> values;
+	std::map<Type*, llvm::Type*> types;
 };
 
-Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, SynBase* node, std::vector<Binding>& bindings)
+llvm::Type* compileType(Context& context, Type* type, const Location& location)
 {
-	if (CASE(SynUnit, node))
+	if (context.types.count(type) > 0)
+		return context.types[type];
+
+	if (CASE(TypeGeneric, type))
+	{
+		// this'll be an error in the future
+		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+	}
+
+	if (CASE(TypeUnit, type))
+	{
+		// this might be void in the future
+		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+	}
+
+	if (CASE(TypeInt, type))
+	{
+		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+	}
+
+	if (CASE(TypeFloat, type))
+	{
+		return context.types[type] = llvm::Type::getFloatTy(*context.context);
+	}
+
+	if (CASE(TypeFunction, type))
+	{
+		std::vector<llvm::Type*> args;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(compileType(context, _->args[i], location));
+
+		return context.types[type] = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
+	}
+
+	errorf(location, "Unrecognized type");
+}
+
+llvm::Value* compileBinding(Context& context, BindingBase* binding, const Location& location)
+{
+	if (CASE(BindingLocal, binding))
+	{
+		if (context.values.count(_->target) > 0)
+			return context.values[_->target];
+
+		errorf(location, "Variable %s has not been computed", _->target->name.c_str());
+	}
+
+	errorf(location, "Variable binding has not been resolved");
+}
+
+llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
+{
+	if (CASE(ExprUnit, node))
 	{
 		// since we only have int type right now, unit should be int :)
 		return builder.getInt32(0);
 	}
 
-	if (CASE(SynLiteralNumber, node))
+	if (CASE(ExprLiteralNumber, node))
 	{
 		return builder.getInt32(uint32_t(_->value));
 	}
 
-	if (CASE(SynVariableReference, node))
+	if (CASE(ExprBinding, node))
 	{
-		for (size_t i = 0; i < bindings.size(); ++i)
-			if (bindings[i].name == _->name)
-				return bindings[i].value;
-
-		errorf(_->location, "Unresolved variable reference %s", _->name.c_str());
+		return compileBinding(context, _->binding, _->location);
 	}
 
-	if (CASE(SynUnaryOp, node))
+	if (CASE(ExprUnaryOp, node))
 	{
-		Value* ev = compileExpr(context, module, builder, _->expr, bindings);
+		llvm::Value* ev = compileExpr(context, builder, _->expr);
 
 		switch (_->op)
 		{
@@ -59,10 +110,10 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		}
 	}
 
-	if (CASE(SynBinaryOp, node))
+	if (CASE(ExprBinaryOp, node))
 	{
-		Value* lv = compileExpr(context, module, builder, _->left, bindings);
-		Value* rv = compileExpr(context, module, builder, _->right, bindings);
+		llvm::Value* lv = compileExpr(context, builder, _->left);
+		llvm::Value* rv = compileExpr(context, builder, _->right);
 
 		switch (_->op)
 		{
@@ -80,70 +131,61 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		}
 	}
 
-	if (CASE(SynCall, node))
+	if (CASE(ExprCall, node))
 	{
-		SynVariableReference* var = dynamic_cast<SynVariableReference*>(_->expr);
-		if (!var) errorf("Dynamic function calls are not supported");
+		llvm::Value* func = compileExpr(context, builder, _->expr);
 
-		Function* func = module->getFunction(var->name);
-		if (!func) errorf(var->location, "Unresolved function reference %s", var->name.c_str());
-
-		std::vector<Value*> args;
+		std::vector<llvm::Value*> args;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(compileExpr(context, module, builder, _->args[i], bindings));
+			args.push_back(compileExpr(context, builder, _->args[i]));
 
 		return builder.CreateCall(func, args);
 	}
 
-	if (CASE(SynLetVar, node))
+	if (CASE(ExprLetVar, node))
 	{
-		Value* value = compileExpr(context, module, builder, _->body, bindings);
+		llvm::Value* value = compileExpr(context, builder, _->body);
 
-		Binding bind = {_->var.name, value};
-		bindings.push_back(bind);
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = value;
 
 		return value;
 	}
 
-	if (CASE(SynLetFunc, node))
+	if (CASE(ExprLetFunc, node))
 	{
-		std::vector<Type*> args;
+		llvm::FunctionType* funty = llvm::cast<llvm::FunctionType>(compileType(context, _->type, _->location));
 
-		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(Type::getInt32Ty(context));
+		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, funty));
 
-		FunctionType* functy = FunctionType::get(Type::getInt32Ty(context), args, false);
+		llvm::Function::arg_iterator argi = func->arg_begin();
 
-		Function* func = cast<Function>(module->getOrInsertFunction(_->var.name, functy));
-
-		BasicBlock* bb = BasicBlock::Create(context, "entry", func);
-
-		IRBuilder<> funcbuilder(bb);
-
-		Function::arg_iterator argi = func->arg_begin();
-
-		for (size_t i = 0; i < _->args.size(); ++i, ++argi)
+		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
 		{
-			argi->setName(_->args[i].name);
+			argi->setName(_->args[i]->name);
 
-			Binding bind = {_->args[i].name, argi};
-			bindings.push_back(bind);
+			assert(context.values.count(_->args[i]) == 0);
+			context.values[_->args[i]] = argi;
 		}
 
-		Value* value = compileExpr(context, module, funcbuilder, _->body, bindings);
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = func;
+
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+
+		llvm::IRBuilder<> funcbuilder(bb);
+
+		llvm::Value* value = compileExpr(context,  funcbuilder, _->body);
 
 		funcbuilder.CreateRet(value);
-
-		for (size_t i = 0; i < _->args.size(); ++i)
-			bindings.pop_back();
 
 		return func;
 	}
 
-	if (CASE(SynLLVM, node))
+	if (CASE(ExprLLVM, node))
 	{
-		Function* func = builder.GetInsertBlock()->getParent();
+		llvm::Function* func = builder.GetInsertBlock()->getParent();
 
 		std::string name = "autogen_" + func->getName().str();
 
@@ -152,50 +194,50 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 
 		os_stream << "define " << *func->getReturnType() << " @" << name << "(";
 
-		for (Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
+		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
 			os_stream << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
 
 		os_stream << "){ %out = " + _->body + " ret " << *func->getReturnType() << " %out }";
 		os_stream.flush();
 
 		llvm::SMDiagnostic err;
-		if(!llvm::ParseAssemblyString(stream.str().c_str(), module, err, context))
+		if(!llvm::ParseAssemblyString(stream.str().c_str(), context.module, err, *context.context))
 			errorf("Failed to parse llvm inline code: %s", err.getMessage().c_str());
 
 		std::vector<llvm::Value*> arguments;
-		for (Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
+		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
 			arguments.push_back(argi);
 
-		return builder.CreateCall(module->getFunction(name.c_str()), arguments);
+		return builder.CreateCall(context.module->getFunction(name.c_str()), arguments);
 	}
 
-	if (CASE(SynIfThenElse, node))
+	if (CASE(ExprIfThenElse, node))
 	{
-		Function* func = builder.GetInsertBlock()->getParent();
+		llvm::Function* func = builder.GetInsertBlock()->getParent();
 
-		Value* cond = compileExpr(context, module, builder, _->cond, bindings);
+		llvm::Value* cond = compileExpr(context, builder, _->cond);
 
-		BasicBlock* thenbb = BasicBlock::Create(context, "then", func);
-		BasicBlock* elsebb = BasicBlock::Create(context, "else");
-		BasicBlock* ifendbb = BasicBlock::Create(context, "ifend");
+		llvm::BasicBlock* thenbb = llvm::BasicBlock::Create(*context.context, "then", func);
+		llvm::BasicBlock* elsebb = llvm::BasicBlock::Create(*context.context, "else");
+		llvm::BasicBlock* ifendbb = llvm::BasicBlock::Create(*context.context, "ifend");
 
 		builder.CreateCondBr(cond, thenbb, elsebb);
 
 		builder.SetInsertPoint(thenbb);
-		Value* thenbody = compileExpr(context, module, builder, _->thenbody, bindings);
+		llvm::Value* thenbody = compileExpr(context, builder, _->thenbody);
 		builder.CreateBr(ifendbb);
 		thenbb = builder.GetInsertBlock();
 
 		func->getBasicBlockList().push_back(elsebb);
 
 		builder.SetInsertPoint(elsebb);
-		Value* elsebody = compileExpr(context, module, builder, _->elsebody, bindings);
+		llvm::Value* elsebody = compileExpr(context, builder, _->elsebody);
 		builder.CreateBr(ifendbb);
 		elsebb = builder.GetInsertBlock();
 
 		func->getBasicBlockList().push_back(ifendbb);
 		builder.SetInsertPoint(ifendbb);
-		PHINode* pn = builder.CreatePHI(Type::getInt32Ty(context), 2);
+		llvm::PHINode* pn = builder.CreatePHI(compileType(context, _->type, _->location), 2);
 
 		pn->addIncoming(thenbody, thenbb);
 		pn->addIncoming(elsebody, elsebb);
@@ -203,17 +245,12 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 		return pn;
 	}
 
-	if (CASE(SynBlock, node))
+	if (CASE(ExprBlock, node))
 	{
-		Value *value = 0;
-
-		size_t bind_count = bindings.size();
+		llvm::Value *value = 0;
 
 		for (size_t i = 0; i < _->expressions.size(); ++i)
-			value = compileExpr(context, module, builder, _->expressions[i], bindings);
-
-		while (bindings.size() > bind_count)
-			bindings.pop_back();
+			value = compileExpr(context, builder, _->expressions[i]);
 
 		return value;
 	}
@@ -222,18 +259,21 @@ Value* compileExpr(LLVMContext& context, Module* module, IRBuilder<>& builder, S
 	return 0;
 }
 
-void compile(LLVMContext& context, Module* module, SynBase* root)
+void compile(llvm::LLVMContext& context, llvm::Module* module, Expr* root)
 {
-	Function* entryf =
-		cast<Function>(module->getOrInsertFunction("entrypoint", Type::getInt32Ty(context),
+	Context ctx;
+	ctx.context = &context;
+	ctx.module = module;
+
+	llvm::Function* entryf =
+		llvm::cast<llvm::Function>(module->getOrInsertFunction("entrypoint", llvm::Type::getInt32Ty(context),
 		(Type *)0));
 
-	BasicBlock* bb = BasicBlock::Create(context, "entry", entryf);
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "entry", entryf);
 
-	IRBuilder<> builder(bb);
+	llvm::IRBuilder<> builder(bb);
 
-	std::vector<Binding> bindings;
-	Value* result = compileExpr(context, module, builder, root, bindings);
+	llvm::Value* result = compileExpr(ctx, builder, root);
 
 	builder.CreateRet(result);
 }

@@ -20,19 +20,11 @@ struct BindingBase
 	virtual ~BindingBase() {}
 };
 
-struct BindingLet: BindingBase
+struct BindingLocal: BindingBase
 {
 	BindingTarget* target;
 
-	BindingLet(BindingTarget* target): target(target) {}
-};
-
-struct BindingFunarg: BindingBase
-{
-	BindingTarget* target;
-	size_t index;
-
-	BindingFunarg(BindingTarget* target, size_t index): target(target), index(index) {}
+	BindingLocal(BindingTarget* target): target(target) {}
 };
 
 struct Expr
@@ -94,10 +86,20 @@ struct ExprCall: Expr
 struct ExprLetVar: Expr
 {
 	BindingTarget* target;
-	Type* vartype;
 	Expr* body;
 
-	ExprLetVar(Type* type, BindingTarget* target, Type* vartype, Expr* body): Expr(type), target(target), vartype(vartype), body(body)
+	ExprLetVar(Type* type, BindingTarget* target, Expr* body): Expr(type), target(target), body(body)
+	{
+	}
+};
+
+struct ExprLetFunc: Expr
+{
+	BindingTarget* target;
+	std::vector<BindingTarget*> args;
+	Expr* body;
+
+	ExprLetFunc(Type* type, BindingTarget* target, std::vector<BindingTarget*> args, Expr* body): Expr(type), target(target), args(args), body(body)
 	{
 	}
 };
@@ -107,17 +109,6 @@ struct ExprLLVM: Expr
 	std::string body;
 
 	ExprLLVM(Type* type, const std::string& body): Expr(type), body(body)
-	{
-	}
-};
-
-struct ExprLetFunc: Expr
-{
-	BindingTarget* target;
-	Type* funtype;
-	Expr* body;
-
-	ExprLetFunc(Type* type, BindingTarget* target, Type* funtype, Expr* body): Expr(type), target(target), funtype(funtype), body(body)
 	{
 	}
 };

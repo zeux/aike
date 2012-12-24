@@ -6,6 +6,6 @@ namespace llvm
 	class LLVMContext;
 }
 
-struct SynBase;
+struct Expr;
 
-void compile(llvm::LLVMContext& context, llvm::Module* module, SynBase* root);
+void compile(llvm::LLVMContext& context, llvm::Module* module, Expr* root);

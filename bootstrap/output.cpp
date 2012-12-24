@@ -19,7 +19,7 @@ void errorf(const char* format, ...)
 	throw std::runtime_error("Error");
 }
 
-void errorf(Location& location, const char* format, ...)
+void errorf(const Location& location, const char* format, ...)
 {
 	fprintf(stderr, "ERROR: ");
 
