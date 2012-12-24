@@ -121,8 +121,17 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynVariableReference, node))
 	{
 		for (size_t i = env.bindings.size(); i > 0; --i)
+		{
 			if (env.bindings[i - 1].name == _->name)
-				return new ExprBinding(new TypeGeneric(), _->location, env.bindings[i - 1].binding);
+			{
+				Location location = _->location;
+
+				if (CASE(BindingLocal, env.bindings[i - 1].binding))
+					return new ExprBinding(_->target->type, location, _);
+				else
+					return new ExprBinding(new TypeGeneric(), location, env.bindings[i - 1].binding);
+			}
+		}
 
 		errorf(_->location, "Unresolved variable reference %s", _->name.c_str());
 	}
@@ -139,21 +148,35 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(resolveExpr(_->args[i], env));
 
-		return new ExprCall(new TypeGeneric(), _->location, resolveExpr(_->expr, env), args);
+		Expr* function = resolveExpr(_->expr, env);
+
+		TypeFunction* function_type = dynamic_cast<TypeFunction*>(function->type);
+
+		return new ExprCall(function_type ? function_type->result : new TypeGeneric(), _->location, function, args);
 	}
 
 	if (CASE(SynArrayIndex, node))
-		return new ExprArrayIndex(new TypeGeneric(), _->location, resolveExpr(_->arr, env), resolveExpr(_->index, env));
+	{
+		Expr* arr = resolveExpr(_->arr, env);
+
+		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
+
+		return new ExprArrayIndex(arr_type ? arr_type->contained : new TypeGeneric(), _->location, arr, resolveExpr(_->index, env));
+	}
 
 	if (CASE(SynLetVar, node))
 	{
-		BindingTarget* target = new BindingTarget(_->var.name.name);
+		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
 
 		Expr* body = resolveExpr(_->body, env);
 
+		// If the type is not defined, take the body type
+		if (!_->var.type)
+			target->type = body->type;
+
 		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
-		return new ExprLetVar(resolveType(_->var.type, env), _->location, target, body);
+		return new ExprLetVar(target->type, _->location, target, body);
 	}
 
 	if (CASE(SynLLVM, node))
@@ -161,14 +184,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynLetFunc, node))
 	{
-		BindingTarget* target = new BindingTarget(_->var.name.name);
-
 		std::vector<BindingTarget*> args;
 		std::vector<Type*> argtys;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->args[i].name.name);
+			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
 			argtys.push_back(resolveType(_->args[i].type, env));
@@ -176,14 +197,16 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			env.bindings.push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		Type* funty = new TypeFunction(resolveType(_->var.type, env), argtys);
+		Type* funty = new TypeFunction(resolveType(_->ret_type, env), argtys);
+
+		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
 		Expr* body = _->body ? resolveExpr(_->body, env) : 0;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			env.bindings.pop_back();
 
-		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
+		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
 
 		return new ExprLetFunc(funty, _->location, target, args, body);
 	}
@@ -193,7 +216,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynBlock, node))
 	{
-		ExprBlock *expression = new ExprBlock(new TypeGeneric(), _->location);
+		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
 		
 		size_t bind_count = env.bindings.size();
 		size_t type_count = env.types.size();
@@ -206,6 +229,10 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		while (env.types.size() > type_count)
 			env.types.pop_back();
+
+		// Block type is the type of the last expression
+		if (!expression->expressions.empty())
+			expression->type = expression->expressions.back()->type;
 
 		return expression;
 	}

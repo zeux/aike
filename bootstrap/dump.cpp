@@ -186,8 +186,15 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetFunc, root))
 	{
-		os << (_->body ? "let " : "extern ") << _->var.name.name << ": ";
-		dump(os, _->var.type);
+		os << (_->body ? "let " : "extern ") << _->var.name << ": (";
+		for (size_t i = 0; i < _->args.size(); i++)
+		{
+			if(i != 0)
+				os << ",";
+			dump(os, _->args[i].type);
+		}
+		os << ")->";
+		dump(os, _->ret_type);
 
 		if (_->body)
 		{

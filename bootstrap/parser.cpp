@@ -240,7 +240,7 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 
 	movenext(lexer);
 
-	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, parseBlock(lexer));
+	return new SynLetFunc(name.location, name, rettype, args, parseBlock(lexer));
 }
 
 SynBase* parseExternFunc(Lexer& lexer)
@@ -261,7 +261,7 @@ SynBase* parseExternFunc(Lexer& lexer)
 		rettype = parseType(lexer);
 	}
 
-	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, 0);
+	return new SynLetFunc(name.location, name, rettype, args, 0);
 }
 
 SynBase* parseAnonymousFunc(Lexer& lexer)
@@ -296,7 +296,7 @@ SynBase* parseAnonymousFunc(Lexer& lexer)
 
 	SynBase* body = parseBlock(lexer);
 
-	return new SynLetFunc(start, SynTypedVar(SynIdentifier("", Location()), rettype), args, body);
+	return new SynLetFunc(start, SynIdentifier("", Location()), rettype, args, body);
 }
 
 SynBase* parseLet(Lexer& lexer)

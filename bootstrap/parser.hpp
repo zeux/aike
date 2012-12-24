@@ -178,11 +178,12 @@ struct SynLLVM: SynBase
 
 struct SynLetFunc: SynBase
 {
-	SynTypedVar var;
+	SynIdentifier var;
+	SynType* ret_type;
 	std::vector<SynTypedVar> args;
 	SynBase* body;
 
-	SynLetFunc(const Location& location, const SynTypedVar& var, const std::vector<SynTypedVar>& args, SynBase* body): SynBase(location), var(var), args(args), body(body)
+	SynLetFunc(const Location& location, const SynIdentifier& var, SynType* ret_type, const std::vector<SynTypedVar>& args, SynBase* body): SynBase(location), var(var), ret_type(ret_type), args(args), body(body)
 	{
 	}
 };

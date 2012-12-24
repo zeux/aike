@@ -9,8 +9,9 @@
 struct BindingTarget
 {
 	std::string name;
+	Type* type;
 
-	BindingTarget(const std::string& name): name(name)
+	BindingTarget(const std::string& name, Type* type): name(name), type(type)
 	{
 	}
 };
