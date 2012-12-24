@@ -3,7 +3,7 @@
 #include <cstdarg>
 #include <stdexcept>
 
-#include "lexer.hpp"
+#include "location.hpp"
 
 void errorf(const Location& location, const char* format, ...)
 {

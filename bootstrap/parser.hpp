@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "lexer.hpp"
+#include "location.hpp"
 
 struct SynIdentifier
 {
