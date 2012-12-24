@@ -249,8 +249,8 @@ unsigned int parseDebugFlags(int argc, char** argv)
 unsigned int parseOptimizationLevel(int argc, char** argv)
 {
 	for (size_t i = 1; i < argc; ++i)
-		if (argv[i][0] == 'O' && isdigit(argv[i][1]))
-			return atoi(argv[i] + 1);
+		if (argv[i][0] == '-' && argv[i][1] == 'O' && isdigit(argv[i][2]))
+			return atoi(argv[i] + 2);
 
 	return 0;
 }
