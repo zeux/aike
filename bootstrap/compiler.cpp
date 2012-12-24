@@ -97,17 +97,12 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return builder.getInt32(0);
 	}
 
-	if (CASE(ExprLiteralNumber, node))
+	if (CASE(ExprNumberLiteral, node))
 	{
 		return builder.getInt32(uint32_t(_->value));
 	}
 
-	if (CASE(ExprLiteralNumber, node))
-	{
-		return builder.getInt32(uint32_t(_->value));
-	}
-
-	if (CASE(ExprArray, node))
+	if (CASE(ExprArrayLiteral, node))
 	{
 		llvm::Type* array_type = compileType(context, _->type, _->location);
 

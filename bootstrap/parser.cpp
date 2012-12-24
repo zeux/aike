@@ -64,11 +64,11 @@ SynBase* parseTerm(Lexer& lexer)
 		if (elements.empty())
 			errorf(location, "array cannot be empty");
 
-		return new SynArray(location, elements);
+		return new SynArrayLiteral(location, elements);
 	}
 	else if (lexer.current.type == LexNumber)
 	{
-		SynBase* result = new SynLiteralNumber(lexer.current.location, lexer.current.number);
+		SynBase* result = new SynNumberLiteral(lexer.current.location, lexer.current.number);
 		movenext(lexer);
 		return result;
 	}

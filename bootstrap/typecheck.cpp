@@ -115,17 +115,17 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynUnit, node))
 		return new ExprUnit(resolveType("unit", env, _->location), _->location);
 
-	if (CASE(SynLiteralNumber, node))
-		return new ExprLiteralNumber(resolveType("int", env, _->location), _->location, _->value);
+	if (CASE(SynNumberLiteral, node))
+		return new ExprNumberLiteral(resolveType("int", env, _->location), _->location, _->value);
 
-	if (CASE(SynArray, node))
+	if (CASE(SynArrayLiteral, node))
 	{
 		std::vector<Expr*> elements;
 
 		for (size_t i = 0; i < _->elements.size(); ++i)
 			elements.push_back(resolveExpr(_->elements[i], env));
 
-		return new ExprArray(new TypeArray(elements[0]->type), _->location, elements);
+		return new ExprArrayLiteral(new TypeArray(elements[0]->type), _->location, elements);
 	}
 
 	if (CASE(SynVariableReference, node))

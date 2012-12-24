@@ -75,18 +75,18 @@ struct SynUnit: SynBase
 	SynUnit(const Location& location): SynBase(location) {}
 };
 
-struct SynLiteralNumber: SynBase
+struct SynNumberLiteral: SynBase
 {
 	long long value;
 
-	SynLiteralNumber(const Location& location, long long value): SynBase(location), value(value) {}
+	SynNumberLiteral(const Location& location, long long value): SynBase(location), value(value) {}
 };
 
-struct SynArray: SynBase
+struct SynArrayLiteral: SynBase
 {
 	std::vector<SynBase*> elements;
 
-	SynArray(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
+	SynArrayLiteral(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
 };
 
 struct SynVariableReference: SynBase

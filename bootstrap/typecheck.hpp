@@ -42,18 +42,18 @@ struct ExprUnit: Expr
 	ExprUnit(Type* type, const Location& location): Expr(type, location) {}
 };
 
-struct ExprLiteralNumber: Expr
+struct ExprNumberLiteral: Expr
 {
 	long long value;
 
-	ExprLiteralNumber(Type* type, const Location& location, long long value): Expr(type, location), value(value) {}
+	ExprNumberLiteral(Type* type, const Location& location, long long value): Expr(type, location), value(value) {}
 };
 
-struct ExprArray: Expr
+struct ExprArrayLiteral: Expr
 {
 	std::vector<Expr*> elements;
 
-	ExprArray(Type* type, const Location& location, const std::vector<Expr*>& elements): Expr(type, location), elements(elements) {}
+	ExprArrayLiteral(Type* type, const Location& location, const std::vector<Expr*>& elements): Expr(type, location), elements(elements) {}
 };
 
 struct ExprBinding: Expr
