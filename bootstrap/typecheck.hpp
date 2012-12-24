@@ -151,6 +151,17 @@ struct ExprIfThenElse: Expr
 	}
 };
 
+struct ExprForInDo: Expr
+{
+	BindingTarget* target;
+	Expr* arr;
+	Expr* body;
+
+	ExprForInDo(Type* type, const Location& location, BindingTarget* target, Expr* arr, Expr* body): Expr(type, location), target(target), arr(arr), body(body)
+	{
+	}
+};
+
 struct ExprBlock: Expr
 {
 	std::vector<Expr*> expressions;

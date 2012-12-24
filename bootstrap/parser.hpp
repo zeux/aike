@@ -210,6 +210,17 @@ struct SynIfThenElse: SynBase
 	}
 };
 
+struct SynForInDo: SynBase
+{
+	SynIdentifier var;
+	SynBase* arr;
+	SynBase* body;
+
+	SynForInDo(const Location& location, const SynIdentifier& var, SynBase* arr, SynBase* body): SynBase(location), var(var), arr(arr), body(body)
+	{
+	}
+};
+
 struct SynBlock: SynBase
 {
 	std::vector<SynBase*> expressions;

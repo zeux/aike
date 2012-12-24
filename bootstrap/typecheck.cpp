@@ -125,7 +125,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		for (size_t i = 0; i < _->elements.size(); ++i)
 			elements.push_back(resolveExpr(_->elements[i], env));
 
-		return new ExprArrayLiteral(new TypeArray(elements[0]->type), _->location, elements);
+		return new ExprArrayLiteral(elements.empty() ? (Type*)new TypeGeneric() : (Type*)new TypeArray(elements[0]->type), _->location, elements);
 	}
 
 	if (CASE(SynVariableReference, node))
@@ -240,6 +240,20 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynIfThenElse, node))
 		return new ExprIfThenElse(new TypeGeneric(), _->location, resolveExpr(_->cond, env), resolveExpr(_->thenbody, env), resolveExpr(_->elsebody, env));
+
+	if (CASE(SynForInDo, node))
+	{
+		Expr* arr = resolveExpr(_->arr, env);
+
+		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
+		if (!arr_type) errorf(arr->location, "iteration is only available on array types");
+
+		BindingTarget* target = new BindingTarget(_->var.name, arr_type->contained);
+
+		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
+
+		return new ExprForInDo(new TypeUnit(), _->location, target, arr, resolveExpr(_->body, env));
+	}
 
 	if (CASE(SynBlock, node))
 	{

@@ -104,6 +104,9 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprArrayLiteral, node))
 	{
+		if (!dynamic_cast<TypeArray*>(_->type))
+			errorf(_->location, "array type is unknown");
+
 		llvm::Type* array_type = compileType(context, _->type, _->location);
 
 		llvm::Type* element_type = array_type->getContainedType(0)->getContainedType(0);
@@ -309,6 +312,45 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		pn->addIncoming(elsebody, elsebb);
 
 		return pn;
+	}
+
+	if (CASE(ExprForInDo, node))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* arr = compileExpr(context, builder, _->arr);
+
+		llvm::Value* data = builder.CreateExtractValue(arr, 0);
+		llvm::Value* size = builder.CreateExtractValue(arr, 1);
+
+		llvm::Value* index = builder.CreateAlloca(builder.getInt32Ty());
+		builder.CreateStore(builder.getInt32(0), index);
+
+		llvm::BasicBlock* step_basic_block = llvm::BasicBlock::Create(*context.context, "for_step", function);
+		llvm::BasicBlock* body_basic_block = llvm::BasicBlock::Create(*context.context, "for_body");
+		llvm::BasicBlock* end_basic_block = llvm::BasicBlock::Create(*context.context, "for_end");
+
+		builder.CreateBr(step_basic_block);
+
+		builder.SetInsertPoint(step_basic_block);
+
+		builder.CreateCondBr(builder.CreateICmpULT(builder.CreateLoad(index), size), body_basic_block, end_basic_block);
+
+		function->getBasicBlockList().push_back(body_basic_block);
+		builder.SetInsertPoint(body_basic_block);
+
+		context.values[_->target] = builder.CreateLoad(builder.CreateGEP(data, builder.CreateLoad(index)));
+
+		compileExpr(context, builder, _->body);
+
+		builder.CreateStore(builder.CreateAdd(builder.CreateLoad(index), builder.getInt32(1)), index, false);
+
+		builder.CreateBr(step_basic_block);
+
+		function->getBasicBlockList().push_back(end_basic_block);
+		builder.SetInsertPoint(end_basic_block);
+
+		return 0;
 	}
 
 	if (CASE(ExprBlock, node))

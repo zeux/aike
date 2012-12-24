@@ -242,6 +242,16 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "else\n";
 		dump(os, _->elsebody, indent + 1);
 	}
+	else if (CASE(SynForInDo, root))
+	{
+		os << "for " << _->var.name << "\n";
+		indentout(os, indent);
+		os << "in\n";
+		dump(os, _->arr, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, _->body, indent + 1);
+	}
 	else if (CASE(SynBlock, root))
 	{
 		os << "SynBlock\n";
@@ -375,6 +385,18 @@ void dump(std::ostream& os, Expr* root, int indent)
 		indentout(os, indent);
 		os << "else\n";
 		dump(os, _->elsebody, indent + 1);
+	}
+	else if (CASE(ExprForInDo, root))
+	{
+		os << "for " << _->target->name << ": ";
+		dump(os, _->target->type);
+		os << "\n";
+		indentout(os, indent);
+		os << "in\n";
+		dump(os, _->arr, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(ExprBlock, root))
 	{

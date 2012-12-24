@@ -61,9 +61,6 @@ SynBase* parseTerm(Lexer& lexer)
 
 		movenext(lexer);
 
-		if (elements.empty())
-			errorf(location, "array cannot be empty");
-
 		return new SynArrayLiteral(location, elements);
 	}
 	else if (lexer.current.type == LexNumber)
@@ -385,6 +382,25 @@ SynBase* parseIfThenElse(Lexer& lexer)
 	return new SynIfThenElse(location, cond, thenbody, elsebody);
 }
 
+SynBase* parseForInDo(Lexer& lexer)
+{
+	Location location = lexer.current.location;
+	assert(iskeyword(lexer, "for"));
+	movenext(lexer);
+
+	SynIdentifier element = parseIdentifier(lexer);
+
+	if (!iskeyword(lexer, "in")) errorf(lexer.current.location, "Expected 'in' after array element name");
+	movenext(lexer);
+
+	SynBase* arr = parseExpr(lexer);
+
+	if (!iskeyword(lexer, "do")) errorf(lexer.current.location, "Expected 'do' after array expression");
+	movenext(lexer);
+
+	return new SynForInDo(location, element, arr, parseBlock(lexer));
+}
+
 SynBase* parsePrimary(Lexer& lexer)
 {
 	SynUnaryOpType uop = getUnaryOp(lexer.current.type);
@@ -409,6 +425,9 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "if"))
 		return parseIfThenElse(lexer);
+
+	if (iskeyword(lexer, "for"))
+		return parseForInDo(lexer);
 
 	if (iskeyword(lexer, "fun"))
 		return parseAnonymousFunc(lexer);

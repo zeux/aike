@@ -28,16 +28,16 @@ struct TypeArray: Type
 	Type* contained;
 
 	TypeArray(Type* contained): contained(contained)
-    {
-    }
+	{
+	}
 };
 
 struct TypeFunction: Type
 {
-    Type* result;
-    std::vector<Type*> args;
+	Type* result;
+	std::vector<Type*> args;
 
 	TypeFunction(Type* result, const std::vector<Type*>& args): result(result), args(args)
-    {
-    }
+	{
+	}
 };
