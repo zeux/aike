@@ -1,8 +1,6 @@
 extern print(value: int): unit
 
-print(5)
 0
 
 // OUTPUT:
-// 5
 // 0
