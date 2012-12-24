@@ -69,7 +69,7 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 
 Type* resolveType(SynType* type, Environment& env)
 {
-	if(!type)
+	if (!type)
 		return new TypeGeneric();
 
 	if (CASE(SynTypeBasic, type))

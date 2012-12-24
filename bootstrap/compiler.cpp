@@ -60,7 +60,9 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileType(context, _->args[i], location));
 
-		return context.types[type] = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
+		llvm::Type *function_type = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
+
+		return context.types[type] = llvm::PointerType::getUnqual(function_type);
 	}
 
 	errorf(location, "Unrecognized type");
@@ -157,9 +159,11 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLetFunc, node))
 	{
-		llvm::FunctionType* funty = llvm::cast<llvm::FunctionType>(compileType(context, _->type, _->location));
+		llvm::PointerType* ref_function_type = llvm::cast<llvm::PointerType>(compileType(context, _->type, _->location));
 
-		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, funty));
+		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(ref_function_type->getContainedType(0));
+
+		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
 
 		llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -174,7 +178,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = func;
 
-		if(_->body)
+		if (_->body)
 		{
 			llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
 
@@ -206,7 +210,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		os_stream.flush();
 
 		llvm::SMDiagnostic err;
-		if(!llvm::ParseAssemblyString(stream.str().c_str(), context.module, err, *context.context))
+		if (!llvm::ParseAssemblyString(stream.str().c_str(), context.module, err, *context.context))
 			errorf(_->location, "Failed to parse llvm inline code: %s", err.getMessage().c_str());
 
 		std::vector<llvm::Value*> arguments;

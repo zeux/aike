@@ -16,7 +16,7 @@ void errorf(const Location& location, const char* format, ...)
 
 	fprintf(stderr, "\n");
 
-	if(location.lineStart)
+	if (location.lineStart)
 	{
 		const char *lineEnd = strchr(location.lineStart, '\n');
 
@@ -24,7 +24,7 @@ void errorf(const Location& location, const char* format, ...)
 
 		fprintf(stderr, "at line %d, column %d\n", location.line + 1, location.column + 1);
 
-		if(lineEnd)
+		if (lineEnd)
 			fprintf(stderr, "%.*s\n", lineEnd - location.lineStart, location.lineStart);
 		else
 			fprintf(stderr, "%s\n", location.lineStart);

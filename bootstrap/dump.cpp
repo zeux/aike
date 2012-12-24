@@ -162,7 +162,7 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << (_->body ? "let " : "extern ") << _->var.name.name << ": ";
 		dump(os, _->var.type);
 
-		if(_->body)
+		if (_->body)
 		{
 			os << " =\n";
 			dump(os, _->body, indent + 1);
@@ -259,7 +259,7 @@ void dump(std::ostream& os, Expr* root, int indent)
 		os << (_->body ? "let " : "extern ") << _->target->name << ": ";
 		dump(os, _->type);
 
-		if(_->body)
+		if (_->body)
 		{
 			os << " =\n";
 			dump(os, _->body, indent + 1);

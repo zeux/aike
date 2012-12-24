@@ -82,7 +82,7 @@ Lexeme readident(Lexer& lexer)
 		consume(lexer);
 	}
 
-	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern")
+	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern" || data == "fun")
 		return Lexeme(LexKeyword, data);
 	else
 		return Lexeme(LexIdentifier, data);
@@ -171,7 +171,7 @@ void movenext(Lexer& lexer)
 
 		if (peekch(lexer) == '/')
 		{
-			if(peekch(lexer, 1) == '/')
+			if (peekch(lexer, 1) == '/')
 			{
 				while (peekch(lexer) && peekch(lexer) != '\n')
 					consume(lexer);

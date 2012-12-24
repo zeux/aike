@@ -16,6 +16,11 @@ inline bool islower(Lexeme& start, Lexeme& current)
 	return current.location.column < start.location.column || current.type == LexEOF;
 }
 
+inline bool issameline(Lexeme& start, Lexeme& current)
+{
+	return current.location.line == start.location.line;
+}
+
 SynBase* parseExpr(Lexer& lexer);
 SynBase* parseBlock(Lexer& lexer);
 
@@ -146,7 +151,7 @@ SynType* parseType(Lexer& lexer)
 	return new SynTypeBasic(parseIdentifier(lexer));
 }
 
-SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
+std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 {
 	assert(lexer.current.type == LexOpenBrace);
 	movenext(lexer);
@@ -177,6 +182,13 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 
 	movenext(lexer);
 
+	return args;
+}
+
+SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
+{
+	std::vector<SynTypedVar> args = parseFunctionArguments(lexer);
+
 	SynType* rettype = 0;
 
 	if (lexer.current.type == LexColon)
@@ -186,18 +198,11 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 		rettype = parseType(lexer);
 	}
 
-	SynBase* body = 0;
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
 
-	if(!is_extern)
-	{
-		if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
+	movenext(lexer);
 
-		movenext(lexer);
-
-		body = parseBlock(lexer);
-	}
-
-	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, body);
+	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, parseBlock(lexer));
 }
 
 SynBase* parseExternFunc(Lexer& lexer)
@@ -207,7 +212,53 @@ SynBase* parseExternFunc(Lexer& lexer)
 
 	SynIdentifier name = parseIdentifier(lexer);
 
-	return parseLetFunc(lexer, name, true);
+	std::vector<SynTypedVar> args = parseFunctionArguments(lexer);
+
+	SynType* rettype = 0;
+
+	if (lexer.current.type == LexColon)
+	{
+		movenext(lexer);
+		
+		rettype = parseType(lexer);
+	}
+
+	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, 0);
+}
+
+SynBase* parseAnonymousFunc(Lexer& lexer)
+{
+	Location start = lexer.current.location;
+
+	assert(iskeyword(lexer, "fun"));
+	movenext(lexer);
+
+	std::vector<SynTypedVar> args;
+
+	SynType* rettype = 0;
+
+	if (lexer.current.type == LexOpenBrace)
+	{
+		args = parseFunctionArguments(lexer);
+
+		if (lexer.current.type == LexColon)
+		{
+			movenext(lexer);
+		
+			rettype = parseType(lexer);
+		}
+	}
+	else if (lexer.current.type == LexIdentifier)
+	{
+		args.push_back(SynTypedVar(parseIdentifier(lexer), 0));
+	}
+
+	if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected ->");
+	movenext(lexer);
+
+	SynBase* body = parseBlock(lexer);
+
+	return new SynLetFunc(start, SynTypedVar(SynIdentifier("", Location()), rettype), args, body);
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -278,6 +329,9 @@ SynBase* parsePrimary(Lexer& lexer)
 	if (uop != SynUnaryOpUnknown)
 	{
 		Location location = lexer.current.location;
+
+		movenext(lexer);
+
 		return new SynUnaryOp(location, uop, parsePrimary(lexer));
 	}
 
@@ -293,9 +347,12 @@ SynBase* parsePrimary(Lexer& lexer)
 	if (iskeyword(lexer, "if"))
 		return parseIfThenElse(lexer);
 
+	if (iskeyword(lexer, "fun"))
+		return parseAnonymousFunc(lexer);
+
 	SynBase* result = parseTerm(lexer);
 
-	if (lexer.current.type == LexOpenBrace)
+	while (lexer.current.type == LexOpenBrace)
 	{
 		Location location = lexer.current.location;
 		movenext(lexer);
@@ -316,7 +373,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 		movenext(lexer);
 
-		return new SynCall(location, result, args);
+		result = new SynCall(location, result, args);
 	}
 
 	return result;
@@ -362,13 +419,13 @@ SynBase* parseBlock(Lexer& lexer)
 
 	SynBase* head = parseExpr(lexer);
 
-	if (!islower(start, lexer.current))
+	if (!islower(start, lexer.current) && !issameline(start, lexer.current))
 	{
 		std::vector<SynBase*> exprs;
 
 		exprs.push_back(head);
 
-		while (!islower(start, lexer.current))
+		while (!islower(start, lexer.current) && !issameline(start, lexer.current))
 			exprs.push_back(parseExpr(lexer));
 		
 		return new SynBlock(start.location, exprs);
@@ -379,5 +436,10 @@ SynBase* parseBlock(Lexer& lexer)
 
 SynBase* parse(Lexer& lexer)
 {
-	return parseBlock(lexer);
+	SynBase* code = parseBlock(lexer);
+
+	if(lexer.current.type != LexEOF)
+		errorf(lexer.current.location, "Unexpected expression");
+
+	return code;
 }
