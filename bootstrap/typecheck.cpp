@@ -67,6 +67,30 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 	errorf(location, "Unknown type %s", name.c_str());
 }
 
+Type* resolveType(SynType* type, Environment& env)
+{
+	if(!type)
+		return new TypeGeneric();
+
+	if (CASE(SynTypeBasic, type))
+	{
+		return resolveType(_->type.name, env, _->type.location);
+	}
+
+	if (CASE(SynTypeFunction, type))
+	{
+		std::vector<Type*> argtys;
+
+		for (size_t i = 0; i < _->argument_types.size(); ++i)
+			argtys.push_back(resolveType(_->argument_types[i], env));
+
+		return new TypeFunction(resolveType(_->return_type, env), argtys);
+	}
+
+	assert(!"Unknown syntax tree type");
+	return 0;
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -109,7 +133,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
-		return new ExprLetVar(resolveType(_->var.type.name, env, _->var.type.location), _->location, target, body);
+		return new ExprLetVar(resolveType(_->var.type, env), _->location, target, body);
 	}
 
 	if (CASE(SynLLVM, node))
@@ -127,12 +151,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			BindingTarget* target = new BindingTarget(_->args[i].name.name);
 
 			args.push_back(target);
-			argtys.push_back(resolveType(_->args[i].type.name, env, _->args[i].type.location));
+			argtys.push_back(resolveType(_->args[i].type, env));
 
 			env.bindings.push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		Type* funty = new TypeFunction(resolveType(_->var.type.name, env, _->var.type.location), argtys);
+		Type* funty = new TypeFunction(resolveType(_->var.type, env), argtys);
 
 		Expr* body = _->body ? resolveExpr(_->body, env) : 0;
 

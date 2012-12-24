@@ -19,12 +19,36 @@ struct SynIdentifier
 	}
 };
 
+struct SynType
+{
+	virtual ~SynType(){ }
+};
+
+struct SynTypeBasic: SynType
+{
+	SynIdentifier type;
+
+	SynTypeBasic(const SynIdentifier& type): type(type)
+	{
+	}
+};
+
+struct SynTypeFunction: SynType
+{
+	std::vector<SynType*> argument_types;
+	SynType* return_type;
+
+	SynTypeFunction(const std::vector<SynType*>& argument_types, SynType* return_type): argument_types(argument_types), return_type(return_type)
+	{
+	}
+};
+
 struct SynTypedVar
 {
 	SynIdentifier name;
-	SynIdentifier type;
+	SynType* type;
 
-	SynTypedVar(const SynIdentifier& name, const SynIdentifier& type): name(name), type(type)
+	SynTypedVar(const SynIdentifier& name, SynType* type): name(name), type(type)
 	{
 	}
 };

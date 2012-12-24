@@ -111,9 +111,39 @@ SynIdentifier parseIdentifier(Lexer& lexer)
 	return SynIdentifier(name, location);
 }
 
-SynIdentifier parseType(Lexer& lexer)
+SynType* parseType(Lexer& lexer)
 {
-	return parseIdentifier(lexer);
+	// Parse function type
+	if (lexer.current.type == LexOpenBrace)
+	{
+		movenext(lexer);
+
+		std::vector<SynType*> argument_types;
+
+		if (lexer.current.type != LexCloseBrace)
+		{
+			argument_types.push_back(parseType(lexer));
+
+			while (lexer.current.type == LexComma)
+			{
+				movenext(lexer);
+
+				argument_types.push_back(parseType(lexer));
+			}
+		}
+
+		if (lexer.current.type != LexCloseBrace)
+			errorf(lexer.current.location, "Expected ')' after function type argument list");
+		movenext(lexer);
+
+		if (lexer.current.type != LexArrow)
+			errorf(lexer.current.location, "Expected '->' after ')' in function type declaration");
+		movenext(lexer);
+
+		return new SynTypeFunction(argument_types, parseType(lexer));
+	}
+
+	return new SynTypeBasic(parseIdentifier(lexer));
 }
 
 SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
@@ -126,7 +156,7 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 	while (lexer.current.type != LexCloseBrace)
 	{
 		SynIdentifier argname = parseIdentifier(lexer);
-		SynIdentifier argtype;
+		SynType* argtype = 0;
 
 		if (lexer.current.type == LexColon)
 		{
@@ -147,7 +177,7 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 
 	movenext(lexer);
 
-	SynIdentifier rettype;
+	SynType* rettype = 0;
 
 	if (lexer.current.type == LexColon)
 	{
@@ -190,7 +220,7 @@ SynBase* parseLet(Lexer& lexer)
 	if (lexer.current.type == LexOpenBrace)
 		return parseLetFunc(lexer, name, false);
 
-	SynIdentifier type;
+	SynType* type = 0;
 
 	if (lexer.current.type == LexColon)
 	{

@@ -49,6 +49,35 @@ void dump(std::ostream& os, BindingBase* binding)
 	}
 }
 
+void dump(std::ostream& os, SynType* type)
+{
+	if (!type)
+	{
+		os << "generic";
+	}
+	else if (CASE(SynTypeBasic, type))
+	{
+		os << _->type.name;
+	}
+	else if (CASE(SynTypeFunction, type))
+	{
+		os << "(";
+
+		for (size_t i = 0; i < _->argument_types.size(); ++i)
+		{
+			os << (i == 0 ? "" : ", ");
+			dump(os, _->argument_types[i]);
+		}
+
+		os << + ") -> ";
+		dump(os, _->return_type);
+	}
+	else
+	{
+		assert(!"Unknown type");
+	}
+}
+
 void dump(std::ostream& os, SynUnaryOpType op)
 {
 	switch (op)
@@ -119,7 +148,9 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetVar, root))
 	{
-		os << "let " << _->var.name.name << ": " << _->var.type.name << " =\n";
+		os << "let " << _->var.name.name << ": ";
+		dump(os, _->var.type);
+		os << " =\n";
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(SynLLVM, root))
@@ -128,7 +159,8 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetFunc, root))
 	{
-		os << (_->body ? "let " : "extern ") << _->var.name.name << ": " << _->var.type.name;
+		os << (_->body ? "let " : "extern ") << _->var.name.name << ": ";
+		dump(os, _->var.type);
 
 		if(_->body)
 		{
