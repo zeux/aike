@@ -1,0 +1,10 @@
+let y =
+    let x = 5
+    5
+
+let z =
+    let x = 5 5
+    6
+
+// ERRORS:
+// let-indent-1.aike(6,15): Expected indentation after let expression
