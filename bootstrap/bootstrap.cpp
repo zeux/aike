@@ -184,7 +184,7 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 
 	std::ostringstream output, errors;
 
-	bool result = runCode(path, data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
+	bool result = runCode("", data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
 
 	if (output.str() != expectedOutput || errors.str() != expectedErrors || result != expectedErrors.empty())
 	{
