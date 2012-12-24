@@ -117,6 +117,34 @@ void dump(std::ostream& os, SynBinaryOpType op)
 	}
 }
 
+void dump(std::ostream& os, const SynIdentifier& name, SynType* ret_type, const std::vector<SynTypedVar>& args)
+{
+	os << name.name;
+	os << "(";
+
+	for (size_t i = 0; i < args.size(); i++)
+	{
+		if (i != 0)
+			os << ", ";
+
+		os << args[i].name.name;
+
+		if (args[i].type)
+		{
+			os << ": ";
+			dump(os, args[i].type);
+		}
+	}
+
+	os << ")";
+
+	if (ret_type)
+	{
+		os << ": ";
+		dump(os, ret_type);
+	}
+}
+
 void dump(std::ostream& os, SynBase* root, int indent)
 {
 	assert(root);
@@ -188,59 +216,15 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	{
 		bool anonymous = _->var.name.empty();
 
-		if (anonymous)
-			os << "fun ";
-		else
-			os << "let " << _->var.name;
-
-		os << "(";
-
-		for (size_t i = 0; i < _->args.size(); i++)
-		{
-			if (i != 0)
-				os << ", ";
-
-			os << _->args[i].name.name;
-
-			if (_->args[i].type)
-			{
-				os << ": ";
-				dump(os, _->args[i].type);
-			}
-		}
-
-		os << ")";
-
-		if (_->ret_type)
-		{
-			os << ": ";
-			dump(os, _->ret_type);
-		}
-
-		if (anonymous)
-			os << " ->\n";
-		else
-			os << " =\n";
-
+		os << (anonymous ? "fun " : "let ");
+		dump(os, _->var, _->ret_type, _->args);
+		os << (anonymous ? " ->\n" : " =\n");
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(SynExternFunc, root))
 	{
-		os << "extern " << _->var.name << "(";
-
-		for (size_t i = 0; i < _->args.size(); i++)
-		{
-			if(i != 0)
-				os << ", ";
-
-			os << _->args[i].name.name;
-			os << ": ";
-			dump(os, _->args[i].type);
-		}
-
-		os << "): ";
-		dump(os, _->ret_type);
-
+		os << "extern ";
+		dump(os, _->var, _->ret_type, _->args);
 		os << "\n";
 	}
 	else if (CASE(SynIfThenElse, root))
@@ -268,6 +252,28 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	{
 		assert(!"Unknown node");
 	}
+}
+
+void dump(std::ostream& os, TypeFunction* funty, BindingTarget* target, const std::vector<BindingTarget*>& args)
+{
+	os << target->name;
+	os << "(";
+
+	for (size_t i = 0; i < args.size(); i++)
+	{
+		if (i != 0)
+			os << ", ";
+
+		os << args[i]->name;
+		os << ": ";
+
+		assert(funty->args[i] == args[i]->type);
+		dump(os, args[i]->type);
+	}
+
+	os << "): ";
+
+	dump(os, funty->result);
 }
 
 void dump(std::ostream& os, Expr* root, int indent)
@@ -344,17 +350,15 @@ void dump(std::ostream& os, Expr* root, int indent)
 	}
 	else if (CASE(ExprLetFunc, root))
 	{
-		os << "let " << _->target->name << ": ";
-		dump(os, _->type);
-
+		os << "let ";
+		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
 	}
 	else if (CASE(ExprExternFunc, root))
 	{
-		os << "extern " << _->target->name << ": ";
-		dump(os, _->type);
-
+		os << "extern ";
+		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}
 	else if (CASE(ExprIfThenElse, root))
