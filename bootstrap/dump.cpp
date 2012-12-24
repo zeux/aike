@@ -24,8 +24,10 @@ void dump(std::ostream& os, Type* type)
 		os << "float";
 	else if (CASE(TypeArray, type))
 	{
-		os << "[]";
+		os << "(";
 		dump(os, _->contained);
+		os << ")";
+		os << "[]";
 	}
 	else if (CASE(TypeFunction, type))
 	{
@@ -66,21 +68,23 @@ void dump(std::ostream& os, SynType* type)
 	}
 	else if (CASE(SynTypeArray, type))
 	{
-		os << "[]";
+		os << "(";
 		dump(os, _->contained_type);
+		os << ")";
+		os << "[]";
 	}
 	else if (CASE(SynTypeFunction, type))
 	{
 		os << "(";
 
-		for (size_t i = 0; i < _->argument_types.size(); ++i)
+		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			os << (i == 0 ? "" : ", ");
-			dump(os, _->argument_types[i]);
+			dump(os, _->args[i]);
 		}
 
 		os << + ") -> ";
-		dump(os, _->return_type);
+		dump(os, _->result);
 	}
 	else
 	{

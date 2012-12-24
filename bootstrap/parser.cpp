@@ -143,38 +143,59 @@ SynIdentifier parseIdentifier(Lexer& lexer)
 	return SynIdentifier(name, location);
 }
 
-SynType* parseType(Lexer& lexer)
+SynType* parseType(Lexer& lexer);
+
+SynType* parseTypeBraced(Lexer& lexer)
 {
-	// Parse function type
-	if (lexer.current.type == LexOpenBrace)
+	assert(lexer.current.type == LexOpenBrace);
+	movenext(lexer);
+
+	std::vector<SynType*> list;
+
+	if (lexer.current.type != LexCloseBrace)
+	{
+		list.push_back(parseType(lexer));
+
+		while (lexer.current.type == LexComma)
+		{
+			movenext(lexer);
+
+			list.push_back(parseType(lexer));
+		}
+	}
+
+	if (lexer.current.type != LexCloseBrace)
+		errorf(lexer.current.location, "Expected ')' after function type argument list");
+	movenext(lexer);
+
+	if (lexer.current.type == LexArrow)
 	{
 		movenext(lexer);
 
-		std::vector<SynType*> argument_types;
-
-		if (lexer.current.type != LexCloseBrace)
-		{
-			argument_types.push_back(parseType(lexer));
-
-			while (lexer.current.type == LexComma)
-			{
-				movenext(lexer);
-
-				argument_types.push_back(parseType(lexer));
-			}
-		}
-
-		if (lexer.current.type != LexCloseBrace)
-			errorf(lexer.current.location, "Expected ')' after function type argument list");
-		movenext(lexer);
-
-		if (lexer.current.type != LexArrow)
-			errorf(lexer.current.location, "Expected '->' after ')' in function type declaration");
-		movenext(lexer);
-
-		return new SynTypeFunction(argument_types, parseType(lexer));
+		return new SynTypeFunction(parseType(lexer), list);
 	}
-	// Parse array type
+	else
+	{
+		if (list.size() != 1)
+			errorf(lexer.current.location, "Expected '->' after ')' in function type declaration");
+
+		return list[0];
+	}
+}
+
+SynType* parseType(Lexer& lexer)
+{
+	SynType* type;
+
+	if (lexer.current.type == LexOpenBrace)
+	{
+		type = parseTypeBraced(lexer);
+	}
+	else
+	{
+		type = new SynTypeBasic(parseIdentifier(lexer));
+	}
+	
 	if (lexer.current.type == LexOpenBracket)
 	{
 		movenext(lexer);
@@ -183,10 +204,12 @@ SynType* parseType(Lexer& lexer)
 			errorf(lexer.current.location, "Expected ']' after '['");
 		movenext(lexer);
 
-		return new SynTypeArray(parseType(lexer));
+		return new SynTypeArray(type);
 	}
-
-	return new SynTypeBasic(parseIdentifier(lexer));
+	else
+	{
+		return type;
+	}
 }
 
 std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)

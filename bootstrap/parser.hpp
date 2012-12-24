@@ -44,10 +44,10 @@ struct SynTypeArray: SynType
 
 struct SynTypeFunction: SynType
 {
-	std::vector<SynType*> argument_types;
-	SynType* return_type;
+	SynType* result;
+	std::vector<SynType*> args;
 
-	SynTypeFunction(const std::vector<SynType*>& argument_types, SynType* return_type): argument_types(argument_types), return_type(return_type)
+	SynTypeFunction(SynType* result, const std::vector<SynType*>& args): result(result), args(args)
 	{
 	}
 };

@@ -88,10 +88,10 @@ Type* resolveType(SynType* type, Environment& env)
 	{
 		std::vector<Type*> argtys;
 
-		for (size_t i = 0; i < _->argument_types.size(); ++i)
-			argtys.push_back(resolveType(_->argument_types[i], env));
+		for (size_t i = 0; i < _->args.size(); ++i)
+			argtys.push_back(resolveType(_->args[i], env));
 
-		return new TypeFunction(resolveType(_->return_type, env), argtys);
+		return new TypeFunction(resolveType(_->result, env), argtys);
 	}
 
 	assert(!"Unknown syntax tree type");
