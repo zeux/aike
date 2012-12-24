@@ -116,7 +116,7 @@ SynIdentifier parseType(Lexer& lexer)
 	return parseIdentifier(lexer);
 }
 
-SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
+SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
 {
 	assert(lexer.current.type == LexOpenBrace);
 	movenext(lexer);
@@ -156,11 +156,28 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
 		rettype = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
+	SynBase* body = 0;
 
+	if(!is_extern)
+	{
+		if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
+
+		movenext(lexer);
+
+		body = parseBlock(lexer);
+	}
+
+	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, body);
+}
+
+SynBase* parseExternFunc(Lexer& lexer)
+{
+	assert(iskeyword(lexer, "extern"));
 	movenext(lexer);
 
-	return new SynLetFunc(name.location, SynTypedVar(name, rettype), args, parseBlock(lexer));
+	SynIdentifier name = parseIdentifier(lexer);
+
+	return parseLetFunc(lexer, name, true);
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -171,7 +188,7 @@ SynBase* parseLet(Lexer& lexer)
 	SynIdentifier name = parseIdentifier(lexer);
 
 	if (lexer.current.type == LexOpenBrace)
-		return parseLetFunc(lexer, name);
+		return parseLetFunc(lexer, name, false);
 
 	SynIdentifier type;
 
@@ -233,6 +250,9 @@ SynBase* parsePrimary(Lexer& lexer)
 		Location location = lexer.current.location;
 		return new SynUnaryOp(location, uop, parsePrimary(lexer));
 	}
+
+	if (iskeyword(lexer, "extern"))
+		return parseExternFunc(lexer);
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);

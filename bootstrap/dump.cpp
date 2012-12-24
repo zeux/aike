@@ -30,7 +30,7 @@ void dump(std::ostream& os, Type* type)
 			if (i != 0) os << ",";
 			dump(os, _->args[i]);
 		}
-		os << ")=>";
+		os << ")->";
 		dump(os, _->result);
 	}
 	else
@@ -80,6 +80,8 @@ void dump(std::ostream& os, SynBinaryOpType op)
 
 void dump(std::ostream& os, SynBase* root, int indent)
 {
+	assert(root);
+
 	indentout(os, indent);
 
 	if (CASE(SynUnit, root))
@@ -126,8 +128,17 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynLetFunc, root))
 	{
-		os << "let " << _->var.name.name << ": " << _->var.type.name << " =\n";
-		dump(os, _->body, indent + 1);
+		os << (_->body ? "let " : "extern ") << _->var.name.name << ": " << _->var.type.name;
+
+		if(_->body)
+		{
+			os << " =\n";
+			dump(os, _->body, indent + 1);
+		}
+		else
+		{
+			os << "\n";
+		}
 	}
 	else if (CASE(SynIfThenElse, root))
 	{
@@ -158,6 +169,8 @@ void dump(std::ostream& os, SynBase* root, int indent)
 
 void dump(std::ostream& os, Expr* root, int indent)
 {
+	assert(root);
+
 	indentout(os, indent);
 	os << "//";
 	dump(os, root->type);
@@ -211,10 +224,18 @@ void dump(std::ostream& os, Expr* root, int indent)
 	}
 	else if (CASE(ExprLetFunc, root))
 	{
-		os << "let " << _->target->name << ": ";
+		os << (_->body ? "let " : "extern ") << _->target->name << ": ";
 		dump(os, _->type);
-		os << " =\n";
-		dump(os, _->body, indent + 1);
+
+		if(_->body)
+		{
+			os << " =\n";
+			dump(os, _->body, indent + 1);
+		}
+		else
+		{
+			os << "\n";
+		}
 	}
 	else if (CASE(ExprIfThenElse, root))
 	{

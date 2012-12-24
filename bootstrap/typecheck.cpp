@@ -69,6 +69,8 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
+	assert(node);
+
 	if (CASE(SynUnit, node))
 		return new ExprUnit(resolveType("unit", env, _->location), _->location);
 
@@ -132,7 +134,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		Type* funty = new TypeFunction(resolveType(_->var.type.name, env, _->var.type.location), argtys);
 
-		Expr* body = resolveExpr(_->body, env);
+		Expr* body = _->body ? resolveExpr(_->body, env) : 0;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			env.bindings.pop_back();

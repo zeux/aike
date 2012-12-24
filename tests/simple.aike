@@ -1,5 +1,4 @@
-let print(x: int): unit =
-    llvm "call i32 @aike_print(i32 %x)"
+extern print(x: int): unit
 
 let add(x: int, y: int): int =
     llvm "add i32 %x, %y"

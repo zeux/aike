@@ -81,6 +81,8 @@ llvm::Value* compileBinding(Context& context, BindingBase* binding, const Locati
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
 {
+	assert(node);
+
 	if (CASE(ExprUnit, node))
 	{
 		// since we only have int type right now, unit should be int :)
@@ -172,13 +174,16 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = func;
 
-		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+		if(_->body)
+		{
+			llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
 
-		llvm::IRBuilder<> funcbuilder(bb);
+			llvm::IRBuilder<> funcbuilder(bb);
 
-		llvm::Value* value = compileExpr(context,  funcbuilder, _->body);
+			llvm::Value* value = compileExpr(context,  funcbuilder, _->body);
 
-		funcbuilder.CreateRet(value);
+			funcbuilder.CreateRet(value);
+		}
 
 		return func;
 	}

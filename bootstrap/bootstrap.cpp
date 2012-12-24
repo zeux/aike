@@ -22,8 +22,14 @@
 
 using namespace llvm;
 
-extern "C"
-void aike_print(int value)
+#if defined(__linux)
+	#define AIKE_EXTERN extern "C" __attribute__ ((visibility("default")))
+#else
+	#define AIKE_EXTERN extern "C" __declspec(dllexport)
+#endif
+
+AIKE_EXTERN
+void print(int value)
 {
 	printf("Print from aike: %d\n", value);
 }
@@ -52,13 +58,9 @@ int main()
 
 	Module* module = new Module("test", context);
 
-	Function* aikeprintf = Function::Create(FunctionType::get(llvm::Type::getInt32Ty(context), std::vector<llvm::Type*>(1, llvm::Type::getInt32Ty(context)), false), Function::ExternalLinkage, "aike_print", module);
-
 	compile(context, module, roote);
 
 	ExecutionEngine* EE = EngineBuilder(module).create();
-
-	EE->addGlobalMapping(aikeprintf, aike_print);
 
 	outs() << *module;
 
