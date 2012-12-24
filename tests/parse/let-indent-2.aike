@@ -1,9 +1,6 @@
-let y = 5
-let x = 6
 let z =
-    let w = 1
-    w + x
-z + y
+    let x = 5 5
+    6
 
-// OUTPUT:
-// 12
+// ERRORS:
+// (2,15): Expected newline after let expression
