@@ -1,0 +1,6 @@
+let boo = fun (x:int, y:int): int -> y * x
+
+boo(4, 6)
+
+// OUTPUT:
+// 24

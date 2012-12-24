@@ -1,0 +1,6 @@
+let boo = fun -> 4
+
+boo()
+
+// OUTPUT:
+// 4

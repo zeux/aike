@@ -1,0 +1,6 @@
+let boo = fun (): (()->int)->int -> fun (x: () -> int) -> 2 * x()
+
+boo()(fun -> 6)
+
+// OUTPUT:
+// 12

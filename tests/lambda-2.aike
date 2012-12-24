@@ -1,0 +1,6 @@
+let boo = fun x -> 2 * x
+
+boo(4)
+
+// OUTPUT:
+// 8

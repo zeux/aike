@@ -1,0 +1,14 @@
+extern print(i:int):unit
+
+let x: int[] = [2, 3]
+
+let sum = 0
+
+for i in x do
+    print(i)
+0
+
+// OUTPUT:
+// 2
+// 3
+// 0
