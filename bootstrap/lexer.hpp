@@ -12,6 +12,8 @@ enum LexemeType
 	LexComma,
 	LexOpenBrace,
 	LexCloseBrace,
+	LexOpenBracket,
+	LexCloseBracket,
 	LexEqual,
 	LexPlus,
 	LexMinus,

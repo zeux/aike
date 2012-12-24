@@ -39,6 +39,33 @@ SynBase* parseTerm(Lexer& lexer)
 
 		return expr;
 	}
+	else if (lexer.current.type == LexOpenBracket)
+	{
+		Location location = lexer.current.location;
+
+		movenext(lexer);
+
+		std::vector<SynBase*> elements;
+
+		while (lexer.current.type != LexCloseBracket)
+		{
+			if (!elements.empty())
+			{
+				if (lexer.current.type != LexComma)
+					errorf(lexer.current.location, "',' expected after previous array element");
+				movenext(lexer);
+			}
+
+			elements.push_back(parseExpr(lexer));
+		}
+
+		movenext(lexer);
+
+		if (elements.empty())
+			errorf(location, "array cannot be empty");
+
+		return new SynArray(location, elements);
+	}
 	else if (lexer.current.type == LexNumber)
 	{
 		SynBase* result = new SynLiteralNumber(lexer.current.location, lexer.current.number);
@@ -146,6 +173,17 @@ SynType* parseType(Lexer& lexer)
 		movenext(lexer);
 
 		return new SynTypeFunction(argument_types, parseType(lexer));
+	}
+	// Parse array type
+	if (lexer.current.type == LexOpenBracket)
+	{
+		movenext(lexer);
+
+		if (lexer.current.type != LexCloseBracket)
+			errorf(lexer.current.location, "Expected ']' after '['");
+		movenext(lexer);
+
+		return new SynTypeArray(parseType(lexer));
 	}
 
 	return new SynTypeBasic(parseIdentifier(lexer));
@@ -352,28 +390,43 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	SynBase* result = parseTerm(lexer);
 
-	while (lexer.current.type == LexOpenBrace)
+	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket)
 	{
-		Location location = lexer.current.location;
-		movenext(lexer);
-
-		std::vector<SynBase*> args;
-
-		while (lexer.current.type != LexCloseBrace)
+		if (lexer.current.type == LexOpenBrace)
 		{
-			args.push_back(parseExpr(lexer));
+			Location location = lexer.current.location;
+			movenext(lexer);
 
-			if (lexer.current.type == LexComma)
-				movenext(lexer);
-			else if (lexer.current.type == LexCloseBrace)
-				;
-			else
-				errorf(lexer.current.location, "Expected comma or closing brace");
+			std::vector<SynBase*> args;
+
+			while (lexer.current.type != LexCloseBrace)
+			{
+				args.push_back(parseExpr(lexer));
+
+				if (lexer.current.type == LexComma)
+					movenext(lexer);
+				else if (lexer.current.type == LexCloseBrace)
+					;
+				else
+					errorf(lexer.current.location, "Expected comma or closing brace");
+			}
+
+			movenext(lexer);
+
+			result = new SynCall(location, result, args);
 		}
+		else if (lexer.current.type == LexOpenBracket)
+		{
+			Location location = lexer.current.location;
+			movenext(lexer);
 
-		movenext(lexer);
+			SynBase* index = parseExpr(lexer);
 
-		result = new SynCall(location, result, args);
+			if (lexer.current.type != LexCloseBracket) errorf(lexer.current.location, "']' expected after index");
+			movenext(lexer);
+
+			result = new SynArrayIndex(location, result, index);
+		}
 	}
 
 	return result;

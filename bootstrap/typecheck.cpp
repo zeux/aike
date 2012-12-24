@@ -70,11 +70,18 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 Type* resolveType(SynType* type, Environment& env)
 {
 	if (!type)
+	{
 		return new TypeGeneric();
+	}
 
 	if (CASE(SynTypeBasic, type))
 	{
 		return resolveType(_->type.name, env, _->type.location);
+	}
+
+	if (CASE(SynTypeArray, type))
+	{
+		return new TypeArray(resolveType(_->contained_type, env));
 	}
 
 	if (CASE(SynTypeFunction, type))
@@ -101,6 +108,16 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynLiteralNumber, node))
 		return new ExprLiteralNumber(resolveType("int", env, _->location), _->location, _->value);
 
+	if (CASE(SynArray, node))
+	{
+		std::vector<Expr*> elements;
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			elements.push_back(resolveExpr(_->elements[i], env));
+
+		return new ExprArray(new TypeArray(elements[0]->type), _->location, elements);
+	}
+
 	if (CASE(SynVariableReference, node))
 	{
 		for (size_t i = env.bindings.size(); i > 0; --i)
@@ -124,6 +141,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		return new ExprCall(new TypeGeneric(), _->location, resolveExpr(_->expr, env), args);
 	}
+
+	if (CASE(SynArrayIndex, node))
+		return new ExprArrayIndex(new TypeGeneric(), _->location, resolveExpr(_->arr, env), resolveExpr(_->index, env));
 
 	if (CASE(SynLetVar, node))
 	{

@@ -48,6 +48,13 @@ struct ExprLiteralNumber: Expr
 	ExprLiteralNumber(Type* type, const Location& location, long long value): Expr(type, location), value(value) {}
 };
 
+struct ExprArray: Expr
+{
+	std::vector<Expr*> elements;
+
+	ExprArray(Type* type, const Location& location, const std::vector<Expr*>& elements): Expr(type, location), elements(elements) {}
+};
+
 struct ExprBinding: Expr
 {
 	BindingBase* binding;
@@ -78,6 +85,16 @@ struct ExprCall: Expr
 	std::vector<Expr*> args;
 
 	ExprCall(Type* type, const Location& location, Expr* expr, const std::vector<Expr*>& args): Expr(type, location), expr(expr), args(args)
+	{
+	}
+};
+
+struct ExprArrayIndex: Expr
+{
+	Expr* arr;
+	Expr* index;
+
+	ExprArrayIndex(Type* type, const Location& location, Expr* arr, Expr* index): Expr(type, location), arr(arr), index(index)
 	{
 	}
 };

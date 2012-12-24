@@ -33,6 +33,15 @@ struct SynTypeBasic: SynType
 	}
 };
 
+struct SynTypeArray: SynType
+{
+	SynType* contained_type;
+
+	SynTypeArray(SynType* contained_type): contained_type(contained_type)
+	{
+	}
+};
+
 struct SynTypeFunction: SynType
 {
 	std::vector<SynType*> argument_types;
@@ -71,6 +80,13 @@ struct SynLiteralNumber: SynBase
 	long long value;
 
 	SynLiteralNumber(const Location& location, long long value): SynBase(location), value(value) {}
+};
+
+struct SynArray: SynBase
+{
+	std::vector<SynBase*> elements;
+
+	SynArray(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
 };
 
 struct SynVariableReference: SynBase
@@ -127,6 +143,16 @@ struct SynCall: SynBase
 	std::vector<SynBase*> args;
 
 	SynCall(const Location& location, SynBase* expr, const std::vector<SynBase*>& args): SynBase(location), expr(expr), args(args)
+	{
+	}
+};
+
+struct SynArrayIndex: SynBase
+{
+	SynBase* arr;
+	SynBase* index;
+
+	SynArrayIndex(const Location& location, SynBase* arr, SynBase* index): SynBase(location), arr(arr), index(index)
 	{
 	}
 };

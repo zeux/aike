@@ -23,6 +23,15 @@ struct TypeFloat: Type
 {
 };
 
+struct TypeArray: Type
+{
+	Type* contained;
+
+	TypeArray(Type* contained): contained(contained)
+    {
+    }
+};
+
 struct TypeFunction: Type
 {
     Type* result;

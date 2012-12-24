@@ -21,6 +21,7 @@ struct Context
 {
 	llvm::LLVMContext* context;
 	llvm::Module* module;
+	llvm::DataLayout* layout;
 
 	std::map<BindingTarget*, llvm::Value*> values;
 	std::map<Type*, llvm::Type*> types;
@@ -51,6 +52,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	if (CASE(TypeFloat, type))
 	{
 		return context.types[type] = llvm::Type::getFloatTy(*context.context);
+	}
+
+	if (CASE(TypeArray, type))
+	{
+		return context.types[type] = llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
 	}
 
 	if (CASE(TypeFunction, type))
@@ -94,6 +100,33 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprLiteralNumber, node))
 	{
 		return builder.getInt32(uint32_t(_->value));
+	}
+
+	if (CASE(ExprLiteralNumber, node))
+	{
+		return builder.getInt32(uint32_t(_->value));
+	}
+
+	if (CASE(ExprArray, node))
+	{
+		llvm::Type* array_type = compileType(context, _->type, _->location);
+
+		llvm::Type* element_type = array_type->getContainedType(0)->getContainedType(0);
+
+		llvm::Value* arr = llvm::ConstantAggregateZero::get(array_type);
+
+		llvm::Value* data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(_->elements.size() * context.layout->getTypeAllocSize(element_type)))), array_type->getContainedType(0));
+
+		arr = builder.CreateInsertValue(arr, data, 0);
+
+		for (size_t i = 0; i < _->elements.size(); i++)
+		{
+			llvm::Value* target = builder.CreateGEP(data, builder.getInt32(uint32_t(i)));
+
+			builder.CreateStore(compileExpr(context, builder, _->elements[i]), target);
+		}
+
+		return builder.CreateInsertValue(arr, builder.getInt32(uint32_t(_->elements.size())), 1);
 	}
 
 	if (CASE(ExprBinding, node))
@@ -145,6 +178,16 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			args.push_back(compileExpr(context, builder, _->args[i]));
 
 		return builder.CreateCall(func, args);
+	}
+
+	if (CASE(ExprArrayIndex, node))
+	{
+		llvm::Value* arr = compileExpr(context, builder, _->arr);
+		llvm::Value* index = compileExpr(context, builder, _->index);
+
+		llvm::Value* data = builder.CreateExtractValue(arr, 0);
+
+		return builder.CreateLoad(builder.CreateGEP(data, index), false);
 	}
 
 	if (CASE(ExprLetVar, node))
@@ -273,6 +316,7 @@ void compile(llvm::LLVMContext& context, llvm::Module* module, Expr* root)
 	Context ctx;
 	ctx.context = &context;
 	ctx.module = module;
+	ctx.layout = new llvm::DataLayout(module);
 
 	llvm::Function* entryf =
 		llvm::cast<llvm::Function>(module->getOrInsertFunction("entrypoint", llvm::Type::getInt32Ty(context),

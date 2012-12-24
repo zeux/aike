@@ -58,6 +58,8 @@ int main()
 
 	Module* module = new Module("test", context);
 
+	Function::Create(FunctionType::get(llvm::Type::getInt8PtrTy(context), llvm::Type::getInt32Ty(context), false), Function::ExternalLinkage, "malloc", module);
+
 	compile(context, module, roote);
 
 	ExecutionEngine* EE = EngineBuilder(module).create();

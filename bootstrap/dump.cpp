@@ -22,6 +22,11 @@ void dump(std::ostream& os, Type* type)
 		os << "int";
 	else if (CASE(TypeFloat, type))
 		os << "float";
+	else if (CASE(TypeArray, type))
+	{
+		os << "[]";
+		dump(os, _->contained);
+	}
 	else if (CASE(TypeFunction, type))
 	{
 		os << "(";
@@ -58,6 +63,11 @@ void dump(std::ostream& os, SynType* type)
 	else if (CASE(SynTypeBasic, type))
 	{
 		os << _->type.name;
+	}
+	else if (CASE(SynTypeArray, type))
+	{
+		os << "[]";
+		dump(os, _->contained_type);
 	}
 	else if (CASE(SynTypeFunction, type))
 	{
@@ -117,6 +127,14 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "()\n";
 	else if (CASE(SynLiteralNumber, root))
 		os << _->value << "\n";
+	else if (CASE(SynArray, root))
+	{
+		os << "[\n";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			dump(os, _->elements[i], indent + 1);
+		indentout(os, indent);
+		os << "]\n";
+	}
 	else if (CASE(SynVariableReference, root))
 	{
 		os << _->name << "\n";
@@ -145,6 +163,15 @@ void dump(std::ostream& os, SynBase* root, int indent)
 			os << "arg " << i << "\n";
 			dump(os, _->args[i], indent + 1);
 		}
+	}
+	else if (CASE(SynArrayIndex, root))
+	{
+		os << "index\n";
+		dump(os, _->arr, indent + 1);
+
+		indentout(os, indent);
+		os << "with\n";
+		dump(os, _->index, indent + 1);
 	}
 	else if (CASE(SynLetVar, root))
 	{
@@ -213,6 +240,14 @@ void dump(std::ostream& os, Expr* root, int indent)
 		os << "()\n";
 	else if (CASE(ExprLiteralNumber, root))
 		os << _->value << "\n";
+	else if (CASE(ExprArray, root))
+	{
+		os << "[\n";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			dump(os, _->elements[i], indent + 1);
+		indentout(os, indent);
+		os << "]\n";
+	}
 	else if (CASE(ExprBinding, root))
 	{
 		dump(os, _->binding);
@@ -242,6 +277,15 @@ void dump(std::ostream& os, Expr* root, int indent)
 			os << "arg " << i << "\n";
 			dump(os, _->args[i], indent + 1);
 		}
+	}
+	else if (CASE(ExprArrayIndex, root))
+	{
+		os << "index\n";
+		dump(os, _->arr, indent + 1);
+
+		indentout(os, indent);
+		os << "with\n";
+		dump(os, _->index, indent + 1);
 	}
 	else if (CASE(ExprLetVar, root))
 	{
