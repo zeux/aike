@@ -121,6 +121,16 @@ struct ExprLetFunc: Expr
 	}
 };
 
+struct ExprExternFunc: Expr
+{
+	BindingTarget* target;
+	std::vector<BindingTarget*> args;
+
+	ExprExternFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args): Expr(type, location), target(target), args(args)
+	{
+	}
+};
+
 struct ExprLLVM: Expr
 {
 	std::string body;

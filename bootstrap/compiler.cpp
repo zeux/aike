@@ -221,16 +221,35 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = func;
 
-		if (_->body)
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+
+		llvm::IRBuilder<> funcbuilder(bb);
+
+		llvm::Value* value = compileExpr(context,  funcbuilder, _->body);
+
+		funcbuilder.CreateRet(value);
+
+		return func;
+	}
+
+
+	if (CASE(ExprExternFunc, node))
+	{
+		llvm::PointerType* ref_function_type = llvm::cast<llvm::PointerType>(compileType(context, _->type, _->location));
+
+		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(ref_function_type->getContainedType(0));
+
+		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
+
+		llvm::Function::arg_iterator argi = func->arg_begin();
+
+		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
 		{
-			llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-
-			llvm::IRBuilder<> funcbuilder(bb);
-
-			llvm::Value* value = compileExpr(context,  funcbuilder, _->body);
-
-			funcbuilder.CreateRet(value);
+			argi->setName(_->args[i]->name);
 		}
+
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = func;
 
 		return func;
 	}

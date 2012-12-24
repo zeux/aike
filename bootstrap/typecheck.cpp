@@ -98,6 +98,16 @@ Type* resolveType(SynType* type, Environment& env)
 	return 0;
 }
 
+Type* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env)
+{
+	std::vector<Type*> argtys;
+
+	for (size_t i = 0; i < args.size(); ++i)
+		argtys.push_back(resolveType(args[i].type, env));
+
+	return new TypeFunction(resolveType(rettype, env), argtys);
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -185,23 +195,20 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynLetFunc, node))
 	{
 		std::vector<BindingTarget*> args;
-		std::vector<Type*> argtys;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
-			argtys.push_back(resolveType(_->args[i].type, env));
-
 			env.bindings.push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		Type* funty = new TypeFunction(resolveType(_->ret_type, env), argtys);
+		Type* funty = resolveFunctionType(_->var.type, _->args, env);
 
 		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
-		Expr* body = _->body ? resolveExpr(_->body, env) : 0;
+		Expr* body = resolveExpr(_->body, env);
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			env.bindings.pop_back();
@@ -209,6 +216,26 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
 
 		return new ExprLetFunc(funty, _->location, target, args, body);
+	}
+
+	if (CASE(SynExternFunc, node))
+	{
+		BindingTarget* target = new BindingTarget(_->var.name.name);
+
+		std::vector<BindingTarget*> args;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+		{
+			BindingTarget* target = new BindingTarget(_->args[i].name.name);
+
+			args.push_back(target);
+		}
+
+		Type* funty = resolveFunctionType(_->var.type, _->args, env);
+
+		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
+
+		return new ExprExternFunc(funty, _->location, target, args);
 	}
 
 	if (CASE(SynIfThenElse, node))

@@ -188,6 +188,16 @@ struct SynLetFunc: SynBase
 	}
 };
 
+struct SynExternFunc: SynBase
+{
+	SynTypedVar var;
+	std::vector<SynTypedVar> args;
+
+	SynExternFunc(const Location& location, const SynTypedVar& var, const std::vector<SynTypedVar>& args): SynBase(location), var(var), args(args)
+	{
+	}
+};
+
 struct SynIfThenElse: SynBase
 {
 	SynBase* cond;

@@ -223,7 +223,7 @@ std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 	return args;
 }
 
-SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, bool is_extern)
+SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
 {
 	std::vector<SynTypedVar> args = parseFunctionArguments(lexer);
 
@@ -252,16 +252,18 @@ SynBase* parseExternFunc(Lexer& lexer)
 
 	std::vector<SynTypedVar> args = parseFunctionArguments(lexer);
 
-	SynType* rettype = 0;
+	for (size_t i = 0; i < args.size(); ++i)
+		if (!args[i].type)
+			errorf(args[i].name.location, "Type declaration missing for argument %s", args[i].name.name.c_str());
 
-	if (lexer.current.type == LexColon)
-	{
-		movenext(lexer);
-		
-		rettype = parseType(lexer);
-	}
+	if (lexer.current.type != LexColon)
+		errorf(lexer.current.location, "Type declaration missing for return type");
 
-	return new SynLetFunc(name.location, name, rettype, args, 0);
+	movenext(lexer);
+	
+	SynType* rettype = parseType(lexer);
+
+	return new SynExternFunc(name.location, SynTypedVar(name, rettype), args);
 }
 
 SynBase* parseAnonymousFunc(Lexer& lexer)
@@ -296,7 +298,7 @@ SynBase* parseAnonymousFunc(Lexer& lexer)
 
 	SynBase* body = parseBlock(lexer);
 
-	return new SynLetFunc(start, SynIdentifier("", Location()), rettype, args, body);
+	return new SynLetFunc(start, SynTypedVar(SynIdentifier("", start), rettype), args, body);
 }
 
 SynBase* parseLet(Lexer& lexer)
@@ -307,7 +309,7 @@ SynBase* parseLet(Lexer& lexer)
 	SynIdentifier name = parseIdentifier(lexer);
 
 	if (lexer.current.type == LexOpenBrace)
-		return parseLetFunc(lexer, name, false);
+		return parseLetFunc(lexer, name);
 
 	SynType* type = 0;
 

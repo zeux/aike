@@ -196,15 +196,15 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << ")->";
 		dump(os, _->ret_type);
 
-		if (_->body)
-		{
-			os << " =\n";
-			dump(os, _->body, indent + 1);
-		}
-		else
-		{
-			os << "\n";
-		}
+		os << " =\n";
+		dump(os, _->body, indent + 1);
+	}
+	else if (CASE(SynExternFunc, root))
+	{
+		os << "extern " << _->var.name.name << ": ";
+		dump(os, _->var.type);
+
+		os << "\n";
 	}
 	else if (CASE(SynIfThenElse, root))
 	{
@@ -307,18 +307,18 @@ void dump(std::ostream& os, Expr* root, int indent)
 	}
 	else if (CASE(ExprLetFunc, root))
 	{
-		os << (_->body ? "let " : "extern ") << _->target->name << ": ";
+		os << "let " << _->target->name << ": ";
 		dump(os, _->type);
 
-		if (_->body)
-		{
-			os << " =\n";
-			dump(os, _->body, indent + 1);
-		}
-		else
-		{
-			os << "\n";
-		}
+		os << " =\n";
+		dump(os, _->body, indent + 1);
+	}
+	else if (CASE(ExprExternFunc, root))
+	{
+		os << "extern " << _->target->name << ": ";
+		dump(os, _->type);
+
+		os << "\n";
 	}
 	else if (CASE(ExprIfThenElse, root))
 	{
