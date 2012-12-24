@@ -15,3 +15,8 @@ let main() =
         x / 4 + 2 * 2 - div2(5)
 
 main() + div2(0) + add(4, 5)
+
+// OUTPUT:
+// 5
+// 5
+// 53
