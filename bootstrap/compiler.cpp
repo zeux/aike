@@ -54,6 +54,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return context.types[type] = llvm::Type::getFloatTy(*context.context);
 	}
 
+	if (CASE(TypeBool, type))
+	{
+		return context.types[type] = llvm::Type::getInt1Ty(*context.context);
+	}
+
 	if (CASE(TypeArray, type))
 	{
 		return context.types[type] = llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
@@ -191,6 +196,8 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprLetVar, node))
 	{
 		llvm::Value* value = compileExpr(context, builder, _->body);
+
+		value->setName(_->target->name);
 
 		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = value;

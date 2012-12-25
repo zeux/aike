@@ -289,6 +289,7 @@ Expr* resolve(SynBase* root)
 	env.types.push_back(TypeBinding("unit", new TypeUnit()));
 	env.types.push_back(TypeBinding("int", new TypeInt()));
 	env.types.push_back(TypeBinding("float", new TypeFloat()));
+	env.types.push_back(TypeBinding("bool", new TypeBool()));
 
 	return resolveExpr(root, env);
 }

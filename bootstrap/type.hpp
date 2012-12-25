@@ -23,6 +23,10 @@ struct TypeFloat: Type
 {
 };
 
+struct TypeBool: Type
+{
+};
+
 struct TypeArray: Type
 {
 	Type* contained;
