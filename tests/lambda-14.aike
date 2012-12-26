@@ -1,0 +1,9 @@
+let boo(x: ()->int) =
+    2 * x()
+
+let x = 6
+
+boo(fun -> x)
+
+// OUTPUT:
+// 12

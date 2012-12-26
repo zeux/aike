@@ -1,0 +1,10 @@
+let x = 5
+
+let boo() =
+    fun ->
+        2 * x
+
+boo()()
+
+// OUTPUT:
+// 10

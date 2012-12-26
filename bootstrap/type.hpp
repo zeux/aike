@@ -27,6 +27,15 @@ struct TypeBool: Type
 {
 };
 
+struct TypeReference: Type
+{
+	Type* contained;
+
+	TypeReference(Type* contained): contained(contained)
+	{
+	}
+};
+
 struct TypeArray: Type
 {
 	Type* contained;
@@ -42,6 +51,15 @@ struct TypeFunction: Type
 	std::vector<Type*> args;
 
 	TypeFunction(Type* result, const std::vector<Type*>& args): result(result), args(args)
+	{
+	}
+};
+
+struct TypeStructure: Type
+{
+	std::vector<Type*> members;
+
+	TypeStructure(const std::vector<Type*>& members): members(members)
 	{
 	}
 };

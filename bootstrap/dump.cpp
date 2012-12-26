@@ -22,6 +22,13 @@ void dump(std::ostream& os, Type* type)
 		os << "int";
 	else if (CASE(TypeFloat, type))
 		os << "float";
+	else if (CASE(TypeReference, type))
+	{
+		os << "(";
+		dump(os, _->contained);
+		os << ")";
+		os << " ref";
+	}
 	else if (CASE(TypeArray, type))
 	{
 		os << "(";
@@ -39,6 +46,16 @@ void dump(std::ostream& os, Type* type)
 		}
 		os << ")->";
 		dump(os, _->result);
+	}
+	else if (CASE(TypeStructure, type))
+	{
+		os << "[";
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			if (i != 0) os << ",";
+			dump(os, _->members[i]);
+		}
+		os << "]";
 	}
 	else
 	{
@@ -317,6 +334,11 @@ void dump(std::ostream& os, Expr* root, int indent)
 		dump(os, _->binding);
 		os << "\n";
 	}
+	else if (CASE(ExprBindingExternal, root))
+	{
+		dump(os, _->context);
+		os << "." << _->member_name << " (structure element #" << _->member_index << ")\n";
+	}
 	else if (CASE(ExprUnaryOp, root))
 	{
 		dump(os, _->op);
@@ -368,6 +390,12 @@ void dump(std::ostream& os, Expr* root, int indent)
 		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
+		indentout(os, indent);
+		os << "context: ";
+		dump(os, _->context_target->type);
+		os << "\n";
+		for (size_t i = 0; i < _->externals.size(); ++i)
+			dump(os, _->externals[i], indent + 1);
 	}
 	else if (CASE(ExprExternFunc, root))
 	{

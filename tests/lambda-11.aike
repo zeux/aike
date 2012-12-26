@@ -1,0 +1,8 @@
+let boo(x:int) =
+    fun ->
+        2 * x
+
+boo(2)()
+
+// OUTPUT:
+// 4

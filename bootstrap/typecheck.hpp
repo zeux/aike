@@ -63,6 +63,15 @@ struct ExprBinding: Expr
 	ExprBinding(Type* type, const Location& location, BindingBase* binding): Expr(type, location), binding(binding) {}
 };
 
+struct ExprBindingExternal: Expr
+{
+	BindingBase* context;
+	std::string member_name;
+	size_t member_index;
+
+	ExprBindingExternal(Type* type, const Location& location, BindingBase* context, const std::string& member_name, size_t member_index): Expr(type, location), context(context), member_name(member_name), member_index(member_index) {}
+};
+
 struct ExprUnaryOp: Expr
 {
 	SynUnaryOpType op;
@@ -113,10 +122,12 @@ struct ExprLetVar: Expr
 struct ExprLetFunc: Expr
 {
 	BindingTarget* target;
+	BindingTarget* context_target;
 	std::vector<BindingTarget*> args;
 	Expr* body;
+	std::vector<Expr*> externals;
 
-	ExprLetFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args, Expr* body): Expr(type, location), target(target), args(args), body(body)
+	ExprLetFunc(Type* type, const Location& location, BindingTarget* target, BindingTarget* context_target, const std::vector<BindingTarget*>& args, Expr* body, const std::vector<Expr*>& externals): Expr(type, location), target(target), context_target(context_target), args(args), body(body), externals(externals)
 	{
 	}
 };

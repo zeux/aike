@@ -24,17 +24,39 @@ struct TypeBinding
 	}
 };
 
+struct FunctionInfo
+{
+	size_t scope;
+	BindingBase* context;
+	std::vector<BindingBase*> externals;
+
+	FunctionInfo(size_t scope): scope(scope), context(0)
+	{
+	}
+};
+
 struct Environment
 {
-	std::vector<Binding> bindings;
+	std::vector<std::vector<Binding> > bindings;
+	std::vector<FunctionInfo> functions;
 	std::vector<TypeBinding> types;
 };
 
-BindingBase* tryResolveBinding(const std::string& name, Environment& env)
+BindingBase* tryResolveBinding(const std::string& name, Environment& env, size_t* in_scope = 0)
 {
-	for (size_t i = env.bindings.size(); i > 0; --i)
-		if (env.bindings[i - 1].name == name)
-			return env.bindings[i - 1].binding;
+	for (size_t scope = env.bindings.size(); scope > 0; --scope)
+	{
+		for (size_t i = env.bindings[scope - 1].size(); i > 0; --i)
+		{
+			if (env.bindings[scope - 1][i - 1].name == name)
+			{
+				if (in_scope)
+					*in_scope = scope - 1;
+
+				return env.bindings[scope - 1][i - 1].binding;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -50,8 +72,10 @@ BindingBase* resolveBinding(const std::string& name, Environment& env, const Loc
 Type* tryResolveType(const std::string& name, Environment& env)
 {
 	for (size_t i = 0; i < env.types.size(); ++i)
+	{
 		if (env.types[i].name == name)
 			return env.types[i].type;
+	}
 
 	return 0;
 }
@@ -108,6 +132,31 @@ Type* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args
 	return new TypeFunction(resolveType(rettype, env), argtys);
 }
 
+Expr* resolveBindingAccess(const std::string& name, Location location, Environment& env)
+{
+	size_t scope;
+
+	if (BindingBase* binding = tryResolveBinding(name, env, &scope))
+	{
+		if (scope < env.functions.back().scope)
+		{
+			env.functions.back().externals.push_back(binding);
+
+			if (CASE(BindingLocal, binding))
+				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
+			else
+				errorf(location, "Can't resolve the binding of the function external variable %s", name.c_str());
+		}
+
+		if (CASE(BindingLocal, binding))
+			return new ExprBinding(_->target->type, location, _);
+		else
+			return new ExprBinding(new TypeGeneric(), location, binding);
+	}
+
+	return 0;
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -130,18 +179,8 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynVariableReference, node))
 	{
-		for (size_t i = env.bindings.size(); i > 0; --i)
-		{
-			if (env.bindings[i - 1].name == _->name)
-			{
-				Location location = _->location;
-
-				if (CASE(BindingLocal, env.bindings[i - 1].binding))
-					return new ExprBinding(_->target->type, location, _);
-				else
-					return new ExprBinding(new TypeGeneric(), location, env.bindings[i - 1].binding);
-			}
-		}
+		if (Expr* access = resolveBindingAccess(_->name, _->location, env))
+			return access;
 
 		errorf(_->location, "Unresolved variable reference %s", _->name.c_str());
 	}
@@ -184,7 +223,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		if (!_->var.type)
 			target->type = body->type;
 
-		env.bindings.push_back(Binding(_->var.name.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
 		return new ExprLetVar(target->type, _->location, target, body);
 	}
@@ -196,26 +235,64 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		std::vector<BindingTarget*> args;
 
+		env.functions.push_back(FunctionInfo(env.bindings.size()));
+		env.bindings.push_back(std::vector<Binding>());
+
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
-			env.bindings.push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
+			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		Type* funty = resolveFunctionType(_->ret_type, _->args, env);
+		BindingTarget* target = new BindingTarget(_->var.name, resolveFunctionType(_->ret_type, _->args, env));
 
-		BindingTarget* target = new BindingTarget(_->var.name, funty);
+		// Add info about function context. Context type will be resolved later
+		BindingTarget* context_target = new BindingTarget("extern", new TypeGeneric());
+		env.functions.back().context = new BindingLocal(context_target);
 
 		Expr* body = resolveExpr(_->body, env);
 
-		for (size_t i = 0; i < _->args.size(); ++i)
-			env.bindings.pop_back();
+		// If the function return type is not set, change it to the function body result type
+		if (!_->ret_type)
+		{
+			std::vector<Type*> argtys;
 
-		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
+			for (size_t i = 0; i < _->args.size(); ++i)
+				argtys.push_back(resolveType(_->args[i].type, env));
 
-		return new ExprLetFunc(funty, _->location, target, args, body);
+			target->type = new TypeFunction(body->type, argtys);
+		}
+
+		// Resolve function context type
+		std::vector<Type*> context_members;
+
+		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
+		{
+			if (CASE(BindingLocal, env.functions.back().externals[i]))
+				context_members.push_back(_->target->type);
+		}
+
+		context_target->type = new TypeReference(new TypeStructure(context_members));
+
+		std::vector<BindingBase*> function_externals = env.functions.back().externals;
+
+		env.functions.pop_back();
+		env.bindings.pop_back();
+
+		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
+
+		// Resolve function external variable capture
+		std::vector<Expr*> externals;
+
+		for (size_t i = 0; i < function_externals.size(); ++i)
+		{
+			if (CASE(BindingLocal, function_externals[i]))
+				externals.push_back(resolveBindingAccess(_->target->name, Location(), env));
+		}
+
+		return new ExprLetFunc(target->type, _->location, target, context_target, args, body, externals);
 	}
 
 	if (CASE(SynExternFunc, node))
@@ -233,7 +310,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			args.push_back(target);
 		}
 
-		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
 
 		return new ExprExternFunc(funty, _->location, target, args);
 	}
@@ -250,28 +327,32 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		BindingTarget* target = new BindingTarget(_->var.name, arr_type->contained);
 
-		env.bindings.push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
 
-		return new ExprForInDo(new TypeUnit(), _->location, target, arr, resolveExpr(_->body, env));
+		Expr* body = resolveExpr(_->body, env);
+
+		env.bindings.back().pop_back();
+
+		return new ExprForInDo(new TypeUnit(), _->location, target, arr, body);
 	}
 
 	if (CASE(SynBlock, node))
 	{
 		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
 		
-		size_t bind_count = env.bindings.size();
 		size_t type_count = env.types.size();
+
+		env.bindings.push_back(std::vector<Binding>());
 
 		for (size_t i = 0; i < _->expressions.size(); ++i)
 			expression->expressions.push_back(resolveExpr(_->expressions[i], env));
 
-		while (env.bindings.size() > bind_count)
-			env.bindings.pop_back();
+		env.bindings.pop_back();
 
 		while (env.types.size() > type_count)
 			env.types.pop_back();
 
-		// Block type is the type of the last expression
+		// Block type is the type of the last expression in block
 		if (!expression->expressions.empty())
 			expression->type = expression->expressions.back()->type;
 
@@ -290,6 +371,9 @@ Expr* resolve(SynBase* root)
 	env.types.push_back(TypeBinding("int", new TypeInt()));
 	env.types.push_back(TypeBinding("float", new TypeFloat()));
 	env.types.push_back(TypeBinding("bool", new TypeBool()));
+
+	env.functions.push_back(FunctionInfo(env.bindings.size()));
+	env.bindings.push_back(std::vector<Binding>());
 
 	return resolveExpr(root, env);
 }
