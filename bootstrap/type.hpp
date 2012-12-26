@@ -15,6 +15,10 @@ struct TypeUnit: Type
 {
 };
 
+struct TypeOpaquePointer: Type
+{
+};
+
 struct TypeInt: Type
 {
 };
@@ -49,9 +53,15 @@ struct TypeFunction: Type
 {
 	Type* result;
 	std::vector<Type*> args;
+	Type* context_type;
 
-	TypeFunction(Type* result, const std::vector<Type*>& args): result(result), args(args)
+	TypeFunction(Type* result, const std::vector<Type*>& args, Type* context_type): result(result), args(args), context_type(context_type)
 	{
+	}
+
+	Type* toGeneralType()
+	{
+		return new TypeFunction(result, args, new TypeOpaquePointer());
 	}
 };
 

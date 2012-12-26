@@ -18,6 +18,8 @@ void dump(std::ostream& os, Type* type)
 		os << "'" << type;
 	else if (CASE(TypeUnit, type))
 		os << "unit";
+	else if (CASE(TypeOpaquePointer, type))
+		os << "opaque";
 	else if (CASE(TypeInt, type))
 		os << "int";
 	else if (CASE(TypeFloat, type))
@@ -46,6 +48,11 @@ void dump(std::ostream& os, Type* type)
 		}
 		os << ")->";
 		dump(os, _->result);
+		if (_->context_type)
+		{
+			os << " with context ";
+			dump(os, _->context_type);
+		}
 	}
 	else if (CASE(TypeStructure, type))
 	{
@@ -392,10 +399,13 @@ void dump(std::ostream& os, Expr* root, int indent)
 		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << " =\n";
 		dump(os, _->body, indent + 1);
-		indentout(os, indent);
-		os << "context: ";
-		dump(os, _->context_target->type);
-		os << "\n";
+		if (_->context_target)
+		{
+			indentout(os, indent);
+			os << "context: ";
+			dump(os, _->context_target->type);
+			os << "\n";
+		}
 		for (size_t i = 0; i < _->externals.size(); ++i)
 			dump(os, _->externals[i], indent + 1);
 	}

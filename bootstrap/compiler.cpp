@@ -46,6 +46,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
 	}
 
+	if (CASE(TypeOpaquePointer, type))
+	{
+		return context.types[type] = llvm::Type::getInt8Ty(*context.context);
+	}
+
 	if (CASE(TypeInt, type))
 	{
 		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
@@ -78,12 +83,12 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileType(context, _->args[i], location));
 
-		// Add function context
-		args.push_back(llvm::Type::getInt8PtrTy(*context.context));
+		if (_->context_type)
+			args.push_back(llvm::PointerType::getUnqual(compileType(context, _->context_type, location)));
 
 		llvm::Type* function_type = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
 
-		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
+		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), _->context_type ? args.back() : llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
 
 		return context.types[type] = holder_type;
 	}
@@ -119,6 +124,31 @@ llvm::Value* compileBinding(Context& context, BindingBase* binding, const Locati
 	}
 
 	errorf(location, "Variable binding has not been resolved");
+}
+
+llvm::Function* compileFunctionThunk(Context& context, Location location, llvm::Function* target, llvm::Type* general_holder_type, llvm::Type* context_ref_type)
+{
+	llvm::FunctionType* thunk_function_type = llvm::cast<llvm::FunctionType>(general_holder_type->getContainedType(0)->getContainedType(0));
+
+	llvm::Function* thunk_func = llvm::Function::Create(thunk_function_type, llvm::Function::InternalLinkage, target->getName(), context.module);
+
+	llvm::BasicBlock* basic_block = llvm::BasicBlock::Create(*context.context, "entry", thunk_func);
+
+	llvm::IRBuilder<> funcbuilder(basic_block);
+
+	std::vector<llvm::Value*> args;
+
+	llvm::Function::arg_iterator argi = thunk_func->arg_begin();
+
+	for (size_t i = 0; i < target->arg_size(); ++i, ++argi)
+		args.push_back(argi);
+
+	if (context_ref_type)
+		args.back() = funcbuilder.CreatePointerCast(args.back(), context_ref_type);
+
+	funcbuilder.CreateRet(funcbuilder.CreateCall(target, args));
+
+	return thunk_func;
 }
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
@@ -266,6 +296,10 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::StructType* holder_type = llvm::cast<llvm::StructType>(compileType(context, _->type, _->location));
 
+		llvm::Type* general_holder_type = 0;
+		if (TypeFunction* function_type = dynamic_cast<TypeFunction*>(_->type))
+			general_holder_type = compileType(context, function_type->toGeneralType(), _->location);
+
 		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(holder_type->getContainedType(0)->getContainedType(0));
 
 		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
@@ -288,25 +322,27 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			}
 		}
 
-		llvm::Type* context_ref_type = compileType(context, _->context_target->type, _->location);
-		llvm::Type* context_type = context_ref_type->getContainedType(0);
+		llvm::Type* context_ref_type = 0;
+		llvm::Value* context_raw_data = 0;
 
-		llvm::Value* context_raw_data;
-		
-		if (_->externals.empty())
-			context_raw_data = llvm::Constant::getNullValue(llvm::Type::getInt8PtrTy(*context.context));
-		else
+		if (!_->externals.empty())
+		{
+			context_ref_type = compileType(context, _->context_target->type, _->location);
+			llvm::Type* context_type = context_ref_type->getContainedType(0);
+
 			context_raw_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), llvm::Type::getInt8PtrTy(*context.context));
 
-		llvm::Value* context_data = builder.CreateBitCast(context_raw_data, context_ref_type);
+			llvm::Value* context_data = builder.CreateBitCast(context_raw_data, context_ref_type);
 
-		for (size_t i = 0; i < _->externals.size(); i++)
-			builder.CreateStore(compileExpr(context, builder, _->externals[i]), builder.CreateStructGEP(context_data, i));
+			for (size_t i = 0; i < _->externals.size(); i++)
+				builder.CreateStore(compileExpr(context, builder, _->externals[i]), builder.CreateStructGEP(context_data, i));
+		}
 
-		llvm::Value* holder = llvm::ConstantAggregateZero::get(holder_type);
+		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
 
-		holder = builder.CreateInsertValue(holder, func, 0);
-		holder = builder.CreateInsertValue(holder, context_raw_data, 1);
+		holder = builder.CreateInsertValue(holder, compileFunctionThunk(context, _->location, func, general_holder_type, context_ref_type), 0);
+		if (context_raw_data)
+			holder = builder.CreateInsertValue(holder, context_raw_data, 1);
 
 		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = holder;
@@ -330,6 +366,10 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::StructType* holder_type = llvm::cast<llvm::StructType>(compileType(context, _->type, _->location));
 
+		llvm::Type* general_holder_type = 0;
+		if (TypeFunction* function_type = dynamic_cast<TypeFunction*>(_->type))
+			general_holder_type = compileType(context, function_type->toGeneralType(), _->location);
+
 		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(holder_type->getContainedType(0)->getContainedType(0));
 
 		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
@@ -342,9 +382,9 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 				argi->setName(_->args[i]->name);
 		}
 
-		llvm::Value* holder = llvm::ConstantAggregateZero::get(holder_type);
+		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
 
-		holder = builder.CreateInsertValue(holder, func, 0);
+		holder = builder.CreateInsertValue(holder, compileFunctionThunk(context, _->location, func, general_holder_type, 0), 0);
 		holder = builder.CreateInsertValue(holder, llvm::Constant::getNullValue(llvm::Type::getInt8PtrTy(*context.context)), 1);
 
 		assert(context.values.count(_->target) == 0);

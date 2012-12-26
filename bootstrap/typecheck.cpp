@@ -115,21 +115,21 @@ Type* resolveType(SynType* type, Environment& env)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			argtys.push_back(resolveType(_->args[i], env));
 
-		return new TypeFunction(resolveType(_->result, env), argtys);
+		return new TypeFunction(resolveType(_->result, env), argtys, new TypeOpaquePointer());
 	}
 
 	assert(!"Unknown syntax tree type");
 	return 0;
 }
 
-Type* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env)
+Type* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env, Type* context_type)
 {
 	std::vector<Type*> argtys;
 
 	for (size_t i = 0; i < args.size(); ++i)
 		argtys.push_back(resolveType(args[i].type, env));
 
-	return new TypeFunction(resolveType(rettype, env), argtys);
+	return new TypeFunction(resolveType(rettype, env), argtys, context_type);
 }
 
 Expr* resolveBindingAccess(const std::string& name, Location location, Environment& env)
@@ -236,7 +236,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		// If the type is not defined, take the body type
 		if (!_->var.type)
-			target->type = body->type;
+		{
+			if (CASE(TypeFunction, body->type))
+				target->type = _->toGeneralType();
+			else
+				target->type = body->type;
+		}
 
 		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
@@ -261,7 +266,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		BindingTarget* target = new BindingTarget(_->var.name, resolveFunctionType(_->ret_type, _->args, env));
+		BindingTarget* target = new BindingTarget(_->var.name, resolveFunctionType(_->ret_type, _->args, env, new TypeOpaquePointer()));
 
 		// Add info about function context. Context type will be resolved later
 		TypeStructure* context_type = new TypeStructure();
@@ -270,16 +275,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		Expr* body = resolveExpr(_->body, env);
 
+		bool has_externals = !env.functions.back().externals.empty();
+
+		std::vector<Type*> argtys;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			argtys.push_back(resolveType(_->args[i].type, env));
+
 		// If the function return type is not set, change it to the function body result type
-		if (!_->ret_type)
-		{
-			std::vector<Type*> argtys;
-
-			for (size_t i = 0; i < _->args.size(); ++i)
-				argtys.push_back(resolveType(_->args[i].type, env));
-
-			target->type = new TypeFunction(body->type, argtys);
-		}
+		target->type = new TypeFunction(_->ret_type ? resolveType(_->ret_type, env) : body->type, argtys, has_externals ? context_type : 0);
 
 		// Resolve function context type
 		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
@@ -304,12 +308,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 				externals.push_back(resolveBindingAccess(_->target->name, Location(), env));
 		}
 
-		return new ExprLetFunc(target->type, _->location, target, context_target, args, body, externals);
+		return new ExprLetFunc(target->type, _->location, target, has_externals ? context_target : 0, args, body, externals);
 	}
 
 	if (CASE(SynExternFunc, node))
 	{
-		Type* funty = resolveFunctionType(_->ret_type, _->args, env);
+		Type* funty = resolveFunctionType(_->ret_type, _->args, env, 0);
 
 		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
