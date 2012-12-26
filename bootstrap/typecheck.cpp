@@ -140,14 +140,19 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 	{
 		if (scope < env.functions.back().scope)
 		{
-			env.functions.back().externals.push_back(binding);
-
 			if (CASE(BindingLocal, binding))
+			{
+				env.functions.back().externals.push_back(binding);
 				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
+			}
 			else if (CASE(BindingFreeFunction, binding))
+			{
 				return new ExprBinding(_->target->type, location, _);
+			}
 			else
+			{
 				errorf(location, "Can't resolve the binding of the function external variable %s", name.c_str());
+			}
 		}
 
 		if (CASE(BindingLocal, binding))
@@ -190,7 +195,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	}
 
 	if (CASE(SynUnaryOp, node))
-		return new ExprUnaryOp(new TypeGeneric(), _->location, _->op, resolveExpr(_->expr, env));
+	{
+		Expr* value = resolveExpr(_->expr, env);
+
+		Type* result_type = _->op == SynUnaryOpNot ? new TypeBool() : value->type;
+
+		return new ExprUnaryOp(result_type, _->location, _->op, value);
+	}
 
 	if (CASE(SynBinaryOp, node))
 		return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, resolveExpr(_->left, env), resolveExpr(_->right, env));
@@ -253,7 +264,8 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		BindingTarget* target = new BindingTarget(_->var.name, resolveFunctionType(_->ret_type, _->args, env));
 
 		// Add info about function context. Context type will be resolved later
-		BindingTarget* context_target = new BindingTarget("extern", new TypeGeneric());
+		TypeStructure* context_type = new TypeStructure();
+		BindingTarget* context_target = new BindingTarget("extern", new TypeReference(context_type));
 		env.functions.back().context = new BindingLocal(context_target);
 
 		Expr* body = resolveExpr(_->body, env);
@@ -270,15 +282,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		}
 
 		// Resolve function context type
-		std::vector<Type*> context_members;
-
 		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
 		{
 			if (CASE(BindingLocal, env.functions.back().externals[i]))
-				context_members.push_back(_->target->type);
+				context_type->members.push_back(_->target->type);
 		}
-
-		context_target->type = new TypeReference(new TypeStructure(context_members));
 
 		std::vector<BindingBase*> function_externals = env.functions.back().externals;
 
@@ -314,7 +322,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			args.push_back(target);
 		}
 
-		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, new BindingFreeFunction(target)));
 
 		return new ExprExternFunc(funty, _->location, target, args);
 	}

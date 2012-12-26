@@ -59,6 +59,10 @@ struct TypeStructure: Type
 {
 	std::vector<Type*> members;
 
+	TypeStructure()
+	{
+	}
+
 	TypeStructure(const std::vector<Type*>& members): members(members)
 	{
 	}
