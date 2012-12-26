@@ -110,6 +110,13 @@ llvm::Value* compileBinding(Context& context, BindingBase* binding, const Locati
 
 		errorf(location, "Variable %s has not been computed", _->target->name.c_str());
 	}
+	else if (CASE(BindingFreeFunction, binding))
+	{
+		if (context.values.count(_->target) > 0)
+			return context.values[_->target];
+
+		errorf(location, "Function %s has not been computed", _->target->name.c_str());
+	}
 
 	errorf(location, "Variable binding has not been resolved");
 }

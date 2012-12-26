@@ -28,6 +28,13 @@ struct BindingLocal: BindingBase
 	BindingLocal(BindingTarget* target): target(target) {}
 };
 
+struct BindingFreeFunction: BindingBase
+{
+	BindingTarget* target;
+
+	BindingFreeFunction(BindingTarget* target): target(target) {}
+};
+
 struct Expr
 {
 	Type* type;

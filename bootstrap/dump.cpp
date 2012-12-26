@@ -67,6 +67,8 @@ void dump(std::ostream& os, BindingBase* binding)
 {
 	if (CASE(BindingLocal, binding))
 		os << _->target->name;
+	else if (CASE(BindingFreeFunction, binding))
+		os << "free function " << _->target->name;
 	else
 	{
 		assert(!"Unknown binding");

@@ -144,11 +144,15 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 
 			if (CASE(BindingLocal, binding))
 				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
+			else if (CASE(BindingFreeFunction, binding))
+				return new ExprBinding(_->target->type, location, _);
 			else
 				errorf(location, "Can't resolve the binding of the function external variable %s", name.c_str());
 		}
 
 		if (CASE(BindingLocal, binding))
+			return new ExprBinding(_->target->type, location, _);
+		else if (CASE(BindingFreeFunction, binding))
 			return new ExprBinding(_->target->type, location, _);
 		else
 			return new ExprBinding(new TypeGeneric(), location, binding);
@@ -281,7 +285,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		env.functions.pop_back();
 		env.bindings.pop_back();
 
-		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, function_externals.empty() ? (BindingBase*)new BindingFreeFunction(target) : (BindingBase*)new BindingLocal(target)));
 
 		// Resolve function external variable capture
 		std::vector<Expr*> externals;
