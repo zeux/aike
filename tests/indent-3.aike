@@ -1,0 +1,8 @@
+extern print(i:int):unit
+
+for i in [1, 2] do
+    print i
+0
+
+// ERRORS:
+// (4,11): Expected newline after for expression

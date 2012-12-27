@@ -1,0 +1,6 @@
+let x = [1, true]
+
+x[0]
+
+// ERRORS:
+// (1,13): Array element type mismatch between int and bool
