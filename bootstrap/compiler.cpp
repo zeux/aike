@@ -31,13 +31,15 @@ struct Context
 
 llvm::Type* compileType(Context& context, Type* type, const Location& location)
 {
+	type = finalType(type);
+
 	if (context.types.count(type) > 0)
 		return context.types[type];
 
 	if (CASE(TypeGeneric, type))
 	{
 		// this'll be an error in the future
-		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+		errorf(location, "Generic types not supported");
 	}
 
 	if (CASE(TypeUnit, type))

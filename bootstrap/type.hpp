@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 struct Type
 {
@@ -9,6 +10,11 @@ struct Type
 
 struct TypeGeneric: Type
 {
+	Type* instance;
+
+	TypeGeneric(): instance(NULL)
+	{
+	}
 };
 
 struct TypeUnit: Type
@@ -77,3 +83,11 @@ struct TypeStructure: Type
 	{
 	}
 };
+
+#ifndef CASE
+#define CASE(type, node) type* _ = dynamic_cast<type*>(node)
+#endif
+
+Type* finalType(Type* type);
+
+std::string typeName(Type* type);

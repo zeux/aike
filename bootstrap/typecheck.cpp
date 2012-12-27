@@ -394,7 +394,360 @@ Expr* resolve(SynBase* root)
 	return resolveExpr(root, env);
 }
 
+Type* prune(Type* t)
+{
+	if (CASE(TypeGeneric, t))
+	{
+		if (_->instance)
+		{
+			_->instance = prune(_->instance);
+			return _->instance;
+		}
+
+		return _;
+	}
+
+	return t;
+}
+
+bool occurs(Type* lhs, Type* rhs)
+{
+	rhs = prune(rhs);
+
+	if (lhs == rhs)
+		return true;
+
+	if (CASE(TypeArray, rhs))
+	{
+		return occurs(lhs, _->contained);
+	}
+
+	if (CASE(TypeFunction, rhs))
+	{
+		if (occurs(lhs, _->result)) return true;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			if (occurs(lhs, _->args[i]))
+				return true;
+
+		return false;
+	}
+
+	return false;
+}
+
+bool unify(Type* lhs, Type* rhs)
+{
+	if (lhs == rhs) return true;
+
+	lhs = prune(lhs);
+	rhs = prune(rhs);
+
+	if (CASE(TypeGeneric, lhs))
+	{
+		if (occurs(lhs, rhs))
+			return false;
+
+		_->instance = rhs;
+
+		return true;
+	}
+
+	if (CASE(TypeGeneric, rhs))
+	{
+		return unify(rhs, lhs);
+	}
+
+	if (CASE(TypeUnit, lhs))
+	{
+		return dynamic_cast<TypeUnit*>(rhs) != 0;
+	}
+
+	if (CASE(TypeInt, lhs))
+	{
+		return dynamic_cast<TypeInt*>(rhs) != 0;
+	}
+
+	if (CASE(TypeFloat, lhs))
+	{
+		return dynamic_cast<TypeFloat*>(rhs) != 0;
+	}
+
+	if (CASE(TypeBool, lhs))
+	{
+		return dynamic_cast<TypeBool*>(rhs) != 0;
+	}
+
+	if (CASE(TypeArray, lhs))
+	{
+		TypeArray* r = dynamic_cast<TypeArray*>(rhs);
+		if (!r) return false;
+
+		return unify(_->contained, r->contained);
+	}
+
+	if (CASE(TypeFunction, lhs))
+	{
+		TypeFunction* r = dynamic_cast<TypeFunction*>(rhs);
+		if (!r) return false;
+
+		if (_->args.size() != r->args.size()) return false;
+
+		if (!unify(_->result, r->result)) return false;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			if (!unify(_->args[i], r->args[i]))
+				return false;
+
+		return true;
+	}
+
+	return false;
+}
+
+Type* analyze(BindingBase* binding)
+{
+	if (CASE(BindingLocal, binding))
+	{
+		return _->target->type;
+	}
+
+	if (CASE(BindingFreeFunction, binding))
+	{
+		return _->target->type;
+	}
+
+	assert(!"Unknown binding type");
+	return 0;
+}
+
+Type* analyze(Expr* root)
+{
+	if (CASE(ExprUnit, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprNumberLiteral, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprArrayLiteral, root))
+	{
+		if (!_->elements.empty())
+		{
+			Type* t0 = analyze(_->elements[0]);
+
+			for (size_t i = 1; i < _->elements.size(); ++i)
+			{
+				Type* ti = analyze(_->elements[i]);
+
+				if (!unify(t0, ti))
+					errorf(_->elements[i]->location, "Array element type mismatch between %s and %s", typeName(t0).c_str(), typeName(ti).c_str());
+			}
+
+			if (!unify(new TypeArray(t0), _->type))
+				errorf(_->location, "Array element type mismatch");
+		}
+		else
+		{
+			if (!unify(new TypeArray(new TypeGeneric()), _->type))
+				errorf(_->location, "Array element type mismatch");
+		}
+
+		return _->type;
+	}
+
+	if (CASE(ExprBinding, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprBindingExternal, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprUnaryOp, root))
+	{
+		Type* te = analyze(_->expr);
+
+		switch (_->op)
+		{
+		case SynUnaryOpPlus:
+		case SynUnaryOpMinus:
+			if (!unify(te, new TypeInt()))
+				errorf(_->expr->location, "Expected type 'int', got '%s'", typeName(te).c_str());
+			return _->type = new TypeInt();
+			
+		case SynUnaryOpNot:
+			if (!unify(te, new TypeBool()))
+				errorf(_->expr->location, "Expected type 'bool', got '%s'", typeName(te).c_str());
+			return _->type = new TypeBool();
+
+		default: assert(!"Unknown unary op");
+		}
+	}
+
+	if (CASE(ExprBinaryOp, root))
+	{
+		Type* tl = analyze(_->left);
+		Type* tr = analyze(_->right);
+
+		switch (_->op)
+		{
+		case SynBinaryOpAdd:
+		case SynBinaryOpSubtract:
+		case SynBinaryOpMultiply:
+		case SynBinaryOpDivide:
+			if (!unify(tl, new TypeInt()))
+				errorf(_->left->location, "Expected type 'int', got '%s'", typeName(tl).c_str());
+			if (!unify(tr, new TypeInt()))
+				errorf(_->right->location, "Expected type 'int', got '%s'", typeName(tr).c_str());
+			return _->type = new TypeInt();
+
+		case SynBinaryOpLess:
+		case SynBinaryOpLessEqual:
+		case SynBinaryOpGreater:
+		case SynBinaryOpGreaterEqual:
+		case SynBinaryOpEqual:
+		case SynBinaryOpNotEqual:
+			if (!unify(tl, new TypeInt()))
+				errorf(_->left->location, "Expected type 'int', got '%s'", typeName(tl).c_str());
+			if (!unify(tr, new TypeInt()))
+				errorf(_->right->location, "Expected type 'int', got '%s'", typeName(tr).c_str());
+			return _->type = new TypeBool();
+
+		default: assert(!"Unknown binary op");
+		}
+	}
+
+	if (CASE(ExprCall, root))
+	{
+		Type* te = analyze(_->expr);
+
+		std::vector<Type*> argtys;
+		for (size_t i = 0; i < _->args.size(); ++i)
+			argtys.push_back(analyze(_->args[i]));
+
+		TypeFunction* funty = new TypeFunction(new TypeGeneric(), argtys, NULL);
+
+		if (!unify(te, funty))
+			errorf(_->expr->location, "Expected type '%s', got '%s'", typeName(funty).c_str(), typeName(te).c_str());
+
+		return _->type = funty->result;
+	}
+
+	if (CASE(ExprArrayIndex, root))
+	{
+		Type* ta = analyze(_->arr);
+		Type* ti = analyze(_->index);
+
+		TypeArray* tn = new TypeArray(new TypeGeneric());
+
+		if (!unify(ta, tn))
+			errorf(_->arr->location, "Expected an array type, got '%s'", typeName(ta).c_str());
+
+		if (!unify(ti, new TypeInt()))
+			errorf(_->index->location, "Expected type 'int', got '%s'", typeName(ti).c_str());
+
+		return _->type = tn->contained;
+	}
+
+	if (CASE(ExprLetVar, root))
+	{
+		Type* tb = analyze(_->body);
+
+		if (!unify(_->target->type, tb))
+			errorf(_->location, "Expected type '%s', got '%s'", typeName(_->target->type).c_str(), typeName(tb).c_str());
+
+		return _->type;
+	}
+
+	if (CASE(ExprLetFunc, root))
+	{
+		Type* tb = analyze(_->body);
+
+		TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
+		Type* rettype = funty->result;
+
+		if (!unify(rettype, tb))
+			errorf(_->location, "Expected type '%s', got '%s'", typeName(rettype).c_str(), typeName(tb).c_str());
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+		{
+			// WTF
+			unify(funty->args[i], _->args[i]->type);
+		}
+
+		return _->type;
+	}
+
+	if (CASE(ExprExternFunc, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprLLVM, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprIfThenElse, root))
+	{
+		Type* tcond = analyze(_->cond);
+		Type* tthen = analyze(_->thenbody);
+		Type* telse = analyze(_->elsebody);
+
+		if (!unify(tcond, new TypeBool()))
+			errorf(_->cond->location, "Expected type 'bool', got '%s'", typeName(tcond).c_str());
+
+		if (!unify(tthen, telse))
+			errorf(_->thenbody->location, "Expected type '%s', got '%s'", typeName(telse).c_str(), typeName(tthen).c_str());
+
+		return _->type = tthen;
+	}
+
+	if (CASE(ExprForInDo, root))
+	{
+		Type* tarr = analyze(_->arr);
+		Type* tbody = analyze(_->body);
+
+		TypeArray* ta = new TypeArray(new TypeGeneric());
+
+		if (!unify(ta, tarr))
+			errorf(_->arr->location, "Expected array type, got '%s'", typeName(tarr).c_str());
+
+		if (!unify(_->target->type, ta->contained))
+			errorf(_->location, "Expected type '%s', got '%s'", typeName(_->target->type).c_str(), typeName(ta->contained).c_str());
+
+		if (!unify(tbody, new TypeUnit()))
+			errorf(_->body->location, "Expected type 'unit', got '%s'", typeName(tbody).c_str());
+
+		return _->type = new TypeUnit();
+	}
+
+	if (CASE(ExprBlock, root))
+	{
+		if (_->expressions.empty())
+			return new TypeUnit();
+
+		for (size_t i = 0; i + 1 < _->expressions.size(); ++i)
+			analyze(_->expressions[i]);
+
+		return _->type = analyze(_->expressions.back());
+	}
+
+	assert(!"Unknown expression type");
+	return 0;
+}
+
 Expr* typecheck(SynBase* root)
 {
-	return resolve(root);
+	Expr* result = resolve(root);
+
+	analyze(result);
+
+	return result;
 }

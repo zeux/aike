@@ -14,6 +14,8 @@ void indentout(std::ostream& os, int indent)
 
 void dump(std::ostream& os, Type* type)
 {
+	type = finalType(type);
+
 	if (CASE(TypeGeneric, type))
 		os << "'" << type;
 	else if (CASE(TypeUnit, type))
@@ -24,6 +26,8 @@ void dump(std::ostream& os, Type* type)
 		os << "int";
 	else if (CASE(TypeFloat, type))
 		os << "float";
+	else if (CASE(TypeBool, type))
+		os << "bool";
 	else if (CASE(TypeReference, type))
 	{
 		os << "(";
@@ -307,7 +311,6 @@ void dump(std::ostream& os, TypeFunction* funty, BindingTarget* target, const st
 		os << args[i]->name;
 		os << ": ";
 
-		assert(funty->args[i] == args[i]->type);
 		dump(os, args[i]->type);
 	}
 
