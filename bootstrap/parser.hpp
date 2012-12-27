@@ -82,6 +82,13 @@ struct SynNumberLiteral: SynBase
 	SynNumberLiteral(const Location& location, long long value): SynBase(location), value(value) {}
 };
 
+struct SynBooleanLiteral: SynBase
+{
+	bool value;
+
+	SynBooleanLiteral(const Location& location, bool value): SynBase(location), value(value) {}
+};
+
 struct SynArrayLiteral: SynBase
 {
 	std::vector<SynBase*> elements;

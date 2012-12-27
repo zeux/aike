@@ -49,6 +49,13 @@ struct ExprUnit: Expr
 	ExprUnit(Type* type, const Location& location): Expr(type, location) {}
 };
 
+struct ExprBooleanLiteral: Expr
+{
+	bool value;
+
+	ExprBooleanLiteral(Type* type, const Location& location, bool value): Expr(type, location), value(value) {}
+};
+
 struct ExprNumberLiteral: Expr
 {
 	long long value;

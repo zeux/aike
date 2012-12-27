@@ -168,6 +168,11 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return builder.getInt32(uint32_t(_->value));
 	}
 
+	if (CASE(ExprBooleanLiteral, node))
+	{
+		return builder.getInt1(_->value);
+	}
+
 	if (CASE(ExprArrayLiteral, node))
 	{
 		if (!dynamic_cast<TypeArray*>(_->type))

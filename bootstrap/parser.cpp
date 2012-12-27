@@ -75,6 +75,18 @@ SynBase* parseTerm(Lexer& lexer)
 		movenext(lexer);
 		return result;
 	}
+	else if (iskeyword(lexer, "true"))
+	{
+		SynBase* result = new SynBooleanLiteral(lexer.current.location, true);
+		movenext(lexer);
+		return result;
+	}
+	else if (iskeyword(lexer, "false"))
+	{
+		SynBase* result = new SynBooleanLiteral(lexer.current.location, false);
+		movenext(lexer);
+		return result;
+	}
 	else
 	{
 		errorf(lexer.current.location, "Unexpected lexeme %d", lexer.current.type);

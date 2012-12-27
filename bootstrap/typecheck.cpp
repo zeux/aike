@@ -176,6 +176,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynNumberLiteral, node))
 		return new ExprNumberLiteral(resolveType("int", env, _->location), _->location, _->value);
 
+	if (CASE(SynBooleanLiteral, node))
+		return new ExprBooleanLiteral(resolveType("bool", env, _->location), _->location, _->value);
+
 	if (CASE(SynArrayLiteral, node))
 	{
 		std::vector<Expr*> elements;
@@ -529,6 +532,11 @@ Type* analyze(Expr* root)
 	}
 
 	if (CASE(ExprNumberLiteral, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprBooleanLiteral, root))
 	{
 		return _->type;
 	}
