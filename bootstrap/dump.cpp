@@ -274,7 +274,9 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynForInDo, root))
 	{
-		os << "for " << _->var.name << "\n";
+		os << "for " << _->var.name.name << ": ";
+		dump(os, _->var.type);
+		os << " =\n";
 		indentout(os, indent);
 		os << "in\n";
 		dump(os, _->arr, indent + 1);

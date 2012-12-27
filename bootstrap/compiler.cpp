@@ -175,7 +175,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprArrayLiteral, node))
 	{
-		if (!dynamic_cast<TypeArray*>(_->type))
+		if (!dynamic_cast<TypeArray*>(finalType(_->type)))
 			errorf(_->location, "array type is unknown");
 
 		llvm::Type* array_type = compileType(context, _->type, _->location);

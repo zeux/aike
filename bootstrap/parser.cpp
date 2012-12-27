@@ -221,6 +221,21 @@ SynType* parseType(Lexer& lexer)
 	}
 }
 
+SynTypedVar parseTypedVar(Lexer& lexer)
+{
+	SynIdentifier argname = parseIdentifier(lexer);
+	SynType* argtype = 0;
+
+	if (lexer.current.type == LexColon)
+	{
+		movenext(lexer);
+
+		argtype = parseType(lexer);
+	}
+
+	return SynTypedVar(argname, argtype);
+}
+
 std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 {
 	assert(lexer.current.type == LexOpenBrace);
@@ -230,17 +245,9 @@ std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 
 	while (lexer.current.type != LexCloseBrace)
 	{
-		SynIdentifier argname = parseIdentifier(lexer);
-		SynType* argtype = 0;
+		SynTypedVar var = parseTypedVar(lexer);
 
-		if (lexer.current.type == LexColon)
-		{
-			movenext(lexer);
-
-			argtype = parseType(lexer);
-		}
-
-		args.push_back(SynTypedVar(argname, argtype));
+		args.push_back(var);
 
 		if (lexer.current.type == LexComma)
 			movenext(lexer);
@@ -400,7 +407,7 @@ SynBase* parseForInDo(Lexer& lexer)
 	assert(iskeyword(lexer, "for"));
 	movenext(lexer);
 
-	SynIdentifier element = parseIdentifier(lexer);
+	SynTypedVar var = parseTypedVar(lexer);
 
 	if (!iskeyword(lexer, "in")) errorf(lexer.current.location, "Expected 'in' after array element name");
 	movenext(lexer);
@@ -410,7 +417,7 @@ SynBase* parseForInDo(Lexer& lexer)
 	if (!iskeyword(lexer, "do")) errorf(lexer.current.location, "Expected 'do' after array expression");
 	movenext(lexer);
 
-	return new SynForInDo(location, element, arr, parseBlock(lexer));
+	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
 SynBase* parsePrimary(Lexer& lexer)

@@ -341,12 +341,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* arr = resolveExpr(_->arr, env);
 
-		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
-		if (!arr_type) errorf(arr->location, "iteration is only available on array types");
+		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
 
-		BindingTarget* target = new BindingTarget(_->var.name, arr_type->contained);
-
-		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
 		Expr* body = resolveExpr(_->body, env);
 

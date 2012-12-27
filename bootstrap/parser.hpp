@@ -219,11 +219,11 @@ struct SynIfThenElse: SynBase
 
 struct SynForInDo: SynBase
 {
-	SynIdentifier var;
+	SynTypedVar var;
 	SynBase* arr;
 	SynBase* body;
 
-	SynForInDo(const Location& location, const SynIdentifier& var, SynBase* arr, SynBase* body): SynBase(location), var(var), arr(arr), body(body)
+	SynForInDo(const Location& location, const SynTypedVar& var, SynBase* arr, SynBase* body): SynBase(location), var(var), arr(arr), body(body)
 	{
 	}
 };

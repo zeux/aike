@@ -1,0 +1,8 @@
+extern print(i:int):unit
+
+for i: int in [] do
+    print(i)
+0
+
+// OUTPUT:
+// 0
