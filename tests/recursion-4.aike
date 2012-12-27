@@ -1,0 +1,13 @@
+let threshold = 2
+
+let foo(x) =
+    let boo() = foo(2) + x
+    if x <= threshold then
+        1
+    else
+        boo()
+
+foo(20)
+
+// OUTPUT:
+// 21

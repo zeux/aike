@@ -1,0 +1,10 @@
+let fib(x:int):int =
+    if x <= 2 then
+        1
+    else
+        fib(x - 1) + fib(x - 2)
+
+fib(10)
+
+// OUTPUT:
+// 55

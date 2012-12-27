@@ -20,8 +20,6 @@ void dump(std::ostream& os, Type* type)
 		os << "'" << type;
 	else if (CASE(TypeUnit, type))
 		os << "unit";
-	else if (CASE(TypeOpaquePointer, type))
-		os << "opaque";
 	else if (CASE(TypeInt, type))
 		os << "int";
 	else if (CASE(TypeFloat, type))
@@ -52,11 +50,6 @@ void dump(std::ostream& os, Type* type)
 		}
 		os << ")->";
 		dump(os, _->result);
-		if (_->context_type)
-		{
-			os << " with context ";
-			dump(os, _->context_type);
-		}
 	}
 	else if (CASE(TypeStructure, type))
 	{

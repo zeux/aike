@@ -1,0 +1,12 @@
+let threshold = 2
+
+let fib(x) =
+    if x <= threshold then
+        1
+    else
+        fib(x - 1) + fib(x - 2)
+
+fib(10)
+
+// OUTPUT:
+// 55

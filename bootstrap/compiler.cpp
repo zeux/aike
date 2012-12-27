@@ -48,11 +48,6 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
 	}
 
-	if (CASE(TypeOpaquePointer, type))
-	{
-		return context.types[type] = llvm::Type::getInt8Ty(*context.context);
-	}
-
 	if (CASE(TypeInt, type))
 	{
 		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
@@ -85,12 +80,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileType(context, _->args[i], location));
 
-		if (_->context_type)
-			args.push_back(llvm::PointerType::getUnqual(compileType(context, _->context_type, location)));
+		args.push_back(llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context.context)));
 
 		llvm::Type* function_type = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
 
-		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), _->context_type ? args.back() : llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
+		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
 
 		return context.types[type] = holder_type;
 	}
@@ -103,6 +97,26 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 			members.push_back(compileType(context, _->members[i], location));
 
 		return context.types[type] = llvm::StructType::get(*context.context, members, false);
+	}
+
+	errorf(location, "Unrecognized type");
+}
+
+llvm::FunctionType* compileFunctionType(Context& context, Type* type, const Location& location, Type* context_type)
+{
+	type = finalType(type);
+
+	if (CASE(TypeFunction, type))
+	{
+		std::vector<llvm::Type*> args;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(compileType(context, _->args[i], location));
+
+		if (context_type)
+			args.push_back(compileType(context, context_type, location));
+
+		return llvm::FunctionType::get(compileType(context, _->result, location), args, false);
 	}
 
 	errorf(location, "Unrecognized type");
@@ -301,17 +315,15 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLetFunc, node))
 	{
-		llvm::StructType* holder_type = llvm::cast<llvm::StructType>(compileType(context, _->type, _->location));
+		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, _->context_target ? _->context_target->type : 0);
 
-		llvm::Type* general_holder_type = 0;
-		if (TypeFunction* function_type = dynamic_cast<TypeFunction*>(_->type))
-			general_holder_type = compileType(context, function_type->toGeneralType(), _->location);
-
-		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(holder_type->getContainedType(0)->getContainedType(0));
+		llvm::Type* general_holder_type = compileType(context, _->type, _->location);
 
 		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
 
 		llvm::Function::arg_iterator argi = func->arg_begin();
+
+		llvm::Value* context_value = 0;
 
 		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
 		{
@@ -325,7 +337,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			else
 			{
 				argi->setName("extern");
-				context.values[_->context_target] = argi;
+				context_value = context.values[_->context_target] = argi;
 			}
 		}
 
@@ -345,19 +357,23 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 				builder.CreateStore(compileExpr(context, builder, _->externals[i]), builder.CreateStructGEP(context_data, i));
 		}
 
-		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
-
-		holder = builder.CreateInsertValue(holder, compileFunctionThunk(context, _->location, func, general_holder_type, context_ref_type), 0);
-		if (context_raw_data)
-			holder = builder.CreateInsertValue(holder, context_raw_data, 1);
-
-		assert(context.values.count(_->target) == 0);
-		context.values[_->target] = holder;
+		// Create thunk for a function to be called through the function pointer
+		llvm::Function* thunk_function = compileFunctionThunk(context, _->location, func, general_holder_type, context_ref_type);
 
 		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
 
 		llvm::IRBuilder<> funcbuilder(bb);
 
+		// Create holder for a function to be used inside the function
+		llvm::Value* internal_holder = funcbuilder.CreateInsertValue(llvm::ConstantAggregateZero::get(general_holder_type), thunk_function, 0);
+		
+		if (context_raw_data)
+			internal_holder = funcbuilder.CreateInsertValue(internal_holder, funcbuilder.CreateBitCast(context_value, llvm::Type::getInt8PtrTy(*context.context)), 1);
+		
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = internal_holder;
+
+		// Compile function body
 		context.function_context_type.push_back(context_ref_type);
 
 		llvm::Value* value = compileExpr(context, funcbuilder, _->body);
@@ -366,18 +382,22 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		funcbuilder.CreateRet(value);
 
+		// Create holder for a function to be used outside the function
+		llvm::Value* holder = builder.CreateInsertValue(llvm::ConstantAggregateZero::get(general_holder_type), thunk_function, 0);
+
+		if (context_raw_data)
+			holder = builder.CreateInsertValue(holder, context_raw_data, 1);
+
+		context.values[_->target] = holder;
+
 		return holder;
 	}
 
 	if (CASE(ExprExternFunc, node))
 	{
-		llvm::StructType* holder_type = llvm::cast<llvm::StructType>(compileType(context, _->type, _->location));
+		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
 
-		llvm::Type* general_holder_type = 0;
-		if (TypeFunction* function_type = dynamic_cast<TypeFunction*>(_->type))
-			general_holder_type = compileType(context, function_type->toGeneralType(), _->location);
-
-		llvm::FunctionType* function_type = llvm::cast<llvm::FunctionType>(holder_type->getContainedType(0)->getContainedType(0));
+		llvm::Type* general_holder_type = compileType(context, _->type, _->location);
 
 		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
 
