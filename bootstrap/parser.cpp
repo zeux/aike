@@ -30,6 +30,14 @@ SynBase* parseTerm(Lexer& lexer)
 	{
 		movenext(lexer);
 
+		if (lexer.current.type == LexCloseBrace)
+		{
+			SynBase* result = new SynUnit(lexer.current.location);
+			movenext(lexer);
+
+			return result;
+		}
+
 		SynBase* expr = parseExpr(lexer);
 
 		if (lexer.current.type != LexCloseBrace)
