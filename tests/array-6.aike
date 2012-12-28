@@ -1,0 +1,17 @@
+let length(x: int[]): int =
+    llvm "extractvalue { i32*, i32 } %x, 1"
+
+let sum(arr) =
+    let loop(offset, acc) =
+        if offset < length(arr) then
+            loop(offset + 1, arr[offset] + acc)
+        else
+            acc
+    loop(0, 0)
+
+let x: int[] = [2, 3]
+
+sum(x)
+
+// OUTPUT:
+// 5
