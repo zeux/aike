@@ -228,6 +228,26 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "with\n";
 		dump(os, _->index, indent + 1);
 	}
+	else if (CASE(SynArraySlice, root))
+	{
+		os << "slice of\n";
+		dump(os, _->arr, indent + 1);
+
+		indentout(os, indent);
+		os << "from\n";
+		dump(os, _->index_start, indent + 1);
+		indentout(os, indent);
+		os << "to\n";
+		if (_->index_end)
+		{
+			dump(os, _->index_end, indent + 1);
+		}
+		else
+		{
+			indentout(os, indent + 1);
+			os << ".length\n";
+		}
+	}
 	else if (CASE(SynLetVar, root))
 	{
 		os << "let " << _->var.name.name << ": ";
@@ -379,6 +399,26 @@ void dump(std::ostream& os, Expr* root, int indent)
 		indentout(os, indent);
 		os << "with\n";
 		dump(os, _->index, indent + 1);
+	}
+	else if (CASE(ExprArraySlice, root))
+	{
+		os << "slice of\n";
+		dump(os, _->arr, indent + 1);
+
+		indentout(os, indent);
+		os << "from\n";
+		dump(os, _->index_start, indent + 1);
+		indentout(os, indent);
+		os << "to\n";
+		if (_->index_end)
+		{
+			dump(os, _->index_end, indent + 1);
+		}
+		else
+		{
+			indentout(os, indent + 1);
+			os << ".length\n";
+		}
 	}
 	else if (CASE(ExprLetVar, root))
 	{

@@ -301,6 +301,35 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return builder.CreateLoad(builder.CreateGEP(data, index), false);
 	}
 
+	if (CASE(ExprArraySlice, node))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* arr = compileExpr(context, builder, _->arr);
+
+		llvm::Value* arr_data = builder.CreateExtractValue(arr, 0);
+		llvm::Value* arr_size = builder.CreateExtractValue(arr, 1);
+
+		llvm::Value* index_start = compileExpr(context, builder, _->index_start);
+		llvm::Value* index_end = _->index_end ? builder.CreateAdd(compileExpr(context, builder, _->index_end), builder.getInt32(1)) : arr_size;
+
+		llvm::Type* array_type = compileType(context, _->type, _->location);
+		llvm::Type* element_type = array_type->getContainedType(0)->getContainedType(0);
+
+		llvm::Value* length = builder.CreateSub(index_end, index_start);
+		llvm::Value* byte_length = builder.CreateMul(length, builder.getInt32(context.layout->getTypeAllocSize(element_type)));
+
+		llvm::Value* arr_slice_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), byte_length), array_type->getContainedType(0));
+
+		builder.CreateMemCpy(arr_slice_data, builder.CreateGEP(arr_data, index_start), byte_length, 8);
+
+		llvm::Value* arr_slice = llvm::ConstantAggregateZero::get(array_type);
+		arr_slice = builder.CreateInsertValue(arr_slice, arr_slice_data, 0);
+		arr_slice = builder.CreateInsertValue(arr_slice, length, 1);
+
+		return arr_slice;
+	}
+
 	if (CASE(ExprLetVar, node))
 	{
 		llvm::Value* value = compileExpr(context, builder, _->body);

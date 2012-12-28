@@ -94,6 +94,7 @@ Lexeme readnext(Lexer& lexer)
 	{
 	case 0: return LexEOF;
 	case ',': return consume(lexer), LexComma;
+	case '.': return consume(lexer), (peekch(lexer) == '.' ? (consume(lexer), LexRange) : LexPoint);
 	case '(': return consume(lexer), LexOpenBrace;
 	case ')': return consume(lexer), LexCloseBrace;
 	case '[': return consume(lexer), LexOpenBracket;

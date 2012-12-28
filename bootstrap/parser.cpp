@@ -491,12 +491,34 @@ SynBase* parsePrimary(Lexer& lexer)
 			Location location = lexer.current.location;
 			movenext(lexer);
 
-			SynBase* index = parseExpr(lexer);
+			SynBase* index_start = 0;
+			SynBase* index_end = 0;
+			bool to_end = false;
+
+			if (lexer.current.type == LexCloseBracket) errorf(lexer.current.location, "index or range is expected after '['");
+
+			if (lexer.current.type == LexRange)
+				index_start = new SynNumberLiteral(lexer.current.location, 0);
+			else
+				index_start = parseExpr(lexer);
+
+			if (lexer.current.type == LexRange)
+			{
+				movenext(lexer);
+
+				if (lexer.current.type == LexCloseBracket)
+					to_end = true;
+				else
+					index_end = parseExpr(lexer);
+			}
 
 			if (lexer.current.type != LexCloseBracket) errorf(lexer.current.location, "']' expected after index");
 			movenext(lexer);
 
-			result = new SynArrayIndex(location, result, index);
+			if (to_end || index_end)
+				result = new SynArraySlice(location, result, index_start, index_end);
+			else
+				result = new SynArrayIndex(location, result, index_start);
 		}
 	}
 

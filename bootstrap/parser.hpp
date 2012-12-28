@@ -164,6 +164,17 @@ struct SynArrayIndex: SynBase
 	}
 };
 
+struct SynArraySlice: SynBase
+{
+	SynBase* arr;
+	SynBase* index_start;
+	SynBase* index_end;
+
+	SynArraySlice(const Location& location, SynBase* arr, SynBase* index_start, SynBase* index_end): SynBase(location), arr(arr), index_start(index_start), index_end(index_end)
+	{
+	}
+};
+
 struct SynLetVar: SynBase
 {
 	SynTypedVar var;

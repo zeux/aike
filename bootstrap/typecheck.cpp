@@ -231,6 +231,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprArrayIndex(arr_type ? arr_type->contained : new TypeGeneric(), _->location, arr, resolveExpr(_->index, env));
 	}
 
+	if (CASE(SynArraySlice, node))
+	{
+		Expr* arr = resolveExpr(_->arr, env);
+
+		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
+
+		return new ExprArraySlice(arr_type ? (Type*)arr_type : new TypeGeneric(), _->location, arr, resolveExpr(_->index_start, env), _->index_end ? resolveExpr(_->index_end, env) : 0);
+	}
+
 	if (CASE(SynLetVar, node))
 	{
 		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
@@ -638,6 +647,7 @@ Type* analyze(Expr* root)
 	if (CASE(ExprArrayIndex, root))
 	{
 		Type* ta = analyze(_->arr);
+
 		Type* ti = analyze(_->index);
 
 		TypeArray* tn = new TypeArray(new TypeGeneric());
@@ -649,6 +659,27 @@ Type* analyze(Expr* root)
 			errorf(_->index->location, "Expected type 'int', got '%s'", typeName(ti).c_str());
 
 		return _->type = tn->contained;
+	}
+
+	if (CASE(ExprArraySlice, root))
+	{
+		Type* ta = analyze(_->arr);
+
+		Type* ts = analyze(_->index_start);
+		Type* te = _->index_end ? analyze(_->index_end) : 0;
+
+		TypeArray* tn = new TypeArray(new TypeGeneric());
+
+		if (!unify(ta, tn))
+			errorf(_->arr->location, "Expected an array type, got '%s'", typeName(ta).c_str());
+
+		if (!unify(ts, new TypeInt()))
+			errorf(_->index_start->location, "Expected type 'int', got '%s'", typeName(ts).c_str());
+
+		if (te && !unify(te, new TypeInt()))
+			errorf(_->index_end->location, "Expected type 'int', got '%s'", typeName(te).c_str());
+
+		return _->type = tn;
 	}
 
 	if (CASE(ExprLetVar, root))

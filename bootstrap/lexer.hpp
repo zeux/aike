@@ -10,6 +10,8 @@ enum LexemeType
 	LexEOF,
 
 	LexComma,
+	LexPoint,
+	LexRange,
 	LexOpenBrace,
 	LexCloseBrace,
 	LexOpenBracket,

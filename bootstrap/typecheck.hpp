@@ -123,6 +123,17 @@ struct ExprArrayIndex: Expr
 	}
 };
 
+struct ExprArraySlice: Expr
+{
+	Expr* arr;
+	Expr* index_start;
+	Expr* index_end;
+
+	ExprArraySlice(Type* type, const Location& location, Expr* arr, Expr* index_start, Expr* index_end): Expr(type, location), arr(arr), index_start(index_start), index_end(index_end)
+	{
+	}
+};
+
 struct ExprLetVar: Expr
 {
 	BindingTarget* target;
