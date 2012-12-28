@@ -52,6 +52,20 @@ struct SynTypeFunction: SynType
 	}
 };
 
+struct SynTypeStructure: SynType
+{
+	std::vector<SynType*> member_types;
+	std::vector<SynIdentifier> member_names;
+
+	SynTypeStructure()
+	{
+	}
+
+	SynTypeStructure(const std::vector<SynType*>& member_types, const std::vector<SynIdentifier>& member_names): member_types(member_types), member_names(member_names)
+	{
+	}
+};
+
 struct SynTypedVar
 {
 	SynIdentifier name;
@@ -171,6 +185,16 @@ struct SynArraySlice: SynBase
 	SynBase* index_end;
 
 	SynArraySlice(const Location& location, SynBase* arr, SynBase* index_start, SynBase* index_end): SynBase(location), arr(arr), index_start(index_start), index_end(index_end)
+	{
+	}
+};
+
+struct SynMemberAccess: SynBase
+{
+	SynBase* aggr;
+	SynIdentifier member;
+
+	SynMemberAccess(const Location& location, SynBase* aggr, SynIdentifier member): SynBase(location), aggr(aggr), member(member)
 	{
 	}
 };

@@ -93,8 +93,8 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	{
 		std::vector<llvm::Type*> members;
 
-		for (size_t i = 0; i < _->members.size(); ++i)
-			members.push_back(compileType(context, _->members[i], location));
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+			members.push_back(compileType(context, _->member_types[i], location));
 
 		return context.types[type] = llvm::StructType::get(*context.context, members, false);
 	}
@@ -329,6 +329,9 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		return arr_slice;
 	}
+
+	if (CASE(ExprMemberAccess, node))
+		return builder.CreateExtractValue(compileExpr(context, builder, _->aggr), _->member_index);
 
 	if (CASE(ExprLetVar, node))
 	{

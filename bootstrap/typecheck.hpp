@@ -134,6 +134,17 @@ struct ExprArraySlice: Expr
 	}
 };
 
+struct ExprMemberAccess: Expr
+{
+	Expr* aggr;
+	std::string member_name;
+	size_t member_index;
+
+	ExprMemberAccess(Type* type, const Location& location, Expr* aggr, const std::string& member_name, size_t member_index): Expr(type, location), aggr(aggr), member_name(member_name), member_index(member_index)
+	{
+	}
+};
+
 struct ExprLetVar: Expr
 {
 	BindingTarget* target;

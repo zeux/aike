@@ -461,7 +461,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	SynBase* result = parseTerm(lexer);
 
-	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket)
+	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint)
 	{
 		if (lexer.current.type == LexOpenBrace)
 		{
@@ -519,6 +519,14 @@ SynBase* parsePrimary(Lexer& lexer)
 				result = new SynArraySlice(location, result, index_start, index_end);
 			else
 				result = new SynArrayIndex(location, result, index_start);
+		}
+		else if (lexer.current.type == LexPoint)
+		{
+			movenext(lexer);
+
+			if (lexer.current.type != LexIdentifier) errorf(lexer.current.location, "identifier expected after '.'");
+
+			result = new SynMemberAccess(lexer.current.location, result, parseIdentifier(lexer));
 		}
 	}
 

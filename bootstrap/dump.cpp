@@ -54,10 +54,12 @@ void dump(std::ostream& os, Type* type)
 	else if (CASE(TypeStructure, type))
 	{
 		os << "[";
-		for (size_t i = 0; i < _->members.size(); ++i)
+		assert(_->member_names.size() == _->member_types.size());
+		for (size_t i = 0; i < _->member_types.size(); ++i)
 		{
 			if (i != 0) os << ",";
-			dump(os, _->members[i]);
+			dump(os, _->member_types[i]);
+			os << " " << _->member_names[i];
 		}
 		os << "]";
 	}
@@ -248,6 +250,16 @@ void dump(std::ostream& os, SynBase* root, int indent)
 			os << ".length\n";
 		}
 	}
+	else if (CASE(SynMemberAccess, root))
+	{
+		os << "member\n";
+		indentout(os, indent + 1);
+		os << _->member.name << "\n";
+
+		indentout(os, indent);
+		os << "of\n";
+		dump(os, _->aggr, indent + 1);
+	}
 	else if (CASE(SynLetVar, root))
 	{
 		os << "let " << _->var.name.name << ": ";
@@ -419,6 +431,16 @@ void dump(std::ostream& os, Expr* root, int indent)
 			indentout(os, indent + 1);
 			os << ".length\n";
 		}
+	}
+	else if (CASE(ExprMemberAccess, root))
+	{
+		os << "member\n";
+		indentout(os, indent + 1);
+		os << _->member_name << " #" << _->member_index << "\n";
+
+		indentout(os, indent);
+		os << "of\n";
+		dump(os, _->aggr, indent + 1);
 	}
 	else if (CASE(ExprLetVar, root))
 	{

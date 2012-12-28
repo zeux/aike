@@ -118,6 +118,19 @@ Type* resolveType(SynType* type, Environment& env)
 		return new TypeFunction(resolveType(_->result, env), argtys);
 	}
 
+	if (CASE(SynTypeStructure, type))
+	{
+		std::vector<Type*> member_types;
+		std::vector<std::string> member_names;
+
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+			member_types.push_back(resolveType(_->member_types[i], env));
+		for (size_t i = 0; i < _->member_names.size(); ++i)
+			member_names.push_back(_->member_names[i].name);
+
+		return new TypeStructure(member_types, member_names);
+	}
+
 	assert(!"Unknown syntax tree type");
 	return 0;
 }
@@ -142,6 +155,12 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 		{
 			if (CASE(BindingLocal, binding))
 			{
+				for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
+				{
+					if (env.functions.back().externals[i] == binding)
+						return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, i);
+				}
+
 				env.functions.back().externals.push_back(binding);
 				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
 			}
@@ -240,6 +259,34 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprArraySlice(arr_type ? (Type*)arr_type : new TypeGeneric(), _->location, arr, resolveExpr(_->index_start, env), _->index_end ? resolveExpr(_->index_end, env) : 0);
 	}
 
+	if (CASE(SynMemberAccess, node))
+	{
+		Expr* aggr = resolveExpr(_->aggr, env);
+
+		Type* result = 0;
+		size_t index = 0;
+
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(aggr->type))
+		{
+			assert(struct_type->member_names.size() == struct_type->member_types.size());
+			for (size_t i = 0; i < struct_type->member_names.size() && !result; i++)
+			{
+				if (struct_type->member_names[i] == _->member.name)
+				{
+					result = struct_type->member_types[i];
+					index = i;
+				}
+			}
+		}
+		else
+		{
+			// TODO: add support for a later member type resolve
+			errorf(_->aggr->location, "Expected a structure type");
+		}
+
+		return new ExprMemberAccess(result ? result : new TypeGeneric(), _->location, aggr, _->member.name, index);
+	}
+
 	if (CASE(SynLetVar, node))
 	{
 		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
@@ -292,7 +339,10 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
 		{
 			if (CASE(BindingLocal, env.functions.back().externals[i]))
-				context_type->members.push_back(_->target->type);
+			{
+				context_type->member_types.push_back(_->target->type);
+				context_type->member_names.push_back(_->target->name);
+			}
 		}
 
 		std::vector<BindingBase*> function_externals = env.functions.back().externals;
@@ -679,7 +729,19 @@ Type* analyze(Expr* root)
 		if (te && !unify(te, new TypeInt()))
 			errorf(_->index_end->location, "Expected type 'int', got '%s'", typeName(te).c_str());
 
-		return _->type = tn;
+		return _->type = ta;
+	}
+
+	if (CASE(ExprMemberAccess, root))
+	{
+		Type* ta = analyze(_->aggr);
+
+		if (TypeStructure* ts = dynamic_cast<TypeStructure*>(ta))
+			_->type = ts->member_types[_->member_index];
+		else
+			errorf(_->aggr->location, "Expected a structure type, got '%s'", typeName(ta).c_str());
+
+		return _->type;
 	}
 
 	if (CASE(ExprLetVar, root))
