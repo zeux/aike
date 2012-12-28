@@ -122,7 +122,7 @@ Type* resolveType(SynType* type, Environment& env)
 	return 0;
 }
 
-Type* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env)
+TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env)
 {
 	std::vector<Type*> argtys;
 
@@ -256,31 +256,28 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		env.functions.push_back(FunctionInfo(env.bindings.size()));
 		env.bindings.push_back(std::vector<Binding>());
 
+		TypeFunction* funty = resolveFunctionType(_->ret_type, _->args, env);
+
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
+			BindingTarget* target = new BindingTarget(_->args[i].name.name, funty->args[i]);
 
 			args.push_back(target);
 			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		BindingTarget* target = new BindingTarget(_->var.name, resolveFunctionType(_->ret_type, _->args, env));
+		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
 		// Add info about function context. Context type will be resolved later
 		TypeStructure* context_type = new TypeStructure();
 		BindingTarget* context_target = new BindingTarget("extern", new TypeReference(context_type));
 		env.functions.back().context = new BindingLocal(context_target);
 
-		env.bindings.back().push_back(Binding(_->var.name, (BindingBase*)new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
 
 		Expr* body = resolveExpr(_->body, env);
 
 		bool has_externals = !env.functions.back().externals.empty();
-
-		std::vector<Type*> argtys;
-
-		for (size_t i = 0; i < _->args.size(); ++i)
-			argtys.push_back(resolveType(_->args[i].type, env));
 
 		// Resolve function context type
 		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
@@ -673,12 +670,6 @@ Type* analyze(Expr* root)
 
 		if (!unify(rettype, tb))
 			errorf(_->location, "Expected type '%s', got '%s'", typeName(rettype).c_str(), typeName(tb).c_str());
-
-		for (size_t i = 0; i < _->args.size(); ++i)
-		{
-			// WTF
-			unify(funty->args[i], _->args[i]->type);
-		}
 
 		return _->type;
 	}
