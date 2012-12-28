@@ -138,9 +138,8 @@ struct ExprMemberAccess: Expr
 {
 	Expr* aggr;
 	std::string member_name;
-	size_t member_index;
 
-	ExprMemberAccess(Type* type, const Location& location, Expr* aggr, const std::string& member_name, size_t member_index): Expr(type, location), aggr(aggr), member_name(member_name), member_index(member_index)
+	ExprMemberAccess(Type* type, const Location& location, Expr* aggr, const std::string& member_name): Expr(type, location), aggr(aggr), member_name(member_name)
 	{
 	}
 };
@@ -174,6 +173,16 @@ struct ExprExternFunc: Expr
 	std::vector<BindingTarget*> args;
 
 	ExprExternFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args): Expr(type, location), target(target), args(args)
+	{
+	}
+};
+
+struct ExprConstructorFunc: Expr
+{
+	BindingTarget* target;
+	std::vector<BindingTarget*> args;
+
+	ExprConstructorFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args): Expr(type, location), target(target), args(args)
 	{
 	}
 };

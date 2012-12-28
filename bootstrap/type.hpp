@@ -63,6 +63,7 @@ struct TypeFunction: Type
 
 struct TypeStructure: Type
 {
+	std::string name;
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
 
@@ -70,7 +71,7 @@ struct TypeStructure: Type
 	{
 	}
 
-	TypeStructure(const std::vector<Type*>& member_types, const std::vector<std::string>& member_names): member_types(member_types), member_names(member_names)
+	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names): name(name), member_types(member_types), member_names(member_names)
 	{
 	}
 };

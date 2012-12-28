@@ -118,19 +118,6 @@ Type* resolveType(SynType* type, Environment& env)
 		return new TypeFunction(resolveType(_->result, env), argtys);
 	}
 
-	if (CASE(SynTypeStructure, type))
-	{
-		std::vector<Type*> member_types;
-		std::vector<std::string> member_names;
-
-		for (size_t i = 0; i < _->member_types.size(); ++i)
-			member_types.push_back(resolveType(_->member_types[i], env));
-		for (size_t i = 0; i < _->member_names.size(); ++i)
-			member_names.push_back(_->member_names[i].name);
-
-		return new TypeStructure(member_types, member_names);
-	}
-
 	assert(!"Unknown syntax tree type");
 	return 0;
 }
@@ -208,6 +195,34 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprArrayLiteral(elements.empty() ? (Type*)new TypeGeneric() : (Type*)new TypeArray(elements[0]->type), _->location, elements);
 	}
 
+	if (CASE(SynTypeDefinition, node))
+	{
+		std::vector<Type*> member_types;
+		std::vector<std::string> member_names;
+
+		std::vector<BindingTarget*> args;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			member_types.push_back(resolveType(_->members[i].type, env));
+			member_names.push_back(_->members[i].name.name);
+
+			args.push_back(new BindingTarget(_->members[i].name.name, member_types.back()));
+		}
+
+		TypeStructure* type = new TypeStructure(_->name.name, member_types, member_names);
+
+		env.types.push_back(TypeBinding(_->name.name, type));
+
+		TypeFunction* function_type = new TypeFunction(type, member_types);
+
+		BindingTarget* target = new BindingTarget(_->name.name, function_type);
+
+		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target)));
+
+		return new ExprConstructorFunc(function_type, _->location, target, args);
+	}
+
 	if (CASE(SynVariableReference, node))
 	{
 		if (Expr* access = resolveBindingAccess(_->name, _->location, env))
@@ -264,7 +279,6 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		Expr* aggr = resolveExpr(_->aggr, env);
 
 		Type* result = 0;
-		size_t index = 0;
 
 		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(aggr->type))
 		{
@@ -272,19 +286,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			for (size_t i = 0; i < struct_type->member_names.size() && !result; i++)
 			{
 				if (struct_type->member_names[i] == _->member.name)
-				{
 					result = struct_type->member_types[i];
-					index = i;
-				}
 			}
 		}
-		else
-		{
-			// TODO: add support for a later member type resolve
-			errorf(_->aggr->location, "Expected a structure type");
-		}
 
-		return new ExprMemberAccess(result ? result : new TypeGeneric(), _->location, aggr, _->member.name, index);
+		return new ExprMemberAccess(result ? result : new TypeGeneric(), _->member.location, aggr, _->member.name);
 	}
 
 	if (CASE(SynLetVar, node))
@@ -552,6 +558,22 @@ bool unify(Type* lhs, Type* rhs)
 		return true;
 	}
 
+	if (CASE(TypeStructure, lhs))
+	{
+		TypeStructure* r = dynamic_cast<TypeStructure*>(rhs);
+		if (!r) return false;
+
+		if (_->member_types.size() != r->member_types.size()) return false;
+
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+		{
+			if (!unify(_->member_types[i], r->member_types[i]))
+				return false;
+		}
+
+		return true;
+	}
+
 	return false;
 }
 
@@ -736,10 +758,15 @@ Type* analyze(Expr* root)
 	{
 		Type* ta = analyze(_->aggr);
 
-		if (TypeStructure* ts = dynamic_cast<TypeStructure*>(ta))
-			_->type = ts->member_types[_->member_index];
-		else
-			errorf(_->aggr->location, "Expected a structure type, got '%s'", typeName(ta).c_str());
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(ta))
+		{
+			assert(struct_type->member_names.size() == struct_type->member_types.size());
+			for (size_t i = 0; i < struct_type->member_names.size(); i++)
+			{
+				if (struct_type->member_names[i] == _->member_name)
+					_->type = struct_type->member_types[i];
+			}
+		}
 
 		return _->type;
 	}
@@ -768,6 +795,11 @@ Type* analyze(Expr* root)
 	}
 
 	if (CASE(ExprExternFunc, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprConstructorFunc, root))
 	{
 		return _->type;
 	}

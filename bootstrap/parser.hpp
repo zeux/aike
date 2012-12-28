@@ -52,20 +52,6 @@ struct SynTypeFunction: SynType
 	}
 };
 
-struct SynTypeStructure: SynType
-{
-	std::vector<SynType*> member_types;
-	std::vector<SynIdentifier> member_names;
-
-	SynTypeStructure()
-	{
-	}
-
-	SynTypeStructure(const std::vector<SynType*>& member_types, const std::vector<SynIdentifier>& member_names): member_types(member_types), member_names(member_names)
-	{
-	}
-};
-
 struct SynTypedVar
 {
 	SynIdentifier name;
@@ -108,6 +94,14 @@ struct SynArrayLiteral: SynBase
 	std::vector<SynBase*> elements;
 
 	SynArrayLiteral(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
+};
+
+struct SynTypeDefinition: SynBase
+{
+	SynIdentifier name;
+	std::vector<SynTypedVar> members;
+
+	SynTypeDefinition(const Location& location, const SynIdentifier& name, const std::vector<SynTypedVar>& members): SynBase(location), name(name), members(members) {}
 };
 
 struct SynVariableReference: SynBase

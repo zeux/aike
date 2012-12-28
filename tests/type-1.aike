@@ -1,0 +1,16 @@
+type vec2 = { x: int; y: int }
+
+type vec3 = {
+    x: int
+    y: int
+    z: int
+}
+
+let foo(x:vec2, y:vec3) = x.y + y.y
+
+let x = vec2(1, 2)
+
+foo(x, vec3(3, 4, 5))
+
+// OUTPUT:
+// 6

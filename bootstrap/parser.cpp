@@ -428,6 +428,50 @@ SynBase* parseForInDo(Lexer& lexer)
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
+SynBase* parseTypeDefinition(Lexer& lexer)
+{
+	assert(iskeyword(lexer, "type"));
+	movenext(lexer);
+
+	SynIdentifier name = parseIdentifier(lexer);
+
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '=' after type name");
+	movenext(lexer);
+
+	if (lexer.current.type != LexOpenCurlyBrace) errorf(lexer.current.location, "Expected '{' after '='");
+	movenext(lexer);
+
+	std::vector<SynTypedVar> members;
+	
+	size_t prev_line = lexer.current.location.line;
+
+	while (lexer.current.type != LexCloseCurlyBrace)
+	{
+		if (!members.empty())
+		{
+			if (lexer.current.type != LexSemicolon && lexer.current.location.line == prev_line)
+				errorf(lexer.current.location, "';' expected after previous type member");
+			if (lexer.current.type == LexSemicolon)
+				movenext(lexer);
+		}
+
+		prev_line = lexer.current.location.line;
+
+		SynIdentifier name = parseIdentifier(lexer);
+
+		if (lexer.current.type != LexColon) errorf(lexer.current.location, "Expected ': type' after member name");
+		movenext(lexer);
+
+		SynType* type = parseType(lexer);
+
+		members.push_back(SynTypedVar(name, type));
+	}
+
+	movenext(lexer);
+
+	return new SynTypeDefinition(name.location, name, members);
+}
+
 SynBase* parsePrimary(Lexer& lexer)
 {
 	SynUnaryOpType uop = getUnaryOp(lexer.current.type);
@@ -443,6 +487,9 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "extern"))
 		return parseExternFunc(lexer);
+
+	if (iskeyword(lexer, "type"))
+		return parseTypeDefinition(lexer);
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
@@ -497,12 +544,12 @@ SynBase* parsePrimary(Lexer& lexer)
 
 			if (lexer.current.type == LexCloseBracket) errorf(lexer.current.location, "index or range is expected after '['");
 
-			if (lexer.current.type == LexRange)
+			if (lexer.current.type == LexPointPoint)
 				index_start = new SynNumberLiteral(lexer.current.location, 0);
 			else
 				index_start = parseExpr(lexer);
 
-			if (lexer.current.type == LexRange)
+			if (lexer.current.type == LexPointPoint)
 			{
 				movenext(lexer);
 

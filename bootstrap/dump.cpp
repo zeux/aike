@@ -53,15 +53,22 @@ void dump(std::ostream& os, Type* type)
 	}
 	else if (CASE(TypeStructure, type))
 	{
-		os << "[";
-		assert(_->member_names.size() == _->member_types.size());
-		for (size_t i = 0; i < _->member_types.size(); ++i)
+		if (_->name.empty())
 		{
-			if (i != 0) os << ",";
-			dump(os, _->member_types[i]);
-			os << " " << _->member_names[i];
+			os << "[";
+			assert(_->member_names.size() == _->member_types.size());
+			for (size_t i = 0; i < _->member_types.size(); ++i)
+			{
+				if (i != 0) os << ",";
+				dump(os, _->member_types[i]);
+				os << " " << _->member_names[i];
+			}
+			os << "]";
 		}
-		os << "]";
+		else
+		{
+			os << _->name;
+		}
 	}
 	else
 	{
@@ -191,6 +198,21 @@ void dump(std::ostream& os, SynBase* root, int indent)
 			dump(os, _->elements[i], indent + 1);
 		indentout(os, indent);
 		os << "]\n";
+	}
+	else if (CASE(SynTypeDefinition, root))
+	{
+		os << "type " << _->name.name << "\n";
+		indentout(os, indent);
+		os << "{\n";
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			indentout(os, indent + 1);
+			os <<  _->members[i].name.name << ": ";
+			dump(os, _->members[i].type);
+			os << "\n";
+		}
+		indentout(os, indent);
+		os << "}\n";
 	}
 	else if (CASE(SynVariableReference, root))
 	{
@@ -436,7 +458,7 @@ void dump(std::ostream& os, Expr* root, int indent)
 	{
 		os << "member\n";
 		indentout(os, indent + 1);
-		os << _->member_name << " #" << _->member_index << "\n";
+		os << _->member_name << "\n";
 
 		indentout(os, indent);
 		os << "of\n";
@@ -472,6 +494,12 @@ void dump(std::ostream& os, Expr* root, int indent)
 	else if (CASE(ExprExternFunc, root))
 	{
 		os << "extern ";
+		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
+		os << "\n";
+	}
+	else if (CASE(ExprConstructorFunc, root))
+	{
+		os << "constructor ";
 		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}

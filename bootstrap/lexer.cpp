@@ -82,7 +82,7 @@ Lexeme readident(Lexer& lexer)
 		consume(lexer);
 	}
 
-	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern" || data == "fun" || data == "for" || data == "in" || data == "do" || data == "true" || data == "false")
+	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern" || data == "fun" || data == "for" || data == "in" || data == "do" || data == "true" || data == "false" || data == "type")
 		return Lexeme(LexKeyword, data);
 	else
 		return Lexeme(LexIdentifier, data);
@@ -94,11 +94,13 @@ Lexeme readnext(Lexer& lexer)
 	{
 	case 0: return LexEOF;
 	case ',': return consume(lexer), LexComma;
-	case '.': return consume(lexer), (peekch(lexer) == '.' ? (consume(lexer), LexRange) : LexPoint);
+	case '.': return consume(lexer), (peekch(lexer) == '.' ? (consume(lexer), LexPointPoint) : LexPoint);
 	case '(': return consume(lexer), LexOpenBrace;
 	case ')': return consume(lexer), LexCloseBrace;
 	case '[': return consume(lexer), LexOpenBracket;
 	case ']': return consume(lexer), LexCloseBracket;
+	case '{': return consume(lexer), LexOpenCurlyBrace;
+	case '}': return consume(lexer), LexCloseCurlyBrace;
 	case '=': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexEqualEqual) : LexEqual);
 	case '+': return consume(lexer), LexPlus;
 	case '-': return consume(lexer), (peekch(lexer) == '>' ? (consume(lexer), LexArrow) : LexMinus);

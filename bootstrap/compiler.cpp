@@ -96,7 +96,10 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		return context.types[type] = llvm::StructType::get(*context.context, members, false);
+		if (!_->name.empty())
+			return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
+		else
+			return context.types[type] = llvm::StructType::get(*context.context, members, false);
 	}
 
 	errorf(location, "Unrecognized type");
@@ -331,7 +334,23 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	}
 
 	if (CASE(ExprMemberAccess, node))
-		return builder.CreateExtractValue(compileExpr(context, builder, _->aggr), _->member_index);
+	{
+		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
+
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(finalType(_->aggr->type)))
+		{
+			assert(struct_type->member_names.size() == struct_type->member_types.size());
+			for (size_t i = 0; i < struct_type->member_names.size(); i++)
+			{
+				if (struct_type->member_names[i] == _->member_name)
+					return builder.CreateExtractValue(aggr, i);
+			}
+
+			errorf(_->location, "Type doesn't have a member named '%s'", _->member_name);
+		}
+
+		errorf(_->location, "Cannot access members of a type that is not a structure");
+	}
 
 	if (CASE(ExprLetVar, node))
 	{
@@ -440,6 +459,46 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			if (i < _->args.size())
 				argi->setName(_->args[i]->name);
 		}
+
+		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
+
+		holder = builder.CreateInsertValue(holder, compileFunctionThunk(context, _->location, func, general_holder_type, 0), 0);
+		holder = builder.CreateInsertValue(holder, llvm::Constant::getNullValue(llvm::Type::getInt8PtrTy(*context.context)), 1);
+
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = holder;
+
+		return holder;
+	}
+
+	if (CASE(ExprConstructorFunc, node))
+	{
+		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
+
+		llvm::Type* general_holder_type = compileType(context, _->type, _->location);
+
+		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
+
+		llvm::Function::arg_iterator argi = func->arg_begin();
+
+		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+		{
+			if (i < _->args.size())
+				argi->setName(_->args[i]->name);
+		}
+
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+
+		llvm::IRBuilder<> funcbuilder(bb);
+
+		llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+
+		argi = func->arg_begin();
+
+		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+			aggr = funcbuilder.CreateInsertValue(aggr, argi, i);
+
+		funcbuilder.CreateRet(aggr);
 
 		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
 
