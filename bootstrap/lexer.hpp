@@ -38,6 +38,7 @@ enum LexemeType
 	LexKeyword,
 	LexIdentifier,
 	LexNumber,
+	LexCharacter,
 	LexString
 };
 

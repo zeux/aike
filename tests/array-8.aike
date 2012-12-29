@@ -1,0 +1,9 @@
+let length(x): int =
+    llvm "extractvalue typeof(%x) %x, 1"
+
+let x = "test"
+
+x#length
+
+// OUTPUT:
+// 4

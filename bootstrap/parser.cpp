@@ -95,6 +95,29 @@ SynBase* parseTerm(Lexer& lexer)
 		movenext(lexer);
 		return result;
 	}
+	else if (lexer.current.type == LexCharacter)
+	{
+		if (lexer.current.contents.empty())
+			errorf(lexer.current.location, "Character missing");
+		if (lexer.current.contents.size() > 1)
+			errorf(lexer.current.location, "Multicharacter literals are not supported");
+
+		SynBase* result = new SynNumberLiteral(lexer.current.location, lexer.current.contents[0]);
+		movenext(lexer);
+		return result;
+	}
+	else if (lexer.current.type == LexString)
+	{
+		Location location = lexer.current.location;
+
+		std::vector<SynBase*> elements;
+		for (size_t i = 0; i < lexer.current.contents.size(); ++i)
+			elements.push_back(new SynNumberLiteral(location, lexer.current.contents[i]));
+
+		movenext(lexer);
+
+		return new SynArrayLiteral(location, elements);
+	}
 	else
 	{
 		errorf(lexer.current.location, "Unexpected lexeme %d", lexer.current.type);
