@@ -14,6 +14,12 @@ inline char peekch(const Lexer& lexer, size_t offset)
 
 inline void consume(Lexer& lexer)
 {
+	if (peekch(lexer) == '\n')
+	{
+		lexer.line_start_pos = lexer.position + 1;
+		lexer.line++;
+	}
+
 	assert(lexer.position < lexer.data.size());
 	lexer.position++;
 }
@@ -185,11 +191,7 @@ void movenext(Lexer& lexer)
 			consume(lexer);
 
 		if (peekch(lexer) == '\n')
-		{
 			consume(lexer);
-			lexer.line_start_pos = lexer.position;
-			lexer.line++;
-		}
 
 		if (peekch(lexer) == '/')
 		{
