@@ -170,6 +170,79 @@ llvm::Function* compileFunctionThunk(Context& context, Location location, llvm::
 	return thunk_func;
 }
 
+llvm::Value* findFunctionArgument(llvm::Function* func, const std::string& name)
+{
+	for (llvm::Function::arg_iterator argi = func->arg_begin(); argi != func->arg_end(); ++argi)
+		if (argi->getName() == name)
+			return argi;
+
+	return NULL;
+}
+
+std::string compileInlineLLVM(const std::string& name, const std::string& body, llvm::Function* func, const Location& location)
+{
+	std::ostringstream declare;
+	std::ostringstream oss;
+	llvm::raw_os_ostream os(oss);
+
+	os << "define " << *func->getReturnType() << " @" << name << "(";
+
+	for (llvm::Function::arg_iterator argi = func->arg_begin(); argi != func->arg_end(); ++argi)
+		os << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
+
+	os << ") alwaysinline {\n";
+
+	// if %out is not used, assume single expression
+	if (body.find("%out") == std::string::npos)
+	{
+		os << "%out = ";
+	}
+
+	// append body to stream, replacing typeof(%arg) with actual types
+	for (size_t i = 0; i < body.size(); )
+	{
+		if (body[i] == 't' && body.compare(i, 8, "typeof(%") == 0)
+		{
+			std::string::size_type end = body.find(')', i);
+
+			if (end == std::string::npos)
+				errorf(location, "Incorrect typeof expression: closing brace expected");
+
+			std::string var(body.begin() + i + 8, body.begin() + end);
+
+			if (llvm::Value* arg = findFunctionArgument(func, var))
+			{
+				os << *arg->getType();
+				i = end + 1;
+			}
+			else
+			{
+				errorf(location, "Incorrect typeof expression: unknown variable %s", var.c_str());
+			}
+		}
+		else if (body[i] == 'd' && body.compare(i, 8, "declare ") == 0)
+		{
+			std::string::size_type end = body.find('\n', i);
+
+			if (end == std::string::npos)
+				errorf(location, "Incorrect declare expression: newline expected");
+			
+			declare << std::string(body.begin() + i, body.begin() + end + 1);
+			i = end + 1;
+		}
+		else
+		{
+			os << body[i];
+			i++;
+		}
+	}
+
+	os << "\nret " << *func->getReturnType() << " %out }";
+	os.flush();
+
+	return declare.str() + oss.str();
+}
+
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
 {
 	assert(node);
@@ -516,21 +589,11 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Function* func = builder.GetInsertBlock()->getParent();
 
 		std::string name = "autogen_" + func->getName().str();
-
-		std::stringstream stream;
-		llvm::raw_os_ostream os_stream(stream);
-
-		os_stream << "define " << *func->getReturnType() << " @" << name << "(";
-
-		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
-			os_stream << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
-
-		os_stream << "){ %out = " + _->body + " ret " << *func->getReturnType() << " %out }";
-		os_stream.flush();
+		std::string body = compileInlineLLVM(name, _->body, func, _->location);
 
 		llvm::SMDiagnostic err;
-		if (!llvm::ParseAssemblyString(stream.str().c_str(), context.module, err, *context.context))
-			errorf(_->location, "Failed to parse llvm inline code: %s", err.getMessage().c_str());
+		if (!llvm::ParseAssemblyString(body.c_str(), context.module, err, *context.context))
+			errorf(_->location, "Failed to parse llvm inline code: %s at '%s'", err.getMessage().c_str(), err.getLineContents().c_str());
 
 		std::vector<llvm::Value*> arguments;
 		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)

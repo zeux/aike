@@ -1,0 +1,12 @@
+let sqrt(n: int): int =
+	llvm "
+	declare float @llvm.sqrt.f32(float %Val)
+	%r0 = sitofp typeof(%n) %n to float
+	%r1 = call float @llvm.sqrt.f32(float %r0)
+	%out = fptosi float %r1 to typeof(%n)
+	"
+
+sqrt(42)
+
+// OUTPUT:
+// 6
