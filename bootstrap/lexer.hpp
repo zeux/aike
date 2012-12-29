@@ -34,6 +34,7 @@ enum LexemeType
 	LexPipe,
 	LexMultiply,
 	LexDivide,
+	LexSharp,
 	LexKeyword,
 	LexIdentifier,
 	LexNumber,

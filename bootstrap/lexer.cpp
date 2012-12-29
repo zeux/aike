@@ -112,6 +112,7 @@ Lexeme readnext(Lexer& lexer)
 	case '|': return consume(lexer), LexPipe;
 	case '*': return consume(lexer), LexMultiply;
 	case '/': return consume(lexer), LexDivide;
+	case '#': return consume(lexer), LexSharp;
 	}
 
 	if (isdigit(peekch(lexer)))

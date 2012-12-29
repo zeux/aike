@@ -508,7 +508,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	SynBase* result = parseTerm(lexer);
 
-	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint)
+	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint || lexer.current.type == LexSharp)
 	{
 		if (lexer.current.type == LexOpenBrace)
 		{
@@ -574,6 +574,37 @@ SynBase* parsePrimary(Lexer& lexer)
 			if (lexer.current.type != LexIdentifier) errorf(lexer.current.location, "identifier expected after '.'");
 
 			result = new SynMemberAccess(lexer.current.location, result, parseIdentifier(lexer));
+		}
+		else if (lexer.current.type == LexSharp)
+		{
+			movenext(lexer);
+
+			SynIdentifier name = parseIdentifier(lexer);
+
+			std::vector<SynBase*> args;
+
+			args.push_back(result);
+
+			if (lexer.current.type == LexOpenBrace)
+			{
+				movenext(lexer);
+
+				while (lexer.current.type != LexCloseBrace)
+				{
+					args.push_back(parseExpr(lexer));
+
+					if (lexer.current.type == LexComma)
+						movenext(lexer);
+					else if (lexer.current.type == LexCloseBrace)
+						;
+					else
+						errorf(lexer.current.location, "Expected comma or closing brace");
+				}
+
+				movenext(lexer);
+			}
+
+			result = new SynCall(name.location, new SynVariableReference(name.location, name.name), args);
 		}
 	}
 
