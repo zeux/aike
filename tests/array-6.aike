@@ -1,15 +1,15 @@
-let length(x: int[]): int =
-    llvm "extractvalue { i32*, i32 } %x, 1"
+let length(x) =
+    llvm "extractvalue typeof(%x) %x, 1"
 
 let sum(arr) =
     let loop(offset, acc) =
-        if offset < length(arr) then
+        if offset < arr#length then
             loop(offset + 1, arr[offset] + acc)
         else
             acc
     loop(0, 0)
 
-let x: int[] = [2, 3]
+let x = [2, 3]
 
 sum(x)
 
