@@ -143,14 +143,14 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynTypeDefinition, root))
 	{
-		os << "type " << _->name.name << "\n";
+		os << "type " << _->type_struct->name.name << "\n";
 		indentout(os, indent);
 		os << "{\n";
-		for (size_t i = 0; i < _->members->members.size(); ++i)
+		for (size_t i = 0; i < _->type_struct->members.size(); ++i)
 		{
 			indentout(os, indent + 1);
-			os <<  _->members->members[i].name.name << ": ";
-			dump(os, _->members->members[i].type);
+			os <<  _->type_struct->members[i].name.name << ": ";
+			dump(os, _->type_struct->members[i].type);
 			os << "\n";
 		}
 		indentout(os, indent);

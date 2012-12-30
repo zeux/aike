@@ -141,7 +141,7 @@ Type* resolveType(SynType* type, Environment& env)
 			member_names.push_back(_->members[i].name.name);
 		}
 
-		return new TypeStructure("", member_types, member_names);
+		return new TypeStructure(_->name.name, member_types, member_names);
 	}
 
 	assert(!"Unknown syntax tree type");
@@ -226,23 +226,23 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		std::vector<BindingTarget*> args;
 
-		for (size_t i = 0; i < _->members->members.size(); ++i)
+		for (size_t i = 0; i < _->type_struct->members.size(); ++i)
 		{
-			member_types.push_back(resolveType(_->members->members[i].type, env));
-			member_names.push_back(_->members->members[i].name.name);
+			member_types.push_back(resolveType(_->type_struct->members[i].type, env));
+			member_names.push_back(_->type_struct->members[i].name.name);
 
-			args.push_back(new BindingTarget(_->members->members[i].name.name, member_types.back()));
+			args.push_back(new BindingTarget(_->type_struct->members[i].name.name, member_types.back()));
 		}
 
-		TypeStructure* type = new TypeStructure(_->name.name, member_types, member_names);
+		Type* type = resolveType(_->type_struct, env);
 
-		env.types.push_back(TypeBinding(_->name.name, type));
+		env.types.push_back(TypeBinding(_->type_struct->name.name, type));
 
 		TypeFunction* function_type = new TypeFunction(type, member_types);
 
-		BindingTarget* target = new BindingTarget(_->name.name, function_type);
+		BindingTarget* target = new BindingTarget(_->type_struct->name.name, function_type);
 
-		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target, member_names)));
+		env.bindings.back().push_back(Binding(_->type_struct->name.name, new BindingFreeFunction(target, member_names)));
 
 		return new ExprStructConstructorFunc(function_type, _->location, target, args);
 	}

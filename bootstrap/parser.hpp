@@ -73,9 +73,10 @@ struct SynTypeFunction: SynType
 
 struct SynTypeStructure: SynType
 {
+	SynIdentifier name;
 	std::vector<SynTypedVar> members;
 
-	SynTypeStructure(const std::vector<SynTypedVar>& members): members(members)
+	SynTypeStructure(const SynIdentifier& name, const std::vector<SynTypedVar>& members): name(name), members(members)
 	{
 	}
 };
@@ -116,10 +117,9 @@ struct SynArrayLiteral: SynBase
 
 struct SynTypeDefinition: SynBase
 {
-	SynIdentifier name;
-	SynTypeStructure* members;
+	SynTypeStructure* type_struct;
 
-	SynTypeDefinition(const Location& location, const SynIdentifier& name, SynTypeStructure* members): SynBase(location), name(name), members(members) {}
+	SynTypeDefinition(const Location& location, SynTypeStructure* type_struct): SynBase(location), type_struct(type_struct) {}
 };
 
 struct SynUnionDefinition: SynBase

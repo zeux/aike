@@ -259,7 +259,7 @@ SynType* parseType(Lexer& lexer)
 	}
 }
 
-SynTypeStructure* parseTypeStructure(Lexer& lexer)
+SynTypeStructure* parseTypeStructure(Lexer& lexer, const SynIdentifier name)
 {
 	if (lexer.current.type != LexOpenCurlyBrace) errorf(lexer.current.location, "Expected '{'");
 	movenext(lexer);
@@ -292,7 +292,7 @@ SynTypeStructure* parseTypeStructure(Lexer& lexer)
 
 	movenext(lexer);
 
-	return new SynTypeStructure(members);
+	return new SynTypeStructure(name, members);
 }
 
 SynTypedVar parseTypedVar(Lexer& lexer)
@@ -502,11 +502,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 	movenext(lexer);
 
 	if (lexer.current.type == LexOpenCurlyBrace)
-	{
-		SynTypeStructure* type = parseTypeStructure(lexer);
-
-		return new SynTypeDefinition(name.location, name, type);
-	}
+		return new SynTypeDefinition(name.location, parseTypeStructure(lexer, name));
 
 	std::vector<SynTypedVar> members;
 
@@ -520,7 +516,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 		SynType* type = 0;
 
 		if (lexer.current.type == LexOpenCurlyBrace)
-			type = parseTypeStructure(lexer);
+			type = parseTypeStructure(lexer, name);
 		else if (lexer.current.type == LexIdentifier || lexer.current.type == LexOpenBrace)
 			type = parseType(lexer);
 
