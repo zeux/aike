@@ -609,9 +609,11 @@ void mustUnify(Type* actual, Type* expected, const Location& location)
 {
 	if (!unify(actual, expected))
 	{
-		std::pair<std::string, std::string> types = typeName2(actual, expected);
+		PrettyPrintContext context;
+		std::string expectedType = typeName(expected, context);
+		std::string actualType = typeName(actual, context);
 
-		errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", types.second.c_str(), types.first.c_str());
+		errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", expectedType.c_str(), actualType.c_str());
 	}
 }
 

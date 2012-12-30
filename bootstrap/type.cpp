@@ -1,10 +1,6 @@
 #include "type.hpp"
 
-#include "dump.hpp"
-
 #include <sstream>
-#include <map>
-#include <set>
 #include <cassert>
 
 Type* finalType(Type* type)
@@ -17,17 +13,6 @@ Type* finalType(Type* type)
 
 	return type;
 }
-
-struct PrettyPrintContext
-{
-	std::map<TypeGeneric*, std::string> generic_types;
-	std::set<std::string> generic_names;
-	unsigned int generic_autogen_index;
-
-	PrettyPrintContext(): generic_autogen_index(0)
-	{
-	}
-};
 
 std::string generateGenericName(unsigned int index)
 {
@@ -144,19 +129,9 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 	}
 }
 
-std::string typeName(Type* type)
+std::string typeName(Type* type, PrettyPrintContext& context)
 {
 	std::ostringstream oss;
-	PrettyPrintContext context;
 	prettyPrint(oss, type, context);
 	return oss.str();
-}
-
-std::pair<std::string, std::string> typeName2(Type* type0, Type* type1)
-{
-	std::ostringstream oss0, oss1;
-	PrettyPrintContext context;
-	prettyPrint(oss0, type0, context);
-	prettyPrint(oss1, type1, context);
-	return std::make_pair(oss0.str(), oss1.str());
 }

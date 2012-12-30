@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <string>
+#include <map>
+#include <set>
 
 struct Type
 {
@@ -85,7 +87,17 @@ struct TypeStructure: Type
 #define CASE(type, node) type* _ = dynamic_cast<type*>(node)
 #endif
 
-Type* finalType(Type* type);
+struct PrettyPrintContext
+{
+	std::map<TypeGeneric*, std::string> generic_types;
+	std::set<std::string> generic_names;
+	unsigned int generic_autogen_index;
 
-std::string typeName(Type* type);
-std::pair<std::string, std::string> typeName2(Type* type0, Type* type1);
+	PrettyPrintContext(): generic_autogen_index(0)
+	{
+	}
+};
+
+std::string typeName(Type* type, PrettyPrintContext& context);
+
+Type* finalType(Type* type);

@@ -12,87 +12,6 @@ void indentout(std::ostream& os, int indent)
 		os << "  ";
 }
 
-void dump(std::ostream& os, Type* type)
-{
-	type = finalType(type);
-
-	if (CASE(TypeGeneric, type))
-	{
-		if (_->name.empty())
-			os << "'" << type;
-		else
-			os << "'" << _->name;
-	}
-	else if (CASE(TypeUnit, type))
-		os << "unit";
-	else if (CASE(TypeInt, type))
-		os << "int";
-	else if (CASE(TypeFloat, type))
-		os << "float";
-	else if (CASE(TypeBool, type))
-		os << "bool";
-	else if (CASE(TypeReference, type))
-	{
-		os << "(";
-		dump(os, _->contained);
-		os << ")";
-		os << " ref";
-	}
-	else if (CASE(TypeArray, type))
-	{
-		os << "(";
-		dump(os, _->contained);
-		os << ")";
-		os << "[]";
-	}
-	else if (CASE(TypeFunction, type))
-	{
-		os << "(";
-		for (size_t i = 0; i < _->args.size(); ++i)
-		{
-			if (i != 0) os << ",";
-			dump(os, _->args[i]);
-		}
-		os << ")->";
-		dump(os, _->result);
-	}
-	else if (CASE(TypeStructure, type))
-	{
-		if (_->name.empty())
-		{
-			os << "[";
-			assert(_->member_names.size() == _->member_types.size());
-			for (size_t i = 0; i < _->member_types.size(); ++i)
-			{
-				if (i != 0) os << ",";
-				dump(os, _->member_types[i]);
-				os << " " << _->member_names[i];
-			}
-			os << "]";
-		}
-		else
-		{
-			os << _->name;
-		}
-	}
-	else
-	{
-		assert(!"Unknown type");
-	}
-}
-
-void dump(std::ostream& os, BindingBase* binding)
-{
-	if (CASE(BindingLocal, binding))
-		os << _->target->name;
-	else if (CASE(BindingFreeFunction, binding))
-		os << "free function " << _->target->name;
-	else
-	{
-		assert(!"Unknown binding");
-	}
-}
-
 void dump(std::ostream& os, SynType* type)
 {
 	if (!type)
@@ -358,7 +277,29 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 }
 
-void dump(std::ostream& os, TypeFunction* funty, BindingTarget* target, const std::vector<BindingTarget*>& args)
+void dump(std::ostream& os, SynBase* root)
+{
+	dump(os, root, 0);
+}
+
+void dump(std::ostream& os, PrettyPrintContext& context, Type* type)
+{
+	os << typeName(type, context);
+}
+
+void dump(std::ostream& os, BindingBase* binding)
+{
+	if (CASE(BindingLocal, binding))
+		os << _->target->name;
+	else if (CASE(BindingFreeFunction, binding))
+		os << "free function " << _->target->name;
+	else
+	{
+		assert(!"Unknown binding");
+	}
+}
+
+void dump(std::ostream& os, PrettyPrintContext& context, TypeFunction* funty, BindingTarget* target, const std::vector<BindingTarget*>& args)
 {
 	os << target->name;
 	os << "(";
@@ -371,21 +312,21 @@ void dump(std::ostream& os, TypeFunction* funty, BindingTarget* target, const st
 		os << args[i]->name;
 		os << ": ";
 
-		dump(os, args[i]->type);
+		dump(os, context, args[i]->type);
 	}
 
 	os << "): ";
 
-	dump(os, funty->result);
+	dump(os, context, funty->result);
 }
 
-void dump(std::ostream& os, Expr* root, int indent)
+void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 {
 	assert(root);
 
 	indentout(os, indent);
 	os << "//";
-	dump(os, root->type);
+	dump(os, context, root->type);
 	os << "\n";
 	indentout(os, indent);
 
@@ -399,7 +340,7 @@ void dump(std::ostream& os, Expr* root, int indent)
 	{
 		os << "[\n";
 		for (size_t i = 0; i < _->elements.size(); ++i)
-			dump(os, _->elements[i], indent + 1);
+			dump(os, context, _->elements[i], indent + 1);
 		indentout(os, indent);
 		os << "]\n";
 	}
@@ -417,49 +358,49 @@ void dump(std::ostream& os, Expr* root, int indent)
 	{
 		dump(os, _->op);
 		os << "\n";
-		dump(os, _->expr, indent + 1);
+		dump(os, context, _->expr, indent + 1);
 	}
 	else if (CASE(ExprBinaryOp, root))
 	{
 		dump(os, _->op);
 		os << "\n";
-		dump(os, _->left, indent + 1);
-		dump(os, _->right, indent + 1);
+		dump(os, context, _->left, indent + 1);
+		dump(os, context, _->right, indent + 1);
 	}
 	else if (CASE(ExprCall, root))
 	{
 		os << "call\n";
-		dump(os, _->expr, indent + 1);
+		dump(os, context, _->expr, indent + 1);
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			indentout(os, indent);
 			os << "arg " << i << "\n";
-			dump(os, _->args[i], indent + 1);
+			dump(os, context, _->args[i], indent + 1);
 		}
 	}
 	else if (CASE(ExprArrayIndex, root))
 	{
 		os << "index\n";
-		dump(os, _->arr, indent + 1);
+		dump(os, context, _->arr, indent + 1);
 
 		indentout(os, indent);
 		os << "with\n";
-		dump(os, _->index, indent + 1);
+		dump(os, context, _->index, indent + 1);
 	}
 	else if (CASE(ExprArraySlice, root))
 	{
 		os << "slice of\n";
-		dump(os, _->arr, indent + 1);
+		dump(os, context, _->arr, indent + 1);
 
 		indentout(os, indent);
 		os << "from\n";
-		dump(os, _->index_start, indent + 1);
+		dump(os, context, _->index_start, indent + 1);
 		indentout(os, indent);
 		os << "to\n";
 		if (_->index_end)
 		{
-			dump(os, _->index_end, indent + 1);
+			dump(os, context, _->index_end, indent + 1);
 		}
 		else
 		{
@@ -475,14 +416,14 @@ void dump(std::ostream& os, Expr* root, int indent)
 
 		indentout(os, indent);
 		os << "of\n";
-		dump(os, _->aggr, indent + 1);
+		dump(os, context, _->aggr, indent + 1);
 	}
 	else if (CASE(ExprLetVar, root))
 	{
 		os << "let " << _->target->name << ": ";
-		dump(os, _->type);
+		dump(os, context, _->type);
 		os << " =\n";
-		dump(os, _->body, indent + 1);
+		dump(os, context, _->body, indent + 1);
 	}
 	else if (CASE(ExprLLVM, root))
 	{
@@ -491,62 +432,68 @@ void dump(std::ostream& os, Expr* root, int indent)
 	else if (CASE(ExprLetFunc, root))
 	{
 		os << "let ";
-		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
+		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << " =\n";
-		dump(os, _->body, indent + 1);
+		dump(os, context, _->body, indent + 1);
 		if (_->context_target)
 		{
 			indentout(os, indent);
 			os << "context: ";
-			dump(os, _->context_target->type);
+			dump(os, context, _->context_target->type);
 			os << "\n";
 		}
 		for (size_t i = 0; i < _->externals.size(); ++i)
-			dump(os, _->externals[i], indent + 1);
+			dump(os, context, _->externals[i], indent + 1);
 	}
 	else if (CASE(ExprExternFunc, root))
 	{
 		os << "extern ";
-		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
+		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}
 	else if (CASE(ExprConstructorFunc, root))
 	{
 		os << "constructor ";
-		dump(os, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
+		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}
 	else if (CASE(ExprIfThenElse, root))
 	{
 		os << "if\n";
-		dump(os, _->cond, indent + 1);
+		dump(os, context, _->cond, indent + 1);
 		indentout(os, indent);
 		os << "then\n";
-		dump(os, _->thenbody, indent + 1);
+		dump(os, context, _->thenbody, indent + 1);
 		indentout(os, indent);
 		os << "else\n";
-		dump(os, _->elsebody, indent + 1);
+		dump(os, context, _->elsebody, indent + 1);
 	}
 	else if (CASE(ExprForInDo, root))
 	{
 		os << "for " << _->target->name << ": ";
-		dump(os, _->target->type);
+		dump(os, context, _->target->type);
 		os << "\n";
 		indentout(os, indent);
 		os << "in\n";
-		dump(os, _->arr, indent + 1);
+		dump(os, context, _->arr, indent + 1);
 		indentout(os, indent);
 		os << "do\n";
-		dump(os, _->body, indent + 1);
+		dump(os, context, _->body, indent + 1);
 	}
 	else if (CASE(ExprBlock, root))
 	{
 		os << "block\n";
 		for (size_t i = 0; i < _->expressions.size(); ++i)
-			dump(os, _->expressions[i], indent + 1);
+			dump(os, context, _->expressions[i], indent + 1);
 	}
 	else
 	{
 		assert(!"Unknown node");
 	}
+}
+
+void dump(std::ostream& os, Expr* root)
+{
+	PrettyPrintContext context;
+	dump(os, context, root, 0);
 }
