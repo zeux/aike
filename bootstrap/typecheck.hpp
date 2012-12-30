@@ -236,6 +236,18 @@ struct ExprForInDo: Expr
 	}
 };
 
+struct ExprMatchWith: Expr
+{
+	Expr* variable;
+	std::vector<std::string> variants;
+	std::vector<BindingTarget*> aliases;
+	std::vector<Expr*> expressions;
+
+	ExprMatchWith(Type* type, const Location& location, Expr* variable, const std::vector<std::string>& variants, const std::vector<BindingTarget*>& aliases, const std::vector<Expr*>& expressions): Expr(type, location), variable(variable), variants(variants), aliases(aliases), expressions(expressions)
+	{
+	}
+};
+
 struct ExprBlock: Expr
 {
 	std::vector<Expr*> expressions;

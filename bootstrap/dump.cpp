@@ -292,6 +292,21 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "do\n";
 		dump(os, _->body, indent + 1);
 	}
+	else if (CASE(SynMatchWith, root))
+	{
+		os << "match\n";
+		dump(os, _->variable, indent + 1);
+		os << "with\n";
+		for (size_t i = 0; i < _->variants.size(); ++i)
+		{
+			indentout(os, indent);
+			os << "| " << _->variants[i].name;
+			if (!_->aliases[i].name.empty())
+				os << " " << _->aliases[i].name;
+			os << " ->\n";
+			dump(os, _->expressions[i], indent + 1);
+		}
+	}
 	else if (CASE(SynBlock, root))
 	{
 		os << "SynBlock\n";
@@ -523,6 +538,18 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		indentout(os, indent);
 		os << "do\n";
 		dump(os, context, _->body, indent + 1);
+	}
+	else if (CASE(ExprMatchWith, root))
+	{
+		os << "match\n";
+		dump(os, context, _->variable, indent + 1);
+		os << "with\n";
+		for (size_t i = 0; i < _->variants.size(); ++i)
+		{
+			indentout(os, indent);
+			os << "| " << _->variants[i] << " ->\n";
+			dump(os, context, _->expressions[i], indent + 1);
+		}
 	}
 	else if (CASE(ExprBlock, root))
 	{

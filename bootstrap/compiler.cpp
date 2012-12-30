@@ -422,7 +422,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 					return builder.CreateExtractValue(aggr, i);
 			}
 
-			errorf(_->location, "Type doesn't have a member named '%s'", _->member_name);
+			errorf(_->location, "Type doesn't have a member named '%s'", _->member_name.c_str());
 		}
 
 		errorf(_->location, "Cannot access members of a type that is not a structure");
@@ -737,7 +737,75 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		function->getBasicBlockList().push_back(end_basic_block);
 		builder.SetInsertPoint(end_basic_block);
 
-		return 0;
+		return builder.getInt32(0); // Same as ExprUnit
+	}
+
+	if (CASE(ExprMatchWith, node))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* variable = compileExpr(context, builder, _->variable);
+
+		llvm::Value* type_id = builder.CreateExtractValue(variable, 0);
+		llvm::Value* type_ptr = builder.CreateExtractValue(variable, 1);
+
+		TypeUnion* union_type = dynamic_cast<TypeUnion*>(finalType(_->variable->type));
+
+		if (!union_type)
+			errorf(_->variable->location, "Expression must evaluate to a union type");
+
+		// All union type variants must be covered
+		if (_->variants.size() < union_type->member_names.size())
+		{
+			for (size_t i = 0; i < union_type->member_names.size(); ++i)
+			{
+				bool found = false;
+				for (size_t k = 0; k < _->variants.size() && !found; ++k)
+				{
+					if (union_type->member_names[i] == _->variants[k])
+						found = true;
+				}
+				if (!found)
+					errorf(_->location, "match statement doesn't have a case for tag '%s'", union_type->member_names[i].c_str());
+			}
+		}
+
+		// Expression result
+		llvm::Value* value = builder.CreateAlloca(compileType(context, _->type, _->location));
+		
+		// Create a switch by type ID
+		std::vector<llvm::BasicBlock*> case_blocks;
+		llvm::BasicBlock* finish_block = llvm::BasicBlock::Create(*context.context, "finish");
+
+		llvm::SwitchInst* switch_inst = builder.CreateSwitch(type_id, finish_block, _->variants.size());
+
+		for (size_t i = 0; i < _->variants.size(); ++i)
+		{
+			// Find index of the variant
+			uint32_t index = ~0u;
+			for (size_t k = 0; k < union_type->member_names.size() && index == ~0u; ++k)
+			{
+				if (_->variants[i] == union_type->member_names[k])
+					index = k;
+			}
+
+			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "case_" + _->variants[i]));
+
+			switch_inst->addCase(builder.getInt32(index), case_blocks.back());
+
+			function->getBasicBlockList().push_back(case_blocks.back());
+			builder.SetInsertPoint(case_blocks.back());
+
+			context.values[_->aliases[i]] = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[index], Location()))));
+
+			builder.CreateStore(compileExpr(context, builder, _->expressions[i]), value);
+			builder.CreateBr(finish_block);
+		}
+
+		function->getBasicBlockList().push_back(finish_block);
+		builder.SetInsertPoint(finish_block);
+
+		return builder.CreateLoad(value);
 	}
 
 	if (CASE(ExprBlock, node))

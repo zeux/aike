@@ -494,6 +494,43 @@ SynBase* parseForInDo(Lexer& lexer)
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
+SynBase* parseMatchWith(Lexer& lexer)
+{
+	Location location = lexer.current.location;
+	assert(iskeyword(lexer, "match"));
+	movenext(lexer);
+
+	SynBase* variable = parseExpr(lexer);
+
+	if (!iskeyword(lexer, "with")) errorf(lexer.current.location, "Expected 'with' after expression");
+	movenext(lexer);
+
+	std::vector<SynIdentifier> variants;
+	std::vector<SynIdentifier> aliases;
+	std::vector<SynBase*> expressions;
+
+	// Allow to skip first '|' as long as the identifier is on the same line
+	while (lexer.current.type == LexPipe || (variants.empty() && lexer.current.type == LexIdentifier && lexer.current.location.line == location.line))
+	{
+		if (lexer.current.type == LexPipe)
+			movenext(lexer);
+
+		variants.push_back(parseIdentifier(lexer));
+
+		if (lexer.current.type == LexIdentifier)
+			aliases.push_back(parseIdentifier(lexer));
+		else
+			aliases.push_back(SynIdentifier());
+		
+		if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected '->'");
+			movenext(lexer);
+
+		expressions.push_back(parseBlock(lexer));
+	}
+
+	return new SynMatchWith(location, variable, variants, aliases, expressions);
+}
+
 SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 {
 	size_t start_line = lexer.current.location.line;
@@ -506,7 +543,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 
 	std::vector<SynTypedVar> members;
 
-	// Allow to skip first '|' as long as the identifier is the same new line
+	// Allow to skip first '|' as long as the identifier is on the same line
 	while (lexer.current.type == LexPipe || (members.empty() && lexer.current.type == LexIdentifier && lexer.current.location.line == start_line))
 	{
 		if (lexer.current.type == LexPipe)
@@ -562,6 +599,9 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "for"))
 		return parseForInDo(lexer);
+
+	if (iskeyword(lexer, "match"))
+		return parseMatchWith(lexer);
 
 	if (iskeyword(lexer, "fun"))
 		return parseAnonymousFunc(lexer);

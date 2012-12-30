@@ -288,6 +288,18 @@ struct SynForInDo: SynBase
 	}
 };
 
+struct SynMatchWith: SynBase
+{
+	SynBase* variable;
+	std::vector<SynIdentifier> variants;
+	std::vector<SynIdentifier> aliases;
+	std::vector<SynBase*> expressions;
+
+	SynMatchWith(const Location& location, SynBase* variable, const std::vector<SynIdentifier> variants, const std::vector<SynIdentifier> aliases, const std::vector<SynBase*> expressions): SynBase(location), variable(variable), variants(variants), aliases(aliases), expressions(expressions)
+	{
+	}
+};
+
 struct SynBlock: SynBase
 {
 	std::vector<SynBase*> expressions;

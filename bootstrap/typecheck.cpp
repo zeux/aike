@@ -257,6 +257,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		for (size_t i = 0; i < _->members.size(); i++)
 		{
+			Type* element_type = _->members[i].type ? resolveType(_->members[i].type, env) : new TypeUnit();
+
+			target_type->member_names.push_back(_->members[i].name.name);
+			target_type->member_types.push_back(element_type);
+
 			std::vector<Type*> member_types;
 			std::vector<std::string> member_names;
 			std::vector<BindingTarget*> args;
@@ -282,7 +287,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 			env.bindings.back().push_back(Binding(_->members[i].name.name, new BindingFreeFunction(target, member_names)));
 
-			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, i, _->members[i].type ? resolveType(_->members[i].type, env) : new TypeUnit()));
+			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, i, element_type));
 		}
 
 		expression->expressions.push_back(new ExprUnit(new TypeUnit(), Location()));
@@ -524,6 +529,51 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprForInDo(new TypeUnit(), _->location, target, arr, body);
 	}
 
+	if (CASE(SynMatchWith, node))
+	{
+		Expr* variable = resolveExpr(_->variable, env);
+
+		std::vector<std::string> variants;
+		std::vector<BindingTarget*> aliases;
+		std::vector<Expr*> expressions;
+
+		TypeUnion* union_type = dynamic_cast<TypeUnion*>(variable->type);
+
+		for (size_t i = 0; i < _->variants.size(); i++)
+		{
+			// Find the type of the variant
+			Type* type = 0;
+			for (size_t k = 0; union_type && k < union_type->member_names.size() && !type; ++k)
+			{
+				if (_->variants[i].name == union_type->member_names[k])
+					type = union_type->member_types[k];
+			}
+			if (union_type && !type)
+				errorf(_->variants[i].location, "Union '%s' doesn't have a tag named '%s'", union_type->name.c_str(), _->variants[i].name.c_str());
+
+			// Check that the same variant is not already defined
+			for (size_t k = 0; k < variants.size(); ++k)
+			{
+				if (variants[k] == _->variants[i].name)
+					errorf(_->variants[i].location, "Case for tag '%s' is already defind", _->variants[i].name.c_str());
+			}
+
+			variants.push_back(_->variants[i].name);
+
+			BindingTarget* target = new BindingTarget(_->aliases[i].name, type);
+
+			aliases.push_back(target);
+
+			env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
+
+			expressions.push_back(resolveExpr(_->expressions[i], env));
+
+			env.bindings.back().pop_back();
+		}
+
+		return new ExprMatchWith(new TypeGeneric(), _->location, variable, variants, aliases, expressions);
+	}
+
 	if (CASE(SynBlock, node))
 	{
 		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
@@ -680,6 +730,8 @@ bool unify(Type* lhs, Type* rhs)
 	{
 		TypeStructure* r = dynamic_cast<TypeStructure*>(rhs);
 		if (!r) return false;
+
+		if (_->name != r->name) return false;
 
 		if (_->member_types.size() != r->member_types.size()) return false;
 
@@ -948,6 +1000,30 @@ Type* analyze(Expr* root)
 		mustUnify(tbody, new TypeUnit(), _->body->location);
 
 		return _->type = new TypeUnit();
+	}
+
+	if (CASE(ExprMatchWith, root))
+	{
+		// TODO: _->variable type must be a union
+		Type* tvar = analyze(_->variable);
+		
+		_->type = new TypeUnit();
+
+		if (!_->expressions.empty())
+		{
+			Type* t0 = analyze(_->expressions[0]);
+
+			for (size_t i = 1; i < _->expressions.size(); ++i)
+			{
+				Type* ti = analyze(_->expressions[i]);
+
+				mustUnify(ti, t0, _->expressions[i]->location);
+			}
+
+			_->type = t0;
+		}
+
+		return _->type;
 	}
 
 	if (CASE(ExprBlock, root))
