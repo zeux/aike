@@ -1,0 +1,8 @@
+if true then
+    1
+
+// ERRORS:
+// (2,5): Type mismatch. Expecting a
+//     unit
+// but given a
+//     int

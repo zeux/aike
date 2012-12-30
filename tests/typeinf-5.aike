@@ -1,0 +1,7 @@
+let foo(x) = x(x)
+
+// ERRORS:
+// (1,14): Type mismatch. Expecting a
+//     ('a) -> 'b
+// but given a
+//     'a

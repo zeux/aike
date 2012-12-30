@@ -414,7 +414,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* cond = resolveExpr(_->cond, env);
 		Expr* thenbody = resolveExpr(_->thenbody, env);
-		Expr* elsebody = _->elsebody ? resolveExpr(_->elsebody, env) : 0;
+		Expr* elsebody = resolveExpr(_->elsebody, env);
 
 		return new ExprIfThenElse(new TypeGeneric(), _->location, cond, thenbody, elsebody);
 	}
@@ -828,14 +828,15 @@ Type* analyze(Expr* root)
 	{
 		Type* tcond = analyze(_->cond);
 		Type* tthen = analyze(_->thenbody);
-		Type* telse = _->elsebody ? analyze(_->elsebody) : 0;
+		Type* telse = analyze(_->elsebody);
 
 		mustUnify(tcond, new TypeBool(), _->cond->location);
 
-		if (telse)
-			mustUnify(telse, tthen, _->elsebody->location);
-		else
+		// this if/else is really only needed for nicer error messages
+		if (dynamic_cast<ExprUnit*>(_->elsebody))
 			mustUnify(tthen, new TypeUnit(), _->thenbody->location);
+		else
+			mustUnify(telse, tthen, _->elsebody->location);
 
 		return _->type = tthen;
 	}

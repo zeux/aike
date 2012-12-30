@@ -1,0 +1,36 @@
+extern print(i:int):unit
+
+if true then
+    print(1)
+
+if true then
+    print(2)
+else
+    print(3)
+
+if true then
+    print(4)
+else
+    ()
+
+if false then
+    print(5)
+
+if false then
+    print(6)
+else
+    print(7)
+
+if false then
+    print(8)
+else
+    ()
+
+0
+
+// OUTPUT:
+// 1
+// 2
+// 4
+// 7
+// 0

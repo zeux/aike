@@ -1,0 +1,10 @@
+if true then
+    1
+else
+    false
+
+// ERRORS:
+// (4,5): Type mismatch. Expecting a
+//     int
+// but given a
+//     bool
