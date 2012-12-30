@@ -182,12 +182,25 @@ struct ExprExternFunc: Expr
 	}
 };
 
-struct ExprConstructorFunc: Expr
+struct ExprStructConstructorFunc: Expr
 {
 	BindingTarget* target;
 	std::vector<BindingTarget*> args;
 
-	ExprConstructorFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args): Expr(type, location), target(target), args(args)
+	ExprStructConstructorFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args): Expr(type, location), target(target), args(args)
+	{
+	}
+};
+
+struct ExprUnionConstructorFunc: Expr
+{
+	BindingTarget* target;
+	std::vector<BindingTarget*> args;
+
+	size_t member_id;
+	Type* member_type;
+
+	ExprUnionConstructorFunc(Type* type, const Location& location, BindingTarget* target, std::vector<BindingTarget*> args, size_t member_id, Type* member_type): Expr(type, location), target(target), args(args), member_id(member_id), member_type(member_type)
 	{
 	}
 };

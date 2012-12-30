@@ -102,6 +102,16 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 			return context.types[type] = llvm::StructType::get(*context.context, members, false);
 	}
 
+	if (CASE(TypeUnion, type))
+	{
+		std::vector<llvm::Type*> members;
+
+		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
+		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
+
+		return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
+	}
+
 	errorf(location, "Unrecognized type");
 }
 
@@ -537,7 +547,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return holder;
 	}
 
-	if (CASE(ExprConstructorFunc, node))
+	if (CASE(ExprStructConstructorFunc, node))
 	{
 		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
 
@@ -564,6 +574,68 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
 			aggr = funcbuilder.CreateInsertValue(aggr, argi, i);
 
+		funcbuilder.CreateRet(aggr);
+
+		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
+
+		holder = builder.CreateInsertValue(holder, compileFunctionThunk(context, _->location, func, general_holder_type, 0), 0);
+		holder = builder.CreateInsertValue(holder, llvm::Constant::getNullValue(llvm::Type::getInt8PtrTy(*context.context)), 1);
+
+		assert(context.values.count(_->target) == 0);
+		context.values[_->target] = holder;
+
+		return holder;
+	}
+
+	if (CASE(ExprUnionConstructorFunc, node))
+	{
+		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
+
+		llvm::Type* general_holder_type = compileType(context, _->type, _->location);
+
+		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
+
+		llvm::Function::arg_iterator argi = func->arg_begin();
+
+		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+		{
+			if (i < _->args.size())
+				argi->setName(_->args[i]->name);
+		}
+
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+
+		llvm::IRBuilder<> funcbuilder(bb);
+
+		llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+
+		// Save type ID
+		aggr = funcbuilder.CreateInsertValue(aggr, funcbuilder.getInt32(_->member_id), 0);
+
+		// Create union storage
+		llvm::Type* member_type = compileType(context, _->member_type, _->location);
+		llvm::Type* member_ref_type = llvm::PointerType::getUnqual(member_type);
+		llvm::Value* data = funcbuilder.CreateCall(context.module->getFunction("malloc"), funcbuilder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
+
+		argi = func->arg_begin();
+
+		if (!_->args.empty())
+		{
+			llvm::Value* typed_data = funcbuilder.CreateBitCast(data, member_ref_type);
+
+			if (_->args.size() > 1)
+			{
+				for (size_t i = 0; i < _->args.size(); ++i, ++argi)
+					funcbuilder.CreateStore(argi, funcbuilder.CreateStructGEP(typed_data, i));
+			}
+			else
+			{
+				funcbuilder.CreateStore(argi, typed_data);
+			}
+		}
+		
+		aggr = funcbuilder.CreateInsertValue(aggr, data, 1);
+		
 		funcbuilder.CreateRet(aggr);
 
 		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);

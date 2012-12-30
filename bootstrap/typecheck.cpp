@@ -130,6 +130,20 @@ Type* resolveType(SynType* type, Environment& env)
 		return new TypeFunction(resolveType(_->result, env), argtys);
 	}
 
+	if (CASE(SynTypeStructure, type))
+	{
+		std::vector<Type*> member_types;
+		std::vector<std::string> member_names;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			member_types.push_back(resolveType(_->members[i].type, env));
+			member_names.push_back(_->members[i].name.name);
+		}
+
+		return new TypeStructure("", member_types, member_names);
+	}
+
 	assert(!"Unknown syntax tree type");
 	return 0;
 }
@@ -212,12 +226,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		std::vector<BindingTarget*> args;
 
-		for (size_t i = 0; i < _->members.size(); ++i)
+		for (size_t i = 0; i < _->members->members.size(); ++i)
 		{
-			member_types.push_back(resolveType(_->members[i].type, env));
-			member_names.push_back(_->members[i].name.name);
+			member_types.push_back(resolveType(_->members->members[i].type, env));
+			member_names.push_back(_->members->members[i].name.name);
 
-			args.push_back(new BindingTarget(_->members[i].name.name, member_types.back()));
+			args.push_back(new BindingTarget(_->members->members[i].name.name, member_types.back()));
 		}
 
 		TypeStructure* type = new TypeStructure(_->name.name, member_types, member_names);
@@ -230,7 +244,50 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target, member_names)));
 
-		return new ExprConstructorFunc(function_type, _->location, target, args);
+		return new ExprStructConstructorFunc(function_type, _->location, target, args);
+	}
+
+	if (CASE(SynUnionDefinition, node))
+	{
+		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
+
+		TypeUnion* target_type = new TypeUnion(_->name.name);
+
+		env.types.push_back(TypeBinding(_->name.name, target_type));
+
+		for (size_t i = 0; i < _->members.size(); i++)
+		{
+			std::vector<Type*> member_types;
+			std::vector<std::string> member_names;
+			std::vector<BindingTarget*> args;
+
+			if (SynTypeStructure* type_struct = dynamic_cast<SynTypeStructure*>(_->members[i].type))
+			{
+				for (size_t k = 0; k < type_struct->members.size(); ++k)
+				{
+					member_types.push_back(resolveType(type_struct->members[k].type, env));
+					member_names.push_back(type_struct->members[k].name.name);
+					args.push_back(new BindingTarget(type_struct->members[k].name.name, member_types.back()));
+				}
+			}
+			else if (_->members[i].type)
+			{
+				member_types.push_back(resolveType(_->members[i].type, env));
+				args.push_back(new BindingTarget(_->members[i].name.name, member_types.back()));
+			}
+
+			TypeFunction* function_type = new TypeFunction(target_type, member_types);
+
+			BindingTarget* target = new BindingTarget(_->members[i].name.name, function_type);
+
+			env.bindings.back().push_back(Binding(_->members[i].name.name, new BindingFreeFunction(target, member_names)));
+
+			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, i, _->members[i].type ? resolveType(_->members[i].type, env) : new TypeUnit()));
+		}
+
+		expression->expressions.push_back(new ExprUnit(new TypeUnit(), Location()));
+
+		return expression;
 	}
 
 	if (CASE(SynVariableReference, node))
@@ -848,7 +905,12 @@ Type* analyze(Expr* root)
 		return _->type;
 	}
 
-	if (CASE(ExprConstructorFunc, root))
+	if (CASE(ExprStructConstructorFunc, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprUnionConstructorFunc, root))
 	{
 		return _->type;
 	}
@@ -897,7 +959,7 @@ Type* analyze(Expr* root)
 		{
 			Type* te = analyze(_->expressions[i]);
 
-			if (dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprConstructorFunc*>(_->expressions[i]) == 0)
+			if (dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprStructConstructorFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprUnionConstructorFunc*>(_->expressions[i]) == 0)
 			{
 				mustUnify(te, new TypeUnit(), _->expressions[i]->location);
 			}

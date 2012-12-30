@@ -83,6 +83,17 @@ struct TypeStructure: Type
 	}
 };
 
+struct TypeUnion: Type
+{
+	std::string name;
+	std::vector<Type*> member_types;
+	std::vector<std::string> member_names;
+
+	TypeUnion(const std::string& name): name(name)
+	{
+	}
+};
+
 #ifndef CASE
 #define CASE(type, node) type* _ = dynamic_cast<type*>(node)
 #endif

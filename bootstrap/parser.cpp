@@ -259,6 +259,42 @@ SynType* parseType(Lexer& lexer)
 	}
 }
 
+SynTypeStructure* parseTypeStructure(Lexer& lexer)
+{
+	if (lexer.current.type != LexOpenCurlyBrace) errorf(lexer.current.location, "Expected '{'");
+	movenext(lexer);
+
+	std::vector<SynTypedVar> members;
+
+	size_t prev_line = lexer.current.location.line;
+
+	while (lexer.current.type != LexCloseCurlyBrace)
+	{
+		if (!members.empty())
+		{
+			if (lexer.current.type != LexSemicolon && lexer.current.location.line == prev_line)
+				errorf(lexer.current.location, "';' or a newline expected after previous type member");
+			if (lexer.current.type == LexSemicolon)
+				movenext(lexer);
+		}
+
+		prev_line = lexer.current.location.line;
+
+		SynIdentifier name = parseIdentifier(lexer);
+
+		if (lexer.current.type != LexColon) errorf(lexer.current.location, "Expected ': type' after member name");
+		movenext(lexer);
+
+		SynType* type = parseType(lexer);
+
+		members.push_back(SynTypedVar(name, type));
+	}
+
+	movenext(lexer);
+
+	return new SynTypeStructure(members);
+}
+
 SynTypedVar parseTypedVar(Lexer& lexer)
 {
 	SynIdentifier argname = parseIdentifier(lexer);
@@ -458,48 +494,40 @@ SynBase* parseForInDo(Lexer& lexer)
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
-SynBase* parseTypeDefinition(Lexer& lexer)
+SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 {
-	assert(iskeyword(lexer, "type"));
-	movenext(lexer);
-
-	SynIdentifier name = parseIdentifier(lexer);
+	size_t start_line = lexer.current.location.line;
 
 	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '=' after type name");
 	movenext(lexer);
 
-	if (lexer.current.type != LexOpenCurlyBrace) errorf(lexer.current.location, "Expected '{' after '='");
-	movenext(lexer);
+	if (lexer.current.type == LexOpenCurlyBrace)
+	{
+		SynTypeStructure* type = parseTypeStructure(lexer);
+
+		return new SynTypeDefinition(name.location, name, type);
+	}
 
 	std::vector<SynTypedVar> members;
-	
-	size_t prev_line = lexer.current.location.line;
 
-	while (lexer.current.type != LexCloseCurlyBrace)
+	// Allow to skip first '|' as long as the identifier is the same new line
+	while (lexer.current.type == LexPipe || (members.empty() && lexer.current.type == LexIdentifier && lexer.current.location.line == start_line))
 	{
-		if (!members.empty())
-		{
-			if (lexer.current.type != LexSemicolon && lexer.current.location.line == prev_line)
-				errorf(lexer.current.location, "';' expected after previous type member");
-			if (lexer.current.type == LexSemicolon)
-				movenext(lexer);
-		}
-
-		prev_line = lexer.current.location.line;
+		if (lexer.current.type == LexPipe)
+			movenext(lexer);
 
 		SynIdentifier name = parseIdentifier(lexer);
+		SynType* type = 0;
 
-		if (lexer.current.type != LexColon) errorf(lexer.current.location, "Expected ': type' after member name");
-		movenext(lexer);
-
-		SynType* type = parseType(lexer);
+		if (lexer.current.type == LexOpenCurlyBrace)
+			type = parseTypeStructure(lexer);
+		else if (lexer.current.type == LexIdentifier || lexer.current.type == LexOpenBrace)
+			type = parseType(lexer);
 
 		members.push_back(SynTypedVar(name, type));
 	}
 
-	movenext(lexer);
-
-	return new SynTypeDefinition(name.location, name, members);
+	return new SynUnionDefinition(name.location, name, members);
 }
 
 SynBase* parsePrimary(Lexer& lexer)
@@ -519,7 +547,13 @@ SynBase* parsePrimary(Lexer& lexer)
 		return parseExternFunc(lexer);
 
 	if (iskeyword(lexer, "type"))
-		return parseTypeDefinition(lexer);
+	{
+		movenext(lexer);
+
+		SynIdentifier name = parseIdentifier(lexer);
+
+		return parseTypeDefinition(lexer, name);
+	}
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);

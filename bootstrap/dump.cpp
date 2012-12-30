@@ -46,6 +46,18 @@ void dump(std::ostream& os, SynType* type)
 		os << + ") -> ";
 		dump(os, _->result);
 	}
+	else if (CASE(SynTypeStructure, type))
+	{
+		os << "[";
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			os << (i == 0 ? "" : ", ") << _->members[i].name.name << ": ";
+			dump(os, _->members[i].type);
+		}
+
+		os << + "]";
+	}
 	else
 	{
 		assert(!"Unknown type");
@@ -134,15 +146,31 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "type " << _->name.name << "\n";
 		indentout(os, indent);
 		os << "{\n";
-		for (size_t i = 0; i < _->members.size(); ++i)
+		for (size_t i = 0; i < _->members->members.size(); ++i)
 		{
 			indentout(os, indent + 1);
-			os <<  _->members[i].name.name << ": ";
-			dump(os, _->members[i].type);
+			os <<  _->members->members[i].name.name << ": ";
+			dump(os, _->members->members[i].type);
 			os << "\n";
 		}
 		indentout(os, indent);
 		os << "}\n";
+	}
+	else if (CASE(SynUnionDefinition, root))
+	{
+		os << "union " << _->name.name << "\n";
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			indentout(os, indent);
+			os << "| ";
+			os <<  _->members[i].name.name;
+			if (_->members[i].type)
+			{
+				os << ": ";
+				dump(os, _->members[i].type);
+			}
+			os << "\n";
+		}
 	}
 	else if (CASE(SynVariableReference, root))
 	{
@@ -461,9 +489,15 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}
-	else if (CASE(ExprConstructorFunc, root))
+	else if (CASE(ExprStructConstructorFunc, root))
 	{
 		os << "constructor ";
+		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
+		os << "\n";
+	}
+	else if (CASE(ExprUnionConstructorFunc, root))
+	{
+		os << "union member #" << _->member_id << " constructor ";
 		dump(os, context, dynamic_cast<TypeFunction*>(_->type), _->target, _->args);
 		os << "\n";
 	}

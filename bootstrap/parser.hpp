@@ -24,6 +24,16 @@ struct SynType
 	virtual ~SynType(){ }
 };
 
+struct SynTypedVar
+{
+	SynIdentifier name;
+	SynType* type;
+
+	SynTypedVar(const SynIdentifier& name, SynType* type): name(name), type(type)
+	{
+	}
+};
+
 struct SynTypeBasic: SynType
 {
 	SynIdentifier type;
@@ -61,12 +71,11 @@ struct SynTypeFunction: SynType
 	}
 };
 
-struct SynTypedVar
+struct SynTypeStructure: SynType
 {
-	SynIdentifier name;
-	SynType* type;
+	std::vector<SynTypedVar> members;
 
-	SynTypedVar(const SynIdentifier& name, SynType* type): name(name), type(type)
+	SynTypeStructure(const std::vector<SynTypedVar>& members): members(members)
 	{
 	}
 };
@@ -108,9 +117,17 @@ struct SynArrayLiteral: SynBase
 struct SynTypeDefinition: SynBase
 {
 	SynIdentifier name;
+	SynTypeStructure* members;
+
+	SynTypeDefinition(const Location& location, const SynIdentifier& name, SynTypeStructure* members): SynBase(location), name(name), members(members) {}
+};
+
+struct SynUnionDefinition: SynBase
+{
+	SynIdentifier name;
 	std::vector<SynTypedVar> members;
 
-	SynTypeDefinition(const Location& location, const SynIdentifier& name, const std::vector<SynTypedVar>& members): SynBase(location), name(name), members(members) {}
+	SynUnionDefinition(const Location& location, const SynIdentifier& name, const std::vector<SynTypedVar>& members): SynBase(location), name(name), members(members) {}
 };
 
 struct SynVariableReference: SynBase

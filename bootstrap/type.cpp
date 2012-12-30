@@ -123,6 +123,10 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 			os << _->name;
 		}
 	}
+	else if (CASE(TypeUnion, type))
+	{
+		os << _->name;
+	}
 	else
 	{
 		assert(!"Unknown type");
