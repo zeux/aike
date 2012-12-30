@@ -1,0 +1,8 @@
+let foo(x, y) = x / y
+
+let x = 8
+
+foo(y = 2, x)
+
+// ERRORS:
+// (5,12): Named and unnamed function arguments are not allowed to be mixed in a single call

@@ -28,11 +28,16 @@ struct BindingLocal: BindingBase
 	BindingLocal(BindingTarget* target): target(target) {}
 };
 
-struct BindingFreeFunction: BindingBase
+struct BindingFunction: BindingLocal
 {
-	BindingTarget* target;
+	std::vector<std::string> arg_names;
 
-	BindingFreeFunction(BindingTarget* target): target(target) {}
+	BindingFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingLocal(target), arg_names(arg_names) {}
+};
+
+struct BindingFreeFunction: BindingFunction
+{
+	BindingFreeFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingFunction(target, arg_names) {}
 };
 
 struct Expr

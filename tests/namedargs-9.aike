@@ -1,0 +1,7 @@
+let z = 2
+let foo(x, y) = x / y + z
+
+foo(y = 2, x = 8)
+
+// OUTPUT:
+// 6

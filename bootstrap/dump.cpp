@@ -166,11 +166,14 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "call\n";
 		dump(os, _->expr, indent + 1);
 
-		for (size_t i = 0; i < _->args.size(); ++i)
+		for (size_t i = 0; i < _->arg_values.size(); ++i)
 		{
 			indentout(os, indent);
-			os << "arg " << i << "\n";
-			dump(os, _->args[i], indent + 1);
+			if (_->arg_names.empty())
+				os << "arg " << i << "\n";
+			else
+				os << "arg " << _->arg_names[i].name << "\n";
+			dump(os, _->arg_values[i], indent + 1);
 		}
 	}
 	else if (CASE(SynArrayIndex, root))
@@ -289,10 +292,17 @@ void dump(std::ostream& os, PrettyPrintContext& context, Type* type)
 
 void dump(std::ostream& os, BindingBase* binding)
 {
-	if (CASE(BindingLocal, binding))
+	if (CASE(BindingFunction, binding))
+	{
+		os << "function " << _->target->name << "(";
+		for (size_t i = 0; i < _->arg_names.size(); i++)
+			os << (i == 0 ? "" : ", ") << _->arg_names[i];
+		os << ")";
+		if (dynamic_cast<BindingFreeFunction*>(binding))
+			os << " with no context";
+	}
+	else if (CASE(BindingLocal, binding))
 		os << _->target->name;
-	else if (CASE(BindingFreeFunction, binding))
-		os << "free function " << _->target->name;
 	else
 	{
 		assert(!"Unknown binding");

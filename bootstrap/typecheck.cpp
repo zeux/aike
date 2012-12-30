@@ -152,7 +152,11 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 	{
 		if (scope < env.functions.back().scope)
 		{
-			if (CASE(BindingLocal, binding))
+			if (CASE(BindingFreeFunction, binding))
+			{
+				return new ExprBinding(_->target->type, location, _);
+			}
+			else if (CASE(BindingLocal, binding))
 			{
 				for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
 				{
@@ -163,10 +167,6 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 				env.functions.back().externals.push_back(binding);
 				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
 			}
-			else if (CASE(BindingFreeFunction, binding))
-			{
-				return new ExprBinding(_->target->type, location, _);
-			}
 			else
 			{
 				errorf(location, "Can't resolve the binding of the function external variable %s", name.c_str());
@@ -174,8 +174,6 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 		}
 
 		if (CASE(BindingLocal, binding))
-			return new ExprBinding(_->target->type, location, _);
-		else if (CASE(BindingFreeFunction, binding))
 			return new ExprBinding(_->target->type, location, _);
 		else
 			return new ExprBinding(new TypeGeneric(), location, binding);
@@ -230,7 +228,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		BindingTarget* target = new BindingTarget(_->name.name, function_type);
 
-		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target)));
+		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target, member_names)));
 
 		return new ExprConstructorFunc(function_type, _->location, target, args);
 	}
@@ -262,11 +260,42 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynCall, node))
 	{
-		std::vector<Expr*> args;
-		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(resolveExpr(_->args[i], env));
-
 		Expr* function = resolveExpr(_->expr, env);
+
+		std::vector<Expr*> args;
+		args.insert(args.begin(), _->arg_values.size(), 0);
+
+		if (!_->arg_names.empty())
+		{
+			ExprBinding* expr_binding = dynamic_cast<ExprBinding*>(function);
+			BindingFunction* binding_function = expr_binding ? dynamic_cast<BindingFunction*>(expr_binding->binding) : 0;
+
+			if (!binding_function)
+				errorf(_->location, "Cannot match argument names to a value");
+
+			for (size_t i = 0; i < _->arg_names.size(); ++i)
+			{
+				// Find position of the function argument
+				bool found = false;
+				for (size_t k = 0; k < binding_function->arg_names.size() && !found; ++k)
+				{
+					if (_->arg_names[i].name == binding_function->arg_names[k])
+					{
+						if (args[k])
+							errorf(_->location, "Value for argument '%s' is already defined", binding_function->arg_names[k].c_str());
+						args[k] = resolveExpr(_->arg_values[i], env);
+						found = true;
+					}
+				}
+				if (!found)
+					errorf(_->location, "Function doesn't accept an argument named '%s'", _->arg_names[i].name.c_str());
+			}
+		}
+		else
+		{
+			for (size_t i = 0; i < _->arg_values.size(); ++i)
+				args[i] = resolveExpr(_->arg_values[i], env);
+		}
 
 		TypeFunction* function_type = dynamic_cast<TypeFunction*>(function->type);
 
@@ -334,6 +363,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynLetFunc, node))
 	{
 		std::vector<BindingTarget*> args;
+		std::vector<std::string> arg_names;
 
 		env.functions.push_back(FunctionInfo(env.bindings.size()));
 		env.bindings.push_back(std::vector<Binding>());
@@ -345,6 +375,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			BindingTarget* target = new BindingTarget(_->args[i].name.name, funty->args[i]);
 
 			args.push_back(target);
+			arg_names.push_back(_->args[i].name.name);
 			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
@@ -376,7 +407,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		env.functions.pop_back();
 		env.bindings.pop_back();
 
-		env.bindings.back().push_back(Binding(_->var.name, function_externals.empty() ? (BindingBase*)new BindingFreeFunction(target) : (BindingBase*)new BindingLocal(target)));
+		env.bindings.back().push_back(Binding(_->var.name, function_externals.empty() ? (BindingBase*)new BindingFreeFunction(target, arg_names) : (BindingBase*)new BindingFunction(target, arg_names)));
 
 		// Resolve function external variable capture
 		std::vector<Expr*> externals;
@@ -397,15 +428,17 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
 		std::vector<BindingTarget*> args;
+		std::vector<std::string> arg_names;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
+			arg_names.push_back(_->args[i].name.name);
 		}
 
-		env.bindings.back().push_back(Binding(_->var.name, new BindingFreeFunction(target)));
+		env.bindings.back().push_back(Binding(_->var.name, new BindingFreeFunction(target, arg_names)));
 
 		return new ExprExternFunc(funty, _->location, target, args);
 	}
@@ -620,11 +653,6 @@ void mustUnify(Type* actual, Type* expected, const Location& location)
 Type* analyze(BindingBase* binding)
 {
 	if (CASE(BindingLocal, binding))
-	{
-		return _->target->type;
-	}
-
-	if (CASE(BindingFreeFunction, binding))
 	{
 		return _->target->type;
 	}

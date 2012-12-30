@@ -164,9 +164,14 @@ struct SynBinaryOp: SynBase
 struct SynCall: SynBase
 {
 	SynBase* expr;
-	std::vector<SynBase*> args;
+	std::vector<SynBase*> arg_values;
+	std::vector<SynIdentifier> arg_names;
 
-	SynCall(const Location& location, SynBase* expr, const std::vector<SynBase*>& args): SynBase(location), expr(expr), args(args)
+	SynCall(const Location& location, SynBase* expr, const std::vector<SynBase*>& arg_values): SynBase(location), expr(expr), arg_values(arg_values)
+	{
+	}
+
+	SynCall(const Location& location, SynBase* expr, const std::vector<SynBase*>& arg_values, const std::vector<SynIdentifier>& arg_names): SynBase(location), expr(expr), arg_values(arg_values), arg_names(arg_names)
 	{
 	}
 };

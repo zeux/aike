@@ -545,11 +545,41 @@ SynBase* parsePrimary(Lexer& lexer)
 			Location location = lexer.current.location;
 			movenext(lexer);
 
-			std::vector<SynBase*> args;
+			std::vector<SynIdentifier> arg_names;
+			std::vector<SynBase*> arg_values;
 
 			while (lexer.current.type != LexCloseBrace)
 			{
-				args.push_back(parseExpr(lexer));
+				// Try to parse a named argument
+				if (lexer.current.type == LexIdentifier)
+				{
+					Lexer state = lexer.save();
+
+					SynIdentifier id = parseIdentifier(lexer);
+
+					if (lexer.current.type == LexEqual)
+					{
+						movenext(lexer);
+
+						if (arg_names.size() != arg_values.size())
+							errorf(lexer.current.location, "Named and unnamed function arguments are not allowed to be mixed in a single call");
+						arg_names.push_back(id);
+						arg_values.push_back(parseExpr(lexer));
+					}
+					else
+					{
+						lexer.load(state);
+						if (!arg_names.empty())
+							errorf(lexer.current.location, "Named and unnamed function arguments are not allowed to be mixed in a single call");
+						arg_values.push_back(parseExpr(lexer));
+					}
+				}
+				else
+				{
+					if (!arg_names.empty())
+						errorf(lexer.current.location, "Named and unnamed function arguments are not allowed to be mixed in a single call");
+					arg_values.push_back(parseExpr(lexer));
+				}
 
 				if (lexer.current.type == LexComma)
 					movenext(lexer);
@@ -561,7 +591,7 @@ SynBase* parsePrimary(Lexer& lexer)
 
 			movenext(lexer);
 
-			result = new SynCall(location, result, args);
+			result = new SynCall(location, result, arg_values, arg_names);
 		}
 		else if (lexer.current.type == LexOpenBracket)
 		{

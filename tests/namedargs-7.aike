@@ -1,0 +1,8 @@
+let foo(x, y) = x / y
+
+let bar =foo
+
+bar(y = 2, x = 8)
+
+// ERRORS:
+// (5,4): Cannot match argument names to a value
