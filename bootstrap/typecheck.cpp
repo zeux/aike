@@ -525,6 +525,8 @@ bool unify(Type* lhs, Type* rhs)
 	lhs = prune(lhs);
 	rhs = prune(rhs);
 
+	if (lhs == rhs) return true;
+
 	if (CASE(TypeGeneric, lhs))
 	{
 		if (occurs(lhs, rhs))
@@ -607,7 +609,9 @@ void mustUnify(Type* actual, Type* expected, const Location& location)
 {
 	if (!unify(actual, expected))
 	{
-		errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", typeName(expected).c_str(), typeName(actual).c_str());
+		std::pair<std::string, std::string> types = typeName2(actual, expected);
+
+		errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", types.second.c_str(), types.first.c_str());
 	}
 }
 

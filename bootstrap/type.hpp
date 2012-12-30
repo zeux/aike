@@ -88,3 +88,4 @@ struct TypeStructure: Type
 Type* finalType(Type* type);
 
 std::string typeName(Type* type);
+std::pair<std::string, std::string> typeName2(Type* type0, Type* type1);
