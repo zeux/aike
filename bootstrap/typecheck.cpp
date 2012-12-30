@@ -253,7 +253,12 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	}
 
 	if (CASE(SynBinaryOp, node))
-		return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, resolveExpr(_->left, env), resolveExpr(_->right, env));
+	{
+		Expr* left = resolveExpr(_->left, env);
+		Expr* right = resolveExpr(_->right, env);
+
+		return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, left, right);
+	}
 
 	if (CASE(SynCall, node))
 	{
@@ -271,19 +276,22 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	if (CASE(SynArrayIndex, node))
 	{
 		Expr* arr = resolveExpr(_->arr, env);
+		Expr* index = resolveExpr(_->index, env);
 
 		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
 
-		return new ExprArrayIndex(arr_type ? arr_type->contained : new TypeGeneric(), _->location, arr, resolveExpr(_->index, env));
+		return new ExprArrayIndex(arr_type ? arr_type->contained : new TypeGeneric(), _->location, arr, index);
 	}
 
 	if (CASE(SynArraySlice, node))
 	{
 		Expr* arr = resolveExpr(_->arr, env);
+		Expr* index_start = resolveExpr(_->index_start, env);
+		Expr* index_end = _->index_end ? resolveExpr(_->index_end, env) : 0;
 
 		TypeArray* arr_type = dynamic_cast<TypeArray*>(arr->type);
 
-		return new ExprArraySlice(arr_type ? (Type*)arr_type : new TypeGeneric(), _->location, arr, resolveExpr(_->index_start, env), _->index_end ? resolveExpr(_->index_end, env) : 0);
+		return new ExprArraySlice(arr_type ? (Type*)arr_type : new TypeGeneric(), _->location, arr, index_start, index_end);
 	}
 
 	if (CASE(SynMemberAccess, node))
@@ -403,7 +411,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	}
 
 	if (CASE(SynIfThenElse, node))
-		return new ExprIfThenElse(new TypeGeneric(), _->location, resolveExpr(_->cond, env), resolveExpr(_->thenbody, env), resolveExpr(_->elsebody, env));
+	{
+		Expr* cond = resolveExpr(_->cond, env);
+		Expr* thenbody = resolveExpr(_->thenbody, env);
+		Expr* elsebody = _->elsebody ? resolveExpr(_->elsebody, env) : 0;
+
+		return new ExprIfThenElse(new TypeGeneric(), _->location, cond, thenbody, elsebody);
+	}
 
 	if (CASE(SynForInDo, node))
 	{
@@ -589,6 +603,14 @@ bool unify(Type* lhs, Type* rhs)
 	return false;
 }
 
+void mustUnify(Type* actual, Type* expected, const Location& location)
+{
+	if (!unify(actual, expected))
+	{
+		errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", typeName(expected).c_str(), typeName(actual).c_str());
+	}
+}
+
 Type* analyze(BindingBase* binding)
 {
 	if (CASE(BindingLocal, binding))
@@ -632,17 +654,14 @@ Type* analyze(Expr* root)
 			{
 				Type* ti = analyze(_->elements[i]);
 
-				if (!unify(t0, ti))
-					errorf(_->elements[i]->location, "Array element type mismatch between %s and %s", typeName(t0).c_str(), typeName(ti).c_str());
+				mustUnify(ti, t0, _->elements[i]->location);
 			}
 
-			if (!unify(new TypeArray(t0), _->type))
-				errorf(_->location, "Array element type mismatch");
+			mustUnify(_->type, new TypeArray(t0), _->location);
 		}
 		else
 		{
-			if (!unify(new TypeArray(new TypeGeneric()), _->type))
-				errorf(_->location, "Array element type mismatch");
+			mustUnify(_->type, new TypeArray(new TypeGeneric()), _->location);
 		}
 
 		return _->type;
@@ -666,13 +685,11 @@ Type* analyze(Expr* root)
 		{
 		case SynUnaryOpPlus:
 		case SynUnaryOpMinus:
-			if (!unify(te, new TypeInt()))
-				errorf(_->expr->location, "Expected type 'int', got '%s'", typeName(te).c_str());
+			mustUnify(te, new TypeInt(), _->expr->location);
 			return _->type = new TypeInt();
 			
 		case SynUnaryOpNot:
-			if (!unify(te, new TypeBool()))
-				errorf(_->expr->location, "Expected type 'bool', got '%s'", typeName(te).c_str());
+			mustUnify(te, new TypeBool(), _->expr->location);
 			return _->type = new TypeBool();
 
 		default: assert(!"Unknown unary op");
@@ -690,10 +707,8 @@ Type* analyze(Expr* root)
 		case SynBinaryOpSubtract:
 		case SynBinaryOpMultiply:
 		case SynBinaryOpDivide:
-			if (!unify(tl, new TypeInt()))
-				errorf(_->left->location, "Expected type 'int', got '%s'", typeName(tl).c_str());
-			if (!unify(tr, new TypeInt()))
-				errorf(_->right->location, "Expected type 'int', got '%s'", typeName(tr).c_str());
+			mustUnify(tl, new TypeInt(), _->left->location);
+			mustUnify(tr, new TypeInt(), _->right->location);
 			return _->type = new TypeInt();
 
 		case SynBinaryOpLess:
@@ -702,10 +717,8 @@ Type* analyze(Expr* root)
 		case SynBinaryOpGreaterEqual:
 		case SynBinaryOpEqual:
 		case SynBinaryOpNotEqual:
-			if (!unify(tl, new TypeInt()))
-				errorf(_->left->location, "Expected type 'int', got '%s'", typeName(tl).c_str());
-			if (!unify(tr, new TypeInt()))
-				errorf(_->right->location, "Expected type 'int', got '%s'", typeName(tr).c_str());
+			mustUnify(tl, new TypeInt(), _->left->location);
+			mustUnify(tr, new TypeInt(), _->right->location);
 			return _->type = new TypeBool();
 
 		default: assert(!"Unknown binary op");
@@ -722,8 +735,7 @@ Type* analyze(Expr* root)
 
 		TypeFunction* funty = new TypeFunction(new TypeGeneric(), argtys);
 
-		if (!unify(te, funty))
-			errorf(_->expr->location, "Expected type '%s', got '%s'", typeName(funty).c_str(), typeName(te).c_str());
+		mustUnify(te, funty, _->expr->location);
 
 		return _->type = funty->result;
 	}
@@ -736,11 +748,8 @@ Type* analyze(Expr* root)
 
 		TypeArray* tn = new TypeArray(new TypeGeneric());
 
-		if (!unify(ta, tn))
-			errorf(_->arr->location, "Expected an array type, got '%s'", typeName(ta).c_str());
-
-		if (!unify(ti, new TypeInt()))
-			errorf(_->index->location, "Expected type 'int', got '%s'", typeName(ti).c_str());
+		mustUnify(ta, tn, _->arr->location);
+		mustUnify(ti, new TypeInt(), _->index->location);
 
 		return _->type = tn->contained;
 	}
@@ -754,14 +763,11 @@ Type* analyze(Expr* root)
 
 		TypeArray* tn = new TypeArray(new TypeGeneric());
 
-		if (!unify(ta, tn))
-			errorf(_->arr->location, "Expected an array type, got '%s'", typeName(ta).c_str());
+		mustUnify(ta, tn, _->arr->location);
+		mustUnify(ts, new TypeInt(), _->index_start->location);
 
-		if (!unify(ts, new TypeInt()))
-			errorf(_->index_start->location, "Expected type 'int', got '%s'", typeName(ts).c_str());
-
-		if (te && !unify(te, new TypeInt()))
-			errorf(_->index_end->location, "Expected type 'int', got '%s'", typeName(te).c_str());
+		if (te)
+			mustUnify(te, new TypeInt(), _->index_end->location);
 
 		return _->type = ta;
 	}
@@ -787,8 +793,7 @@ Type* analyze(Expr* root)
 	{
 		Type* tb = analyze(_->body);
 
-		if (!unify(_->target->type, tb))
-			errorf(_->location, "Expected type '%s', got '%s'", typeName(_->target->type).c_str(), typeName(tb).c_str());
+		mustUnify(tb, _->target->type, _->body->location);
 
 		return _->type;
 	}
@@ -798,10 +803,8 @@ Type* analyze(Expr* root)
 		Type* tb = analyze(_->body);
 
 		TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
-		Type* rettype = funty->result;
 
-		if (!unify(rettype, tb))
-			errorf(_->location, "Expected type '%s', got '%s'", typeName(rettype).c_str(), typeName(tb).c_str());
+		mustUnify(tb, funty->result, _->body->location);
 
 		return _->type;
 	}
@@ -825,13 +828,14 @@ Type* analyze(Expr* root)
 	{
 		Type* tcond = analyze(_->cond);
 		Type* tthen = analyze(_->thenbody);
-		Type* telse = analyze(_->elsebody);
+		Type* telse = _->elsebody ? analyze(_->elsebody) : 0;
 
-		if (!unify(tcond, new TypeBool()))
-			errorf(_->cond->location, "Expected type 'bool', got '%s'", typeName(tcond).c_str());
+		mustUnify(tcond, new TypeBool(), _->cond->location);
 
-		if (!unify(tthen, telse))
-			errorf(_->thenbody->location, "Expected type '%s', got '%s'", typeName(telse).c_str(), typeName(tthen).c_str());
+		if (telse)
+			mustUnify(telse, tthen, _->elsebody->location);
+		else
+			mustUnify(tthen, new TypeUnit(), _->thenbody->location);
 
 		return _->type = tthen;
 	}
@@ -841,16 +845,10 @@ Type* analyze(Expr* root)
 		Type* tarr = analyze(_->arr);
 		Type* tbody = analyze(_->body);
 
-		TypeArray* ta = new TypeArray(new TypeGeneric());
+		TypeArray* ta = new TypeArray(_->target->type);
 
-		if (!unify(ta, tarr))
-			errorf(_->arr->location, "Expected array type, got '%s'", typeName(tarr).c_str());
-
-		if (!unify(_->target->type, ta->contained))
-			errorf(_->location, "Expected type '%s', got '%s'", typeName(_->target->type).c_str(), typeName(ta->contained).c_str());
-
-		if (!unify(tbody, new TypeUnit()))
-			errorf(_->body->location, "Expected type 'unit', got '%s'", typeName(tbody).c_str());
+		mustUnify(tarr, ta, _->arr->location);
+		mustUnify(tbody, new TypeUnit(), _->body->location);
 
 		return _->type = new TypeUnit();
 	}
