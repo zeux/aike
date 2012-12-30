@@ -200,6 +200,8 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "()\n";
 	else if (CASE(SynNumberLiteral, root))
 		os << _->value << "\n";
+	else if (CASE(SynBooleanLiteral, root))
+		os << (_->value ? "true" : "false") << "\n";
 	else if (CASE(SynArrayLiteral, root))
 	{
 		os << "[\n";
@@ -391,6 +393,8 @@ void dump(std::ostream& os, Expr* root, int indent)
 		os << "()\n";
 	else if (CASE(ExprNumberLiteral, root))
 		os << _->value << "\n";
+	else if (CASE(ExprBooleanLiteral, root))
+		os << (_->value ? "true" : "false") << "\n";
 	else if (CASE(ExprArrayLiteral, root))
 	{
 		os << "[\n";
