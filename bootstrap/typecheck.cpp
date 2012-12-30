@@ -40,6 +40,7 @@ struct Environment
 	std::vector<std::vector<Binding> > bindings;
 	std::vector<FunctionInfo> functions;
 	std::vector<TypeBinding> types;
+	std::vector<TypeGeneric*> generic_types;
 };
 
 BindingBase* tryResolveBinding(const std::string& name, Environment& env, size_t* in_scope = 0)
@@ -101,6 +102,17 @@ Type* resolveType(SynType* type, Environment& env)
 	if (CASE(SynTypeBasic, type))
 	{
 		return resolveType(_->type.name, env, _->type.location);
+	}
+
+	if (CASE(SynTypeGeneric, type))
+	{
+		for (size_t i = 0; i < env.generic_types.size(); ++i)
+			if (env.generic_types[i]->name == _->type.name)
+				return env.generic_types[i];
+
+		env.generic_types.push_back(new TypeGeneric(_->type.name));
+
+		return env.generic_types.back();
 	}
 
 	if (CASE(SynTypeArray, type))

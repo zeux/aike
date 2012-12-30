@@ -10,9 +10,14 @@ struct Type
 
 struct TypeGeneric: Type
 {
+	std::string name;
 	Type* instance;
 
 	TypeGeneric(): instance(NULL)
+	{
+	}
+
+	TypeGeneric(const std::string& name): name(name), instance(NULL)
 	{
 	}
 };

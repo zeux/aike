@@ -231,6 +231,13 @@ SynType* parseType(Lexer& lexer)
 	{
 		type = parseTypeBraced(lexer);
 	}
+	else if (lexer.current.type == LexIdentifierGeneric)
+	{
+		SynIdentifier ident(lexer.current.contents, lexer.current.location);
+		movenext(lexer);
+
+		type = new SynTypeGeneric(ident);
+	}
 	else
 	{
 		type = new SynTypeBasic(parseIdentifier(lexer));

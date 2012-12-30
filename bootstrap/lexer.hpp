@@ -37,6 +37,7 @@ enum LexemeType
 	LexSharp,
 	LexKeyword,
 	LexIdentifier,
+	LexIdentifierGeneric,
 	LexNumber,
 	LexCharacter,
 	LexString

@@ -17,7 +17,12 @@ void dump(std::ostream& os, Type* type)
 	type = finalType(type);
 
 	if (CASE(TypeGeneric, type))
-		os << "'" << type;
+	{
+		if (_->name.empty())
+			os << "'" << type;
+		else
+			os << "'" << _->name;
+	}
 	else if (CASE(TypeUnit, type))
 		os << "unit";
 	else if (CASE(TypeInt, type))
@@ -97,6 +102,10 @@ void dump(std::ostream& os, SynType* type)
 	else if (CASE(SynTypeBasic, type))
 	{
 		os << _->type.name;
+	}
+	else if (CASE(SynTypeGeneric, type))
+	{
+		os << "'" << _->type.name;
 	}
 	else if (CASE(SynTypeArray, type))
 	{

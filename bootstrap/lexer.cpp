@@ -147,17 +147,32 @@ Lexeme readnext(Lexer& lexer)
 	{
 		consume(lexer);
 
-		std::string data;
-
-		while (peekch(lexer) && peekch(lexer) != '\'')
+		if (isidentstart(peekch(lexer)) && peekch(lexer, 1) != '\'')
 		{
-			data += peekch(lexer);
-			consume(lexer);
+			std::string data;
+			
+			while (isident(peekch(lexer)))
+			{
+				data += peekch(lexer);
+				consume(lexer);
+			}
+
+			return Lexeme(LexIdentifierGeneric, data);
 		}
+		else
+		{
+			std::string data;
 
-		consume(lexer);
+			while (peekch(lexer) && peekch(lexer) != '\'')
+			{
+				data += peekch(lexer);
+				consume(lexer);
+			}
 
-		return Lexeme(LexCharacter, data);
+			consume(lexer);
+
+			return Lexeme(LexCharacter, data);
+		}
 	}
 	else if (peekch(lexer) == '\"')
 	{

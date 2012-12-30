@@ -33,6 +33,15 @@ struct SynTypeBasic: SynType
 	}
 };
 
+struct SynTypeGeneric: SynType
+{
+	SynIdentifier type;
+
+	SynTypeGeneric(const SynIdentifier& type): type(type)
+	{
+	}
+};
+
 struct SynTypeArray: SynType
 {
 	SynType* contained_type;
