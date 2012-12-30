@@ -860,7 +860,14 @@ Type* analyze(Expr* root)
 			return new TypeUnit();
 
 		for (size_t i = 0; i + 1 < _->expressions.size(); ++i)
-			analyze(_->expressions[i]);
+		{
+			Type* te = analyze(_->expressions[i]);
+
+			if (dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprConstructorFunc*>(_->expressions[i]) == 0)
+			{
+				mustUnify(te, new TypeUnit(), _->expressions[i]->location);
+			}
+		}
 
 		return _->type = analyze(_->expressions.back());
 	}
