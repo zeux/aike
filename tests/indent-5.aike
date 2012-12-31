@@ -1,0 +1,7 @@
+let x =
+	5
+
+x
+
+// ERRORS:
+// (2,1): Source file must not contain tabs

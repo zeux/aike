@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "output.hpp"
+
 inline char peekch(const Lexer& lexer)
 {
 	return lexer.position < lexer.data.size() ? lexer.data[lexer.position] : 0;
@@ -14,7 +16,12 @@ inline char peekch(const Lexer& lexer, size_t offset)
 
 inline void consume(Lexer& lexer)
 {
-	if (peekch(lexer) == '\n')
+	if (peekch(lexer) == '\t')
+	{
+		lexer.current.location = Location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, lexer.position - lexer.line_start_pos, 1);
+		errorf(lexer.current.location, "Source file must not contain tabs");
+	}
+	else if (peekch(lexer) == '\n')
 	{
 		lexer.line_start_pos = lexer.position + 1;
 		lexer.line++;
