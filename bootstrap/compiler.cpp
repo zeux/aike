@@ -755,18 +755,18 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			errorf(_->variable->location, "Expression must evaluate to a union type");
 
 		// All union type variants must be covered
-		if (_->variants.size() < union_type->member_names.size())
+		if (_->cases.size() < union_type->member_names.size())
 		{
 			for (size_t i = 0; i < union_type->member_names.size(); ++i)
 			{
 				bool found = false;
-				for (size_t k = 0; k < _->variants.size() && !found; ++k)
+				for (size_t k = 0; k < _->cases.size() && !found; ++k)
 				{
-					if (union_type->member_names[i] == _->variants[k])
+					if (dynamic_cast<MatchCaseUnion*>(_->cases[k])->tag == i)
 						found = true;
 				}
 				if (!found)
-					errorf(_->location, "match statement doesn't have a case for tag '%s'", union_type->member_names[i].c_str());
+					errorf(_->location, "Match statement doesn't have a case for tag '%s'", union_type->member_names[i].c_str());
 			}
 		}
 
@@ -777,26 +777,22 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		std::vector<llvm::BasicBlock*> case_blocks;
 		llvm::BasicBlock* finish_block = llvm::BasicBlock::Create(*context.context, "finish");
 
-		llvm::SwitchInst* switch_inst = builder.CreateSwitch(type_id, finish_block, _->variants.size());
+		llvm::SwitchInst* switch_inst = builder.CreateSwitch(type_id, finish_block, _->cases.size());
 
-		for (size_t i = 0; i < _->variants.size(); ++i)
+		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			// Find index of the variant
-			uint32_t index = ~0u;
-			for (size_t k = 0; k < union_type->member_names.size() && index == ~0u; ++k)
-			{
-				if (_->variants[i] == union_type->member_names[k])
-					index = k;
-			}
+			MatchCaseUnion* casei = dynamic_cast<MatchCaseUnion*>(_->cases[i]);
 
-			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "case_" + _->variants[i]));
+			uint32_t index = casei->tag;
+
+			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "case_" + union_type->member_names[index]));
 
 			switch_inst->addCase(builder.getInt32(index), case_blocks.back());
 
 			function->getBasicBlockList().push_back(case_blocks.back());
 			builder.SetInsertPoint(case_blocks.back());
 
-			context.values[_->aliases[i]] = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[index], Location()))));
+			context.values[casei->alias] = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[index], Location()))));
 
 			builder.CreateStore(compileExpr(context, builder, _->expressions[i]), value);
 			builder.CreateBr(finish_block);

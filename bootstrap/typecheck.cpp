@@ -158,6 +158,17 @@ TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVa
 	return new TypeFunction(resolveType(rettype, env), argtys);
 }
 
+std::pair<TypeUnion*, size_t> resolveUnionTypeByVariant(const std::string& variant, Environment& env)
+{
+	for (size_t i = 0; i < env.types.size(); ++i)
+		if (TypeUnion* tu = dynamic_cast<TypeUnion*>(env.types[i].type))
+			for (size_t j = 0; j < tu->member_names.size(); ++j)
+				if (tu->member_names[j] == variant)
+					return std::make_pair(tu, j);
+
+	return std::make_pair(static_cast<TypeUnion*>(0), 0);
+}
+
 Expr* resolveBindingAccess(const std::string& name, Location location, Environment& env)
 {
 	size_t scope;
@@ -533,48 +544,48 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* variable = resolveExpr(_->variable, env);
 
-		std::vector<std::string> variants;
-		std::vector<BindingTarget*> aliases;
+		std::vector<MatchCase*> cases;
 		std::vector<Expr*> expressions;
 
 		TypeUnion* union_type = dynamic_cast<TypeUnion*>(variable->type);
 
 		for (size_t i = 0; i < _->variants.size(); i++)
 		{
-			// Find the type of the variant
-			Type* type = 0;
-			for (size_t k = 0; union_type && k < union_type->member_names.size() && !type; ++k)
-			{
-				if (_->variants[i].name == union_type->member_names[k])
-					type = union_type->member_types[k];
-			}
-			if (union_type && !type)
-				errorf(_->variants[i].location, "Union '%s' doesn't have a tag named '%s'", union_type->name.c_str(), _->variants[i].name.c_str());
+			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->variants[i].name, env);
 
-			if (!type)
-				type = new TypeGeneric();
+			if (!union_tag.first)
+				errorf(_->variants[i].location, "Unknown union tag '%s'", _->variants[i].name.c_str());
 
 			// Check that the same variant is not already defined
-			for (size_t k = 0; k < variants.size(); ++k)
+			for (size_t k = 0; k < cases.size(); ++k)
 			{
-				if (variants[k] == _->variants[i].name)
-					errorf(_->variants[i].location, "Case for tag '%s' is already defind", _->variants[i].name.c_str());
+				if (MatchCaseUnion* casek = dynamic_cast<MatchCaseUnion*>(cases[k]))
+					if (casek->type == union_tag.first && casek->tag == union_tag.second)
+						errorf(_->variants[i].location, "Case for tag '%s' is already defined", _->variants[i].name.c_str());
 			}
 
-			variants.push_back(_->variants[i].name);
+			if (!_->aliases[i].name.empty())
+			{
+				BindingTarget* target = new BindingTarget(_->aliases[i].name, new TypeGeneric());
 
-			BindingTarget* target = new BindingTarget(_->aliases[i].name, type);
+				cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, target));
 
-			aliases.push_back(target);
-
-			env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
+				env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
+			}
+			else
+			{
+				cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, 0));
+			}
 
 			expressions.push_back(resolveExpr(_->expressions[i], env));
 
-			env.bindings.back().pop_back();
+			if (!_->aliases[i].name.empty())
+			{
+				env.bindings.back().pop_back();
+			}
 		}
 
-		return new ExprMatchWith(new TypeGeneric(), _->location, variable, variants, aliases, expressions);
+		return new ExprMatchWith(new TypeGeneric(), _->location, variable, cases, expressions);
 	}
 
 	if (CASE(SynBlock, node))
@@ -770,6 +781,22 @@ Type* analyze(BindingBase* binding)
 	}
 
 	assert(!"Unknown binding type");
+	return 0;
+}
+
+Type* analyze(MatchCase* case_)
+{
+	if (CASE(MatchCaseUnion, case_))
+	{
+		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
+
+		if (_->alias)
+			mustUnify(_->alias->type, tu->member_types[_->tag], _->location);
+
+		return tu;
+	}
+
+	assert(!"Unknown match case type");
 	return 0;
 }
 
@@ -1007,26 +1034,24 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprMatchWith, root))
 	{
-		// TODO: _->variable type must be a union
 		Type* tvar = analyze(_->variable);
-		
-		_->type = new TypeUnit();
+		Type* t0 = 0;
 
-		if (!_->expressions.empty())
+		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			Type* t0 = analyze(_->expressions[0]);
+			Type* tci = analyze(_->cases[i]);
 
-			for (size_t i = 1; i < _->expressions.size(); ++i)
-			{
-				Type* ti = analyze(_->expressions[i]);
+			mustUnify(tci, tvar, _->cases[i]->location);
 
+			Type* ti = analyze(_->expressions[i]);
+
+			if (i == 0)
+				t0 = ti;
+			else
 				mustUnify(ti, t0, _->expressions[i]->location);
-			}
-
-			_->type = t0;
 		}
 
-		return _->type;
+		return _->type = t0;
 	}
 
 	if (CASE(ExprBlock, root))

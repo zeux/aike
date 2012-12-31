@@ -236,14 +236,32 @@ struct ExprForInDo: Expr
 	}
 };
 
+struct MatchCase
+{
+	Type* type;
+	Location location;
+
+	MatchCase(Type* type, const Location& location): type(type), location(location) {}
+	virtual ~MatchCase() {}
+};
+
+struct MatchCaseUnion: MatchCase
+{
+	size_t tag;
+	BindingTarget* alias;
+
+	MatchCaseUnion(Type* type, const Location& location, size_t tag, BindingTarget* alias): MatchCase(type, location), tag(tag), alias(alias)
+	{
+	}
+};
+
 struct ExprMatchWith: Expr
 {
 	Expr* variable;
-	std::vector<std::string> variants;
-	std::vector<BindingTarget*> aliases;
+	std::vector<MatchCase*> cases;
 	std::vector<Expr*> expressions;
 
-	ExprMatchWith(Type* type, const Location& location, Expr* variable, const std::vector<std::string>& variants, const std::vector<BindingTarget*>& aliases, const std::vector<Expr*>& expressions): Expr(type, location), variable(variable), variants(variants), aliases(aliases), expressions(expressions)
+	ExprMatchWith(Type* type, const Location& location, Expr* variable, const std::vector<MatchCase*>& cases, const std::vector<Expr*>& expressions): Expr(type, location), variable(variable), cases(cases), expressions(expressions)
 	{
 	}
 };

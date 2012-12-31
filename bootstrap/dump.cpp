@@ -352,6 +352,26 @@ void dump(std::ostream& os, BindingBase* binding)
 	}
 }
 
+void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
+{
+	if (CASE(MatchCaseUnion, case_))
+	{
+		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
+
+		os << tu->member_names[_->tag];
+
+		if (_->alias)
+		{
+			os << " " << _->alias->name << ": ";
+			dump(os, context, _->alias->type);
+		}
+	}
+	else
+	{
+		assert(!"Unknown match case");
+	}
+}
+
 void dump(std::ostream& os, PrettyPrintContext& context, TypeFunction* funty, BindingTarget* target, const std::vector<BindingTarget*>& args)
 {
 	os << target->name;
@@ -544,10 +564,12 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		os << "match\n";
 		dump(os, context, _->variable, indent + 1);
 		os << "with\n";
-		for (size_t i = 0; i < _->variants.size(); ++i)
+		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
 			indentout(os, indent);
-			os << "| " << _->variants[i] << " ->\n";
+			os << "| ";
+			dump(os, context, _->cases[i]);
+			os << " ->\n";
 			dump(os, context, _->expressions[i], indent + 1);
 		}
 	}
