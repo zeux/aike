@@ -551,6 +551,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			if (union_type && !type)
 				errorf(_->variants[i].location, "Union '%s' doesn't have a tag named '%s'", union_type->name.c_str(), _->variants[i].name.c_str());
 
+			if (!type)
+				type = new TypeGeneric();
+
 			// Check that the same variant is not already defined
 			for (size_t k = 0; k < variants.size(); ++k)
 			{
