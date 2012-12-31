@@ -615,12 +615,12 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		// Create union storage
 		llvm::Type* member_type = compileType(context, _->member_type, _->location);
 		llvm::Type* member_ref_type = llvm::PointerType::getUnqual(member_type);
-		llvm::Value* data = funcbuilder.CreateCall(context.module->getFunction("malloc"), funcbuilder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
 
 		argi = func->arg_begin();
 
 		if (!_->args.empty())
 		{
+			llvm::Value* data = funcbuilder.CreateCall(context.module->getFunction("malloc"), funcbuilder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
 			llvm::Value* typed_data = funcbuilder.CreateBitCast(data, member_ref_type);
 
 			if (_->args.size() > 1)
@@ -632,10 +632,10 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			{
 				funcbuilder.CreateStore(argi, typed_data);
 			}
+
+			aggr = funcbuilder.CreateInsertValue(aggr, data, 1);
 		}
-		
-		aggr = funcbuilder.CreateInsertValue(aggr, data, 1);
-		
+
 		funcbuilder.CreateRet(aggr);
 
 		llvm::Value* holder = llvm::ConstantAggregateZero::get(general_holder_type);
