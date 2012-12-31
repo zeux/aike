@@ -175,6 +175,10 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 
 	if (BindingBase* binding = tryResolveBinding(name, env, &scope))
 	{
+		// unit union types are contructed without an empty argument list
+		if (CASE(BindingUnionUnitConstructor, binding))
+			return new ExprCall(new TypeGeneric(), location, new ExprBinding(_->target->type, location, _), std::vector<Expr*>());
+
 		if (scope < env.functions.back().scope)
 		{
 			if (CASE(BindingFreeFunction, binding))
@@ -296,7 +300,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 			BindingTarget* target = new BindingTarget(_->members[i].name.name, function_type);
 
-			env.bindings.back().push_back(Binding(_->members[i].name.name, new BindingFreeFunction(target, member_names)));
+			env.bindings.back().push_back(Binding(_->members[i].name.name, _->members[i].type ? new BindingFreeFunction(target, member_names) : new BindingUnionUnitConstructor(target, member_names)));
 
 			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, i, element_type));
 		}

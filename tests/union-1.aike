@@ -1,7 +1,7 @@
 type test = One | Two | Basic int | Custom { x: int; y: int }
 
-let x = One()
-let y = Two()
+let x = One
+let y = Two
 let z = Basic(4)
 let w = Custom(1, 2)
 let w2 = Custom(y = 2, x = 1)

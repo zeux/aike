@@ -7,7 +7,7 @@ let value(x) =
     | Zero -> 0
     | Succ v -> 1 + value(v)
 
-value(Succ(Succ(Succ(Zero()))))
+value(Succ(Succ(Succ(Zero))))
 
 // OUTPUT:
 // 3

@@ -40,6 +40,11 @@ struct BindingFreeFunction: BindingFunction
 	BindingFreeFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingFunction(target, arg_names) {}
 };
 
+struct BindingUnionUnitConstructor: BindingFreeFunction
+{
+	BindingUnionUnitConstructor(BindingTarget* target, const std::vector<std::string>& arg_names): BindingFreeFunction(target, arg_names) {}
+};
+
 struct Expr
 {
 	Type* type;
