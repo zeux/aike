@@ -751,9 +751,6 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		TypeUnion* union_type = dynamic_cast<TypeUnion*>(finalType(_->variable->type));
 
-		if (!union_type)
-			errorf(_->variable->location, "Expression must evaluate to a union type");
-
 		// All union type variants must be covered
 		if (_->cases.size() < union_type->member_names.size())
 		{
@@ -766,7 +763,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 						found = true;
 				}
 				if (!found)
-					errorf(_->location, "Match statement doesn't have a case for tag '%s'", union_type->member_names[i].c_str());
+					errorf(_->location, "Incomplete pattern matches: missing case for tag '%s'", union_type->member_names[i].c_str());
 			}
 		}
 

@@ -1,0 +1,11 @@
+type Integer =
+| Zero
+| Succ Integer
+
+let value(x) =
+    match x with
+    | Zero -> 0
+    | Zero -> 1
+
+// ERRORS:
+// (8,7): Case for tag 'Zero' is already defined

@@ -360,7 +360,7 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 
 		os << tu->member_names[_->tag];
 
-		if (_->alias)
+		if (!_->alias->name.empty())
 		{
 			os << " " << _->alias->name << ": ";
 			dump(os, context, _->alias->type);

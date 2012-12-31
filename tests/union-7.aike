@@ -1,0 +1,10 @@
+type Integer =
+| Zero
+| Succ Integer
+
+let value(x) =
+    match x with
+    | Zero -> 0
+
+// ERRORS:
+// (6,5): Incomplete pattern matches: missing case for tag 'Succ'

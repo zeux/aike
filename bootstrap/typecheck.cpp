@@ -564,25 +564,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 						errorf(_->variants[i].location, "Case for tag '%s' is already defined", _->variants[i].name.c_str());
 			}
 
-			if (!_->aliases[i].name.empty())
-			{
-				BindingTarget* target = new BindingTarget(_->aliases[i].name, new TypeGeneric());
+			BindingTarget* target = new BindingTarget(_->aliases[i].name, new TypeGeneric());
 
-				cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, target));
+			cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, target));
 
-				env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
-			}
-			else
-			{
-				cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, 0));
-			}
+			env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
 
 			expressions.push_back(resolveExpr(_->expressions[i], env));
 
-			if (!_->aliases[i].name.empty())
-			{
-				env.bindings.back().pop_back();
-			}
+			env.bindings.back().pop_back();
 		}
 
 		return new ExprMatchWith(new TypeGeneric(), _->location, variable, cases, expressions);
@@ -790,8 +780,7 @@ Type* analyze(MatchCase* case_)
 	{
 		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
 
-		if (_->alias)
-			mustUnify(_->alias->type, tu->member_types[_->tag], _->location);
+		mustUnify(_->alias->type, tu->member_types[_->tag], _->location);
 
 		return tu;
 	}
