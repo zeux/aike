@@ -1,0 +1,12 @@
+let foo(x: 'a, y: 'b) =
+    let foobar(z: 'a) = ()
+    if y then foobar(x)
+
+let bar(x: 'a, y: 'b) =
+    x + y
+
+foo(1, false)
+bar(1, 2)
+
+// OUTPUT:
+// 3

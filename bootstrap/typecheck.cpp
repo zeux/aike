@@ -92,7 +92,7 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 	errorf(location, "Unknown type %s", name.c_str());
 }
 
-Type* resolveType(SynType* type, Environment& env)
+Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = false)
 {
 	if (!type)
 	{
@@ -110,9 +110,16 @@ Type* resolveType(SynType* type, Environment& env)
 			if (env.generic_types[i]->name == _->type.name)
 				return env.generic_types[i];
 
-		env.generic_types.push_back(new TypeGeneric(_->type.name));
+		if (allow_new_generics)
+		{
+			env.generic_types.push_back(new TypeGeneric(_->type.name));
 
-		return env.generic_types.back();
+			return env.generic_types.back();
+		}
+		else
+		{
+			errorf(_->type.location, "Unknown type '%s", _->type.name);
+		}
 	}
 
 	if (CASE(SynTypeArray, type))
@@ -148,14 +155,14 @@ Type* resolveType(SynType* type, Environment& env)
 	return 0;
 }
 
-TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env)
+TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env, bool allow_new_generics = false)
 {
 	std::vector<Type*> argtys;
 
 	for (size_t i = 0; i < args.size(); ++i)
-		argtys.push_back(resolveType(args[i].type, env));
+		argtys.push_back(resolveType(args[i].type, env, allow_new_generics));
 
-	return new TypeFunction(resolveType(rettype, env), argtys);
+	return new TypeFunction(resolveType(rettype, env, allow_new_generics), argtys);
 }
 
 std::pair<TypeUnion*, size_t> resolveUnionTypeByVariant(const std::string& variant, Environment& env)
@@ -445,7 +452,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		env.functions.push_back(FunctionInfo(env.bindings.size()));
 		env.bindings.push_back(std::vector<Binding>());
 
-		TypeFunction* funty = resolveFunctionType(_->ret_type, _->args, env);
+		size_t generic_type_count = env.generic_types.size();
+
+		TypeFunction* funty = resolveFunctionType(_->ret_type, _->args, env, /* allow_new_generics= */ true);
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
@@ -494,6 +503,8 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			if (CASE(BindingLocal, function_externals[i]))
 				externals.push_back(resolveBindingAccess(_->target->name, Location(), env));
 		}
+
+		env.generic_types.resize(generic_type_count);
 
 		return new ExprLetFunc(target->type, _->location, target, has_externals ? context_target : 0, args, body, externals);
 	}
