@@ -118,13 +118,13 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 		}
 		else
 		{
-			errorf(_->type.location, "Unknown type '%s", _->type.name);
+			errorf(_->type.location, "Unknown type '%s", _->type.name.c_str());
 		}
 	}
 
 	if (CASE(SynTypeArray, type))
 	{
-		return new TypeArray(resolveType(_->contained_type, env));
+		return new TypeArray(resolveType(_->contained_type, env, allow_new_generics));
 	}
 
 	if (CASE(SynTypeFunction, type))
@@ -132,9 +132,9 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 		std::vector<Type*> argtys;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
-			argtys.push_back(resolveType(_->args[i], env));
+			argtys.push_back(resolveType(_->args[i], env, allow_new_generics));
 
-		return new TypeFunction(resolveType(_->result, env), argtys);
+		return new TypeFunction(resolveType(_->result, env, allow_new_generics), argtys);
 	}
 
 	if (CASE(SynTypeStructure, type))
@@ -677,6 +677,45 @@ bool occurs(Type* lhs, Type* rhs)
 	return false;
 }
 
+bool occurs(Type* lhs, const std::vector<Type*>& rhs)
+{
+	for (size_t i = 0; i < rhs.size(); ++i)
+		if (occurs(lhs, rhs[i]))
+			return true;
+
+	return false;
+}
+
+Type* fresh(Type* t, const std::vector<Type*>& nongen)
+{
+	t = prune(t);
+
+	if (CASE(TypeGeneric, t))
+	{
+		for (size_t i = 0; i < nongen.size(); ++i)
+			if (t == nongen[i])
+				return t;
+
+		return new TypeGeneric(_->name);
+	}
+
+	if (CASE(TypeArray, t))
+	{
+		return new TypeArray(fresh(_->contained, nongen));
+	}
+
+	if (CASE(TypeFunction, t))
+	{
+		std::vector<Type*> args;
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(fresh(_->args[i], nongen));
+
+		return new TypeFunction(fresh(_->result, nongen), args);
+	}
+
+	return t;
+}
+
 bool unify(Type* lhs, Type* rhs)
 {
 	if (lhs == rhs) return true;
@@ -778,8 +817,13 @@ void mustUnify(Type* actual, Type* expected, const Location& location)
 	}
 }
 
-Type* analyze(BindingBase* binding)
+Type* analyze(BindingBase* binding, const std::vector<Type*>& nongen)
 {
+	if (CASE(BindingFunction, binding))
+	{
+		return fresh(_->target->type, nongen);
+	}
+
 	if (CASE(BindingLocal, binding))
 	{
 		return _->target->type;
@@ -804,7 +848,7 @@ Type* analyze(MatchCase* case_)
 	return 0;
 }
 
-Type* analyze(Expr* root)
+Type* analyze(Expr* root, std::vector<Type*>& nongen)
 {
 	if (CASE(ExprUnit, root))
 	{
@@ -825,11 +869,11 @@ Type* analyze(Expr* root)
 	{
 		if (!_->elements.empty())
 		{
-			Type* t0 = analyze(_->elements[0]);
+			Type* t0 = analyze(_->elements[0], nongen);
 
 			for (size_t i = 1; i < _->elements.size(); ++i)
 			{
-				Type* ti = analyze(_->elements[i]);
+				Type* ti = analyze(_->elements[i], nongen);
 
 				mustUnify(ti, t0, _->elements[i]->location);
 			}
@@ -846,7 +890,7 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprBinding, root))
 	{
-		return _->type;
+		return analyze(_->binding, nongen);
 	}
 
 	if (CASE(ExprBindingExternal, root))
@@ -856,7 +900,7 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprUnaryOp, root))
 	{
-		Type* te = analyze(_->expr);
+		Type* te = analyze(_->expr, nongen);
 
 		switch (_->op)
 		{
@@ -875,8 +919,8 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprBinaryOp, root))
 	{
-		Type* tl = analyze(_->left);
-		Type* tr = analyze(_->right);
+		Type* tl = analyze(_->left, nongen);
+		Type* tr = analyze(_->right, nongen);
 
 		switch (_->op)
 		{
@@ -904,11 +948,11 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprCall, root))
 	{
-		Type* te = analyze(_->expr);
+		Type* te = analyze(_->expr, nongen);
 
 		std::vector<Type*> argtys;
 		for (size_t i = 0; i < _->args.size(); ++i)
-			argtys.push_back(analyze(_->args[i]));
+			argtys.push_back(analyze(_->args[i], nongen));
 
 		TypeFunction* funty = new TypeFunction(new TypeGeneric(), argtys);
 
@@ -919,9 +963,8 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprArrayIndex, root))
 	{
-		Type* ta = analyze(_->arr);
-
-		Type* ti = analyze(_->index);
+		Type* ta = analyze(_->arr, nongen);
+		Type* ti = analyze(_->index, nongen);
 
 		TypeArray* tn = new TypeArray(new TypeGeneric());
 
@@ -933,10 +976,9 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprArraySlice, root))
 	{
-		Type* ta = analyze(_->arr);
-
-		Type* ts = analyze(_->index_start);
-		Type* te = _->index_end ? analyze(_->index_end) : 0;
+		Type* ta = analyze(_->arr, nongen);
+		Type* ts = analyze(_->index_start, nongen);
+		Type* te = _->index_end ? analyze(_->index_end, nongen) : 0;
 
 		TypeArray* tn = new TypeArray(new TypeGeneric());
 
@@ -951,7 +993,7 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprMemberAccess, root))
 	{
-		Type* ta = analyze(_->aggr);
+		Type* ta = analyze(_->aggr, nongen);
 
 		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(ta))
 		{
@@ -968,7 +1010,7 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprLetVar, root))
 	{
-		Type* tb = analyze(_->body);
+		Type* tb = analyze(_->body, nongen);
 
 		mustUnify(tb, _->target->type, _->body->location);
 
@@ -977,7 +1019,13 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprLetFunc, root))
 	{
-		Type* tb = analyze(_->body);
+		for (size_t i = 0; i < _->args.size(); ++i)
+			nongen.push_back(_->args[i]->type);
+
+		Type* tb = analyze(_->body, nongen);
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			nongen.pop_back();
 
 		TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
 
@@ -1008,9 +1056,9 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprIfThenElse, root))
 	{
-		Type* tcond = analyze(_->cond);
-		Type* tthen = analyze(_->thenbody);
-		Type* telse = analyze(_->elsebody);
+		Type* tcond = analyze(_->cond, nongen);
+		Type* tthen = analyze(_->thenbody, nongen);
+		Type* telse = analyze(_->elsebody, nongen);
 
 		mustUnify(tcond, new TypeBool(), _->cond->location);
 
@@ -1025,8 +1073,8 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprForInDo, root))
 	{
-		Type* tarr = analyze(_->arr);
-		Type* tbody = analyze(_->body);
+		Type* tarr = analyze(_->arr, nongen);
+		Type* tbody = analyze(_->body, nongen);
 
 		TypeArray* ta = new TypeArray(_->target->type);
 
@@ -1038,7 +1086,7 @@ Type* analyze(Expr* root)
 
 	if (CASE(ExprMatchWith, root))
 	{
-		Type* tvar = analyze(_->variable);
+		Type* tvar = analyze(_->variable, nongen);
 		Type* t0 = 0;
 
 		for (size_t i = 0; i < _->cases.size(); ++i)
@@ -1047,7 +1095,7 @@ Type* analyze(Expr* root)
 
 			mustUnify(tci, tvar, _->cases[i]->location);
 
-			Type* ti = analyze(_->expressions[i]);
+			Type* ti = analyze(_->expressions[i], nongen);
 
 			if (i == 0)
 				t0 = ti;
@@ -1065,7 +1113,7 @@ Type* analyze(Expr* root)
 
 		for (size_t i = 0; i + 1 < _->expressions.size(); ++i)
 		{
-			Type* te = analyze(_->expressions[i]);
+			Type* te = analyze(_->expressions[i], nongen);
 
 			if (dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprStructConstructorFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprUnionConstructorFunc*>(_->expressions[i]) == 0)
 			{
@@ -1073,7 +1121,7 @@ Type* analyze(Expr* root)
 			}
 		}
 
-		return _->type = analyze(_->expressions.back());
+		return _->type = analyze(_->expressions.back(), nongen);
 	}
 
 	assert(!"Unknown expression type");
@@ -1084,7 +1132,10 @@ Expr* typecheck(SynBase* root)
 {
 	Expr* result = resolve(root);
 
-	analyze(result);
+	std::vector<Type*> nongen;
+	analyze(result, nongen);
+
+	assert(nongen.empty());
 
 	return result;
 }

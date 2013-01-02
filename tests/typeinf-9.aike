@@ -1,0 +1,13 @@
+let foo(x, a, b) =
+    if true then
+        x(a, b)
+    else
+        x(b, a)
+
+if foo(fun (a, b) -> a, true, false) then
+    foo(fun (a, b) -> a + b, 1, 2)
+else
+    0
+
+// OUTPUT:
+// 3

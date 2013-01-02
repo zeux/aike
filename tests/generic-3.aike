@@ -1,0 +1,7 @@
+let foo(x: ('K) -> 'V, y: 'K) =
+    x(y)
+
+foo(fun x -> x + 1, 2)
+
+// OUTPUT:
+// 3
