@@ -244,11 +244,7 @@ llvm::Function* compileFunction(Context& context, ExprLetFunc* node)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
-	static unsigned int index = 0;
-	char buf[16];
-	sprintf(buf, "%d", index++);
-
-	llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(node->target->name + buf, function_type));
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
