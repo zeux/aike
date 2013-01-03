@@ -27,6 +27,8 @@ struct Context
 	std::map<BindingTarget*, llvm::Value*> values;
 	std::map<Type*, llvm::Type*> types;
 	std::vector<llvm::Type*> function_context_type;
+
+	std::vector<std::pair<Type*, llvm::Type*> > generic_instances;
 };
 
 llvm::Type* compileType(Context& context, Type* type, const Location& location)
@@ -38,8 +40,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 	if (CASE(TypeGeneric, type))
 	{
-		// this'll be an error in the future
-		errorf(location, "Generic types not supported");
+		for (size_t i = 0; i < context.generic_instances.size(); ++i)
+			if (type == context.generic_instances[i].first)
+				return context.generic_instances[i].second;
+
+		errorf(location, "No instance of the generic type '%s found", _->name.empty() ? "a" : _->name.c_str());
 	}
 
 	if (CASE(TypeUnit, type))
@@ -50,7 +55,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 	if (CASE(TypeInt, type))
 	{
-		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+		return llvm::Type::getInt32Ty(*context.context);
 	}
 
 	if (CASE(TypeFloat, type))
@@ -65,12 +70,12 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	
 	if (CASE(TypeReference, type))
 	{
-		return context.types[type] = llvm::PointerType::getUnqual(compileType(context, _->contained, location));
+		return /* context.types[type] = */ llvm::PointerType::getUnqual(compileType(context, _->contained, location));
 	}
 
 	if (CASE(TypeArray, type))
 	{
-		return context.types[type] = llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
+		return /* context.types[type] = */ llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
 	}
 
 	if (CASE(TypeFunction, type))
@@ -86,7 +91,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
 
-		return context.types[type] = holder_type;
+		return /* context.types[type] = */ holder_type;
 	}
 
 	if (CASE(TypeStructure, type))
@@ -99,7 +104,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		if (!_->name.empty())
 			return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
 		else
-			return context.types[type] = llvm::StructType::get(*context.context, members, false);
+			return /* context.types[type] = */ llvm::StructType::get(*context.context, members, false);
 	}
 
 	if (CASE(TypeUnion, type))
@@ -197,6 +202,98 @@ llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, 
 	}
 
 	return result;
+}
+
+void instantiateGenericTypes(Context& context, Type* generic, Type* instance, const Location& location)
+{
+	generic = finalType(generic);
+	instance = finalType(instance);
+
+	if (CASE(TypeGeneric, generic))
+	{
+		context.generic_instances.push_back(std::make_pair(generic, compileType(context, instance, location)));
+	}
+
+	if (CASE(TypeArray, generic))
+	{
+		TypeArray* inst = dynamic_cast<TypeArray*>(instance);
+
+		instantiateGenericTypes(context, _->contained, inst->contained, location);
+	}
+
+	if (CASE(TypeFunction, generic))
+	{
+		TypeFunction* inst = dynamic_cast<TypeFunction*>(instance);
+
+		instantiateGenericTypes(context, _->result, inst->result, location);
+
+		assert(_->args.size() == inst->args.size());
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			instantiateGenericTypes(context, _->args[i], inst->args[i], location);
+	}
+}
+
+llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
+
+llvm::Function* compileFunction(Context& context, ExprLetFunc* node)
+{
+	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
+
+	llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(node->target->name, function_type));
+
+	llvm::Function::arg_iterator argi = func->arg_begin();
+
+	llvm::Value* context_value = 0;
+
+	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	{
+		if (i < node->args.size())
+		{
+			argi->setName(node->args[i]->name);
+			context.values[node->args[i]] = argi;
+		}
+		else
+		{
+			argi->setName("extern");
+			context_value = context.values[node->context_target] = argi;
+		}
+	}
+
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+	llvm::IRBuilder<> builder(bb);
+
+	// Create function value for use inside the function
+	llvm::Value* funcptr = compileFunctionValue(context, builder, func, node->type, context_value, node->location);
+
+	context.values[node->target] = funcptr;
+
+	// Compile function body
+	context.function_context_type.push_back(context_value ? context_value->getType() : NULL);
+
+	llvm::Value* value = compileExpr(context, builder, node->body);
+
+	context.function_context_type.pop_back();
+
+	builder.CreateRet(value);
+
+	return func;
+}
+
+llvm::Function* compileFunctionInstance(Context& context, ExprLetFunc* node, Type* instance_type)
+{
+	// node->type is the generic type, and type is the instance. Instantiate all types into context, following the shape of the type.
+	size_t generic_type_count = context.generic_instances.size();
+	
+	instantiateGenericTypes(context, node->type, instance_type, node->location);
+
+	// compile function body given a non-generic type
+	llvm::Function* func = compileFunction(context, node);
+
+	// remove generic type instantiations
+	context.generic_instances.resize(generic_type_count);
+
+	return func;
 }
 
 llvm::Value* findFunctionArgument(llvm::Function* func, const std::string& name)
@@ -468,31 +565,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLetFunc, node))
 	{
-		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, _->context_target ? _->context_target->type : 0);
-
-		llvm::Type* general_holder_type = compileType(context, _->type, _->location);
-
-		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
-
-		llvm::Function::arg_iterator argi = func->arg_begin();
-
-		llvm::Value* context_value = 0;
-
-		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
-		{
-			if (i < _->args.size())
-			{
-				argi->setName(_->args[i]->name);
-
-				assert(context.values.count(_->args[i]) == 0);
-				context.values[_->args[i]] = argi;
-			}
-			else
-			{
-				argi->setName("extern");
-				context_value = context.values[_->context_target] = argi;
-			}
-		}
+		llvm::Function* func = compileFunction(context, _);
 
 		llvm::Value* context_data = 0;
 
@@ -506,24 +579,6 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			for (size_t i = 0; i < _->externals.size(); i++)
 				builder.CreateStore(compileExpr(context, builder, _->externals[i]), builder.CreateStructGEP(context_data, i));
 		}
-
-		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-		llvm::IRBuilder<> funcbuilder(bb);
-
-		// Create function value for use inside the function
-		llvm::Value* internal_funcptr = compileFunctionValue(context, funcbuilder, func, _->type, context_value, _->location);
-
-		assert(context.values.count(_->target) == 0);
-		context.values[_->target] = internal_funcptr;
-
-		// Compile function body
-		context.function_context_type.push_back(context_data ? context_data->getType() : NULL);
-
-		llvm::Value* value = compileExpr(context, funcbuilder, _->body);
-
-		context.function_context_type.pop_back();
-
-		funcbuilder.CreateRet(value);
 
 		// Create function value for use outside the function
 		llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, context_data, _->location);
