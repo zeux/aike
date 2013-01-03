@@ -890,7 +890,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprBinding, root))
 	{
-		return analyze(_->binding, nongen);
+		return _->type = analyze(_->binding, nongen);
 	}
 
 	if (CASE(ExprBindingExternal, root))
