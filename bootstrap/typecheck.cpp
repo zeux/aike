@@ -686,34 +686,44 @@ bool occurs(Type* lhs, const std::vector<Type*>& rhs)
 	return false;
 }
 
-Type* fresh(Type* t, const std::vector<Type*>& nongen)
+Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<Type*, Type*>& generics)
 {
 	t = prune(t);
 
 	if (CASE(TypeGeneric, t))
 	{
+		if (generics.count(t))
+			return generics[t];
+
 		for (size_t i = 0; i < nongen.size(); ++i)
 			if (t == nongen[i])
 				return t;
 
-		return new TypeGeneric(_->name);
+		return generics[t] = new TypeGeneric(_->name);
 	}
 
 	if (CASE(TypeArray, t))
 	{
-		return new TypeArray(fresh(_->contained, nongen));
+		return new TypeArray(fresh(_->contained, nongen, generics));
 	}
 
 	if (CASE(TypeFunction, t))
 	{
 		std::vector<Type*> args;
 		for (size_t i = 0; i < _->args.size(); ++i)
-			args.push_back(fresh(_->args[i], nongen));
+			args.push_back(fresh(_->args[i], nongen, generics));
 
-		return new TypeFunction(fresh(_->result, nongen), args);
+		return new TypeFunction(fresh(_->result, nongen, generics), args);
 	}
 
 	return t;
+}
+
+Type* fresh(Type* t, const std::vector<Type*>& nongen)
+{
+	std::map<Type*, Type*> generics;
+
+	return fresh(t, nongen, generics);
 }
 
 bool unify(Type* lhs, Type* rhs)
@@ -1133,7 +1143,7 @@ Expr* typecheck(SynBase* root)
 	Expr* result = resolve(root);
 
 	std::vector<Type*> nongen;
-	Type* rootty = analyze(result, nongen);
+	analyze(result, nongen);
 
 	assert(nongen.empty());
 
