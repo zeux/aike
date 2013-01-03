@@ -821,12 +821,7 @@ Type* analyze(BindingBase* binding, const std::vector<Type*>& nongen)
 {
 	if (CASE(BindingFunction, binding))
 	{
-		// Temporarily disable generic functions
-	#if 0
 		return fresh(_->target->type, nongen);
-	#else
-		return _->target->type;
-	#endif
 	}
 
 	if (CASE(BindingLocal, binding))
@@ -1138,7 +1133,7 @@ Expr* typecheck(SynBase* root)
 	Expr* result = resolve(root);
 
 	std::vector<Type*> nongen;
-	analyze(result, nongen);
+	Type* rootty = analyze(result, nongen);
 
 	assert(nongen.empty());
 
