@@ -1,0 +1,15 @@
+let foo(x, y) =
+    if true then
+        1
+    else if true then
+        foo(true, false)
+    else
+        foo(1, 2)
+
+foo(1, 2)
+
+// ERRORS:
+// (7,9): Type mismatch. Expecting a
+//     (int, int) -> 'a
+// but given a
+//     (bool, bool) -> 'a
