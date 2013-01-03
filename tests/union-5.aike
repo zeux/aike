@@ -7,5 +7,7 @@ let value(x) =
     | Zero -> 0
     | Zero -> 1
 
+value(Zero)
+
 // ERRORS:
-// (8,7): Case for tag 'Zero' is already defined
+// (8,7): This case is already covered

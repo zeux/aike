@@ -1,0 +1,12 @@
+type Node = Leaf int | Tree { left: Node; right: Node }
+
+let y = Leaf(1)
+
+match y with
+| Leaf x -> 13
+| Tree(Tree(l, r), k) -> 16
+| Tree(Leaf l, r) -> 17
+| _ -> 21
+
+// ERRORS:
+// (9,3): This case is already covered

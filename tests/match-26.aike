@@ -1,0 +1,13 @@
+type bool2 = { a: bool; b: bool }
+
+let x = bool2(true, false)
+
+match x with
+| bool2(false, false) -> 1
+| bool2(false, true) -> 1
+| bool2(true, false) -> 1
+| bool2(true, true) -> 1
+| x -> 2
+
+// ERRORS:
+// (10,3) This case is already covered

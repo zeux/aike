@@ -1,0 +1,8 @@
+let y1 = 3
+
+match y1 with
+| 0 -> 1
+| _ -> 2
+
+// OUTPUT:
+// 2

@@ -494,6 +494,163 @@ SynBase* parseForInDo(Lexer& lexer)
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
+SynMatch* parseMatchPattern(Lexer& lexer)
+{
+	// Check literal value matches
+	if (lexer.current.type == LexNumber)
+	{
+		SynMatch* result = new SynMatchNumber(lexer.current.location, lexer.current.number);
+		movenext(lexer);
+		return result;
+	}
+
+	if (iskeyword(lexer, "true"))
+	{
+		SynMatch* result = new SynMatchBoolean(lexer.current.location, true);
+		movenext(lexer);
+		return result;
+	}
+
+	if (iskeyword(lexer, "false"))
+	{
+		SynMatch* result = new SynMatchBoolean(lexer.current.location, false);
+		movenext(lexer);
+		return result;
+	}
+
+	if (lexer.current.type == LexCharacter)
+	{
+		if (lexer.current.contents.empty())
+			errorf(lexer.current.location, "Character missing");
+		if (lexer.current.contents.size() > 1)
+			errorf(lexer.current.location, "Multicharacter literals are not supported");
+
+		SynMatch* result = new SynMatchNumber(lexer.current.location, lexer.current.contents[0]);
+		movenext(lexer);
+		return result;
+	}
+
+	if (lexer.current.type == LexString)
+	{
+		Location location = lexer.current.location;
+
+		std::vector<SynMatch*> elements;
+		for (size_t i = 0; i < lexer.current.contents.size(); ++i)
+			elements.push_back(new SynMatchNumber(location, lexer.current.contents[i]));
+
+		movenext(lexer);
+
+		return new SynMatchArray(location, elements);
+	}
+
+	// Check placeholder, type and member matches
+	if (lexer.current.type == LexIdentifier)
+	{
+		Location location = lexer.current.location;
+
+		// | _ ->
+		if (lexer.current.contents == "_")
+		{
+			movenext(lexer);
+			return new SynMatchPlaceholderUnnamed(location);
+		}
+
+		SynIdentifier identifier = parseIdentifier(lexer);
+
+		// | vec2 x
+		if (lexer.current.type == LexIdentifier)
+		{
+			SynIdentifier alias = parseIdentifier(lexer);
+
+			return new SynMatchTypeSimple(location, identifier, alias);
+		}
+
+		// | vec2(x, y)
+		if (lexer.current.type == LexOpenBrace)
+		{
+			movenext(lexer);
+
+			std::vector<SynIdentifier> arg_names;
+			std::vector<SynMatch*> arg_values;
+			while (lexer.current.type != LexCloseBrace)
+			{
+				if (!arg_values.empty())
+				{
+					if (lexer.current.type != LexComma)
+						errorf(lexer.current.location, "',' expected after previous member pattern");
+					movenext(lexer);
+				}
+
+				// Try to parse a named argument
+				if (lexer.current.type == LexIdentifier)
+				{
+					Lexer state = lexer.save();
+
+					SynIdentifier id = parseIdentifier(lexer);
+
+					if (lexer.current.type == LexEqual)
+					{
+						movenext(lexer);
+
+						arg_names.push_back(id);
+					}
+					else
+					{
+						lexer.load(state);
+					}
+				}
+
+				arg_values.push_back(parseMatchPattern(lexer));
+			}
+
+			if (!arg_names.empty() && arg_names.size() != arg_values.size())
+				errorf(lexer.current.location, "Named and unnamed function arguments are not allowed to be mixed in a single call");
+
+			movenext(lexer);
+
+			return new SynMatchTypeComplex(location, identifier, arg_values, arg_names);
+		}
+
+		SynType* type = 0;
+
+		if (lexer.current.type == LexColon)
+		{
+			movenext(lexer);
+
+			type = parseType(lexer);
+		}
+
+		return new SynMatchPlaceholder(location, SynTypedVar(identifier, type));
+	}
+
+	// Check array matches
+	if (lexer.current.type == LexOpenBracket)
+	{
+		Location location = lexer.current.location;
+
+		movenext(lexer);
+
+		std::vector<SynMatch*> elements;
+		while (lexer.current.type != LexCloseBracket)
+		{
+			if (!elements.empty())
+			{
+				if (lexer.current.type != LexComma)
+					errorf(lexer.current.location, "',' expected after previous array element");
+				movenext(lexer);
+			}
+
+			elements.push_back(parseMatchPattern(lexer));
+		}
+
+		movenext(lexer);
+
+		return new SynMatchArray(location, elements);
+	}
+
+	errorf(lexer.current.location, "Unexpected lexeme %d", lexer.current.type);
+}
+
 SynBase* parseMatchWith(Lexer& lexer)
 {
 	Location location = lexer.current.location;
@@ -505,8 +662,7 @@ SynBase* parseMatchWith(Lexer& lexer)
 	if (!iskeyword(lexer, "with")) errorf(lexer.current.location, "Expected 'with' after expression");
 	movenext(lexer);
 
-	std::vector<SynIdentifier> variants;
-	std::vector<SynIdentifier> aliases;
+	std::vector<SynMatch*> variants;
 	std::vector<SynBase*> expressions;
 
 	// Allow to skip first '|' as long as the identifier is on the same line
@@ -515,20 +671,15 @@ SynBase* parseMatchWith(Lexer& lexer)
 		if (lexer.current.type == LexPipe)
 			movenext(lexer);
 
-		variants.push_back(parseIdentifier(lexer));
+		variants.push_back(parseMatchPattern(lexer));
 
-		if (lexer.current.type == LexIdentifier)
-			aliases.push_back(parseIdentifier(lexer));
-		else
-			aliases.push_back(SynIdentifier());
-		
 		if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected '->'");
 			movenext(lexer);
 
 		expressions.push_back(parseBlock(lexer));
 	}
 
-	return new SynMatchWith(location, variable, variants, aliases, expressions);
+	return new SynMatchWith(location, variable, variants, expressions);
 }
 
 SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)

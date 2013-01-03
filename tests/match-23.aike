@@ -1,0 +1,15 @@
+type Test = One int | Three { x: Test; y: Test; z: Test }
+
+let x = One(1)
+
+match x with
+| One x -> 1
+| Three( Three x, _, _ ) -> 2
+| Three( One l, _, One r ) -> 3
+| Three( One a, _, Three(Three b, _, _) ) -> 4
+| Three( One a, _, Three(One b, _, One c) ) -> 5
+| Three( One a, _, Three(One b, _, Three(c, d, e)) ) -> 6
+| _ -> 0 
+
+// ERRORS:
+// (12,3): This case is already covered

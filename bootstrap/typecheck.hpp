@@ -250,13 +250,64 @@ struct MatchCase
 	virtual ~MatchCase() {}
 };
 
+struct MatchCaseAny: MatchCase
+{
+	BindingTarget* alias;
+
+	MatchCaseAny(Type* type, const Location& location, BindingTarget* alias): MatchCase(type, location), alias(alias)
+	{
+	}
+};
+
+struct MatchCaseNumber: MatchCase
+{
+	long long number;
+
+	MatchCaseNumber(Type* type, const Location& location, long long number): MatchCase(type, location), number(number)
+	{
+	}
+};
+
+struct MatchCaseArray: MatchCase
+{
+	std::vector<MatchCase*> elements;
+
+	MatchCaseArray(Type* type, const Location& location, const std::vector<MatchCase*>& elements): MatchCase(type, location), elements(elements)
+	{
+	}
+};
+
+struct MatchCaseMembers: MatchCase
+{
+	std::vector<std::string> member_names;
+	std::vector<MatchCase*> member_values;
+
+	MatchCaseMembers(Type* type, const Location& location, const std::vector<MatchCase*>& member_values, const std::vector<std::string>& member_names): MatchCase(type, location), member_values(member_values), member_names(member_names)
+	{
+	}
+};
+
 struct MatchCaseUnion: MatchCase
 {
 	size_t tag;
-	BindingTarget* alias;
+	MatchCase* pattern;
 
-	MatchCaseUnion(Type* type, const Location& location, size_t tag, BindingTarget* alias): MatchCase(type, location), tag(tag), alias(alias)
+	MatchCaseUnion(Type* type, const Location& location, size_t tag, MatchCase* pattern): MatchCase(type, location), tag(tag), pattern(pattern)
 	{
+	}
+};
+
+struct MatchCaseOr: MatchCase
+{
+	std::vector<MatchCase*> options;
+
+	MatchCaseOr(Type* type, const Location& location): MatchCase(type, location)
+	{
+	}
+
+	void addOption(MatchCase* option)
+	{
+		options.push_back(option);
 	}
 };
 

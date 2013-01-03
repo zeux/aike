@@ -9,4 +9,4 @@ let value(x) =
 value(Zero)
 
 // ERRORS:
-// (6,5): Incomplete pattern matches: missing case for tag 'Succ'
+// (6,5): The match doesn't cover all cases

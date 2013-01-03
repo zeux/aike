@@ -3,6 +3,7 @@
 #include "parser.hpp"
 #include "output.hpp"
 #include "typecheck.hpp"
+#include "match.h"
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
@@ -411,6 +412,150 @@ std::string compileInlineLLVM(const std::string& name, const std::string& body, 
 	return declare.str() + oss.str();
 }
 
+llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
+
+void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_, llvm::Value* value, Type* type, llvm::Value* target, Expr* rhs, llvm::BasicBlock* on_fail, llvm::BasicBlock* on_success)
+{
+	if (CASE(MatchCaseAny, case_))
+	{
+		if (_->alias)
+			context.values[_->alias] = value;
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
+	else if (CASE(MatchCaseNumber, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* cond = builder.CreateICmpEQ(value, builder.CreateIntCast(builder.getInt32(uint32_t(_->number)), compileType(context, _->type, _->location), false));
+
+		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+
+		builder.CreateCondBr(cond, success, on_fail);
+
+		builder.SetInsertPoint(success);
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
+	else if (CASE(MatchCaseArray, case_))
+	{
+		TypeArray* arr_type = dynamic_cast<TypeArray*>(finalType(_->type));
+		if (!arr_type)
+			errorf(_->location, "array type is unknown");
+
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* size = builder.CreateExtractValue(value, 1);
+
+		llvm::Value* cond = builder.CreateICmpEQ(size, builder.getInt32(uint32_t(_->elements.size())));
+
+		llvm::BasicBlock* success_size = llvm::BasicBlock::Create(*context.context, "success_size", function);
+		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+
+		builder.CreateCondBr(cond, success_size, on_fail);
+		builder.SetInsertPoint(success_size);
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			llvm::Value* element = builder.CreateLoad(builder.CreateGEP(builder.CreateExtractValue(value, 0), builder.getInt32(uint32_t(i))), false);
+
+			llvm::BasicBlock* next_check = i != _->elements.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+
+			compileMatch(context, builder, _->elements[i], element, arr_type->contained, 0, 0, on_fail, next_check);
+
+			function->getBasicBlockList().push_back(next_check);
+			builder.SetInsertPoint(next_check);
+		}
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
+	else if (CASE(MatchCaseMembers, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(finalType(_->type)))
+		{
+			for (size_t i = 0; i < _->member_values.size(); ++i)
+			{
+				llvm::BasicBlock* next_check = i != _->member_values.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+
+				size_t id = ~0u;
+
+				if (!_->member_names.empty())
+					id = struct_type->getMemberIndexByName(_->member_names[i], _->location);
+
+				llvm::Value* element = builder.CreateExtractValue(value, id == ~0u ? i : id);
+
+				compileMatch(context, builder, _->member_values[i], element, struct_type->member_types[id == ~0u ? i : id], 0, 0, on_fail, next_check);
+
+				function->getBasicBlockList().push_back(next_check);
+				builder.SetInsertPoint(next_check);
+			}
+		}
+		else
+		{
+			// This must be a union tag that is a type alias
+			assert(_->member_values.size() == 1);
+
+			compileMatch(context, builder, _->member_values[0], value, finalType(_->type), 0, 0, on_fail, success_all);
+
+			function->getBasicBlockList().push_back(success_all);
+			builder.SetInsertPoint(success_all);
+		}
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
+	else if (CASE(MatchCaseUnion, case_))
+	{
+		TypeUnion* union_type = dynamic_cast<TypeUnion*>(finalType(_->type));
+		if (!union_type)
+			errorf(_->location, "union type is unknown");
+
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* type_id = builder.CreateExtractValue(value, 0);
+		llvm::Value* type_ptr = builder.CreateExtractValue(value, 1);
+
+		llvm::Value* cond = builder.CreateICmpEQ(type_id, builder.getInt32(uint32_t(_->tag)));
+
+		llvm::BasicBlock* success_tag = llvm::BasicBlock::Create(*context.context, "success_tag", function);
+		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+
+		builder.CreateCondBr(cond, success_tag, on_fail);
+		builder.SetInsertPoint(success_tag);
+
+		llvm::Value* element = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[_->tag], Location()))));
+
+		compileMatch(context, builder, _->pattern, element, union_type->member_types[_->tag], 0, 0, on_fail, success_all);
+
+		function->getBasicBlockList().push_back(success_all);
+		builder.SetInsertPoint(success_all);
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
+	else
+	{
+		assert(!"Unknown MatchCase node");
+	}
+}
+
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
 {
 	assert(node);
@@ -579,16 +724,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
 		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(getTypeInstance(context, _->aggr->type, _->aggr->location)))
-		{
-			assert(struct_type->member_names.size() == struct_type->member_types.size());
-			for (size_t i = 0; i < struct_type->member_names.size(); i++)
-			{
-				if (struct_type->member_names[i] == _->member_name)
-					return builder.CreateExtractValue(aggr, i);
-			}
-
-			errorf(_->location, "Type doesn't have a member named '%s'", _->member_name.c_str());
-		}
+			return builder.CreateExtractValue(aggr, struct_type->getMemberIndexByName(_->member_name, _->location));
 
 		errorf(_->location, "Cannot access members of a type that is not a structure");
 	}
@@ -846,57 +982,43 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprMatchWith, node))
 	{
+		// Check that case list will handle any value and that there are no unreachable cases
+		MatchCase* options = new MatchCaseOr(0, Location());
+		for (size_t i = 0; i < _->cases.size(); ++i)
+		{
+			if (match(options, _->cases[i]))
+				errorf(_->cases[i]->location, "This case is already covered");
+
+			if (MatchCaseOr* options_pack = dynamic_cast<MatchCaseOr*>(options))
+				options_pack->addOption(clone(_->cases[i]));
+
+			options = simplify(options);
+		}
+
+		if (!match(options, new MatchCaseAny(0, Location(), 0)))
+			errorf(_->location, "The match doesn't cover all cases");
+
 		llvm::Function* function = builder.GetInsertBlock()->getParent();
 
 		llvm::Value* variable = compileExpr(context, builder, _->variable);
 
-		llvm::Value* type_id = builder.CreateExtractValue(variable, 0);
-		llvm::Value* type_ptr = builder.CreateExtractValue(variable, 1);
-
-		TypeUnion* union_type = dynamic_cast<TypeUnion*>(finalType(_->variable->type));
-
-		// All union type variants must be covered
-		if (_->cases.size() < union_type->member_names.size())
-		{
-			for (size_t i = 0; i < union_type->member_names.size(); ++i)
-			{
-				bool found = false;
-				for (size_t k = 0; k < _->cases.size() && !found; ++k)
-				{
-					if (dynamic_cast<MatchCaseUnion*>(_->cases[k])->tag == i)
-						found = true;
-				}
-				if (!found)
-					errorf(_->location, "Incomplete pattern matches: missing case for tag '%s'", union_type->member_names[i].c_str());
-			}
-		}
-
 		// Expression result
 		llvm::Value* value = builder.CreateAlloca(compileType(context, _->type, _->location));
-		
-		// Create a switch by type ID
+
+		// Create a block for all cases
 		std::vector<llvm::BasicBlock*> case_blocks;
 		llvm::BasicBlock* finish_block = llvm::BasicBlock::Create(*context.context, "finish");
 
-		llvm::SwitchInst* switch_inst = builder.CreateSwitch(type_id, finish_block, _->cases.size());
+		for (size_t i = 0; i < _->cases.size(); ++i)
+			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "check_" + std::to_string((long long)i)));
+
+		builder.CreateBr(case_blocks[0]);
 
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			MatchCaseUnion* casei = dynamic_cast<MatchCaseUnion*>(_->cases[i]);
-
-			uint32_t index = casei->tag;
-
-			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "case_" + union_type->member_names[index]));
-
-			switch_inst->addCase(builder.getInt32(index), case_blocks.back());
-
-			function->getBasicBlockList().push_back(case_blocks.back());
-			builder.SetInsertPoint(case_blocks.back());
-
-			context.values[casei->alias] = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[index], Location()))));
-
-			builder.CreateStore(compileExpr(context, builder, _->expressions[i]), value);
-			builder.CreateBr(finish_block);
+			function->getBasicBlockList().push_back(case_blocks[i]);
+			builder.SetInsertPoint(case_blocks[i]);
+			compileMatch(context, builder, _->cases[i], variable, finalType(_->variable->type), value, _->expressions[i], i == _->cases.size() - 1 ? finish_block : case_blocks[i + 1], finish_block);
 		}
 
 		function->getBasicBlockList().push_back(finish_block);

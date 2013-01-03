@@ -5,6 +5,8 @@
 #include <map>
 #include <set>
 
+#include "output.hpp"
+
 struct Type
 {
 	virtual ~Type() {}
@@ -80,6 +82,17 @@ struct TypeStructure: Type
 
 	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names): name(name), member_types(member_types), member_names(member_names)
 	{
+	}
+
+	size_t getMemberIndexByName(const std::string& name, const Location& location)
+	{
+		for (size_t i = 0; i < member_names.size(); ++i)
+		{
+			if (member_names[i] == name)
+				return i;
+		}
+
+		errorf(location, "Type doesn't have a member named '%s'", name.c_str());
 	}
 };
 

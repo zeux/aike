@@ -7,5 +7,7 @@ let value(x) =
     | Zero -> 0
     | One -> 1
 
+value(Succ(4))
+
 // ERRORS:
 // (8,7): Unknown union tag 'One'

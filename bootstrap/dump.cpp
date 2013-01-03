@@ -292,17 +292,66 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "do\n";
 		dump(os, _->body, indent + 1);
 	}
+	else if (CASE(SynMatchNumber, root))
+	{
+		os << _->value;
+	}
+	else if (CASE(SynMatchBoolean, root))
+	{
+		os << (_->value ? "true" : "false");
+	}
+	else if (CASE(SynMatchArray, root))
+	{
+		os << "[";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			if (i != 0)
+				os << ", ";
+			dump(os, _->elements[i], 0);
+		}
+		os << "]";
+	}
+	else if (CASE(SynMatchTypeSimple, root))
+	{
+		os << _->type.name << " " << _->alias.name;
+	}
+	else if (CASE(SynMatchTypeComplex, root))
+	{
+		os << _->type.name << "(";
+		for (size_t i = 0; i < _->arg_values.size(); ++i)
+		{
+			if (i != 0)
+				os << ", ";
+			if (!_->arg_names.empty())
+				os << _->arg_names[i].name << " = ";
+			dump(os, _->arg_values[i], 0);
+		}
+		os << ")";
+	}
+	else if (CASE(SynMatchPlaceholder, root))
+	{
+		os << _->alias.name.name;
+		if (_->alias.type)
+		{
+			os << ": ";
+			dump(os, _->alias.type);
+		}
+	}
+	else if (CASE(SynMatchPlaceholderUnnamed, root))
+	{
+		os << "_";
+	}
 	else if (CASE(SynMatchWith, root))
 	{
 		os << "match\n";
 		dump(os, _->variable, indent + 1);
+		indentout(os, indent);
 		os << "with\n";
 		for (size_t i = 0; i < _->variants.size(); ++i)
 		{
 			indentout(os, indent);
-			os << "| " << _->variants[i].name;
-			if (!_->aliases[i].name.empty())
-				os << " " << _->aliases[i].name;
+			os << "| ";
+			dump(os, _->variants[i], 0);
 			os << " ->\n";
 			dump(os, _->expressions[i], indent + 1);
 		}
@@ -354,16 +403,64 @@ void dump(std::ostream& os, BindingBase* binding)
 
 void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 {
-	if (CASE(MatchCaseUnion, case_))
+	if (CASE(MatchCaseAny, case_))
+	{
+		os << (_->alias ? _->alias->name : "_");
+		if (_->type)
+		{
+			os << ": ";
+			dump(os, context, _->type);
+		}
+	}
+	else if (CASE(MatchCaseNumber, case_))
+	{
+		os << _->number;
+		if (_->type)
+		{
+			os << ": ";
+			dump(os, context, _->type);
+		}
+	}
+	else if (CASE(MatchCaseArray, case_))
+	{
+		os << "[";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			if (i != 0)
+				os << ", ";
+			dump(os, context, _->elements[i]);
+		}
+		os << "]";
+	}
+	else if (CASE(MatchCaseMembers, case_))
+	{
+		dump(os, context, _->type);
+		os << "(";
+		for (size_t i = 0; i < _->member_values.size(); ++i)
+		{
+			if (i != 0)
+				os << ", ";
+			if (!_->member_names.empty())
+				os << _->member_names[i] << " = ";
+			dump(os, context, _->member_values[i]);
+		}
+		os << ")";
+	}
+	else if (CASE(MatchCaseUnion, case_))
 	{
 		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
 
-		os << tu->member_names[_->tag];
+		os << tu->member_names[_->tag] << " of ";
 
-		if (!_->alias->name.empty())
+		dump(os, context, _->pattern);
+	}
+	else if (CASE(MatchCaseOr, case_))
+	{
+		for (size_t i = 0; i < _->options.size(); ++i)
 		{
-			os << " " << _->alias->name << ": ";
-			dump(os, context, _->alias->type);
+			if (i != 0)
+				os << " | ";
+			dump(os, context, _->options[i]);
 		}
 	}
 	else
@@ -563,6 +660,7 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 	{
 		os << "match\n";
 		dump(os, context, _->variable, indent + 1);
+		indentout(os, indent);
 		os << "with\n";
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{

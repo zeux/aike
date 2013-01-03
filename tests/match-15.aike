@@ -1,0 +1,10 @@
+type Switch = On | Off
+
+let y = On
+
+match y with
+| On -> 11
+| Off -> 12
+
+// OUTPUT:
+// 11

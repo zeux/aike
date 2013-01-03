@@ -1,0 +1,18 @@
+type Test = One int | Three { x: Test; y: Test; z: Test }
+
+let x = One(1)
+
+match x with
+| One x -> 1
+| Three( Three, _, _ ) -> 1
+| Three( One, _, One ) -> 1
+| Three( One, One, Three(Three, _, _) ) -> 1
+| Three( One, Three(Three, _, _), Three(Three, _, _) ) -> 1
+| Three( One, Three(One, _, One), Three(Three, _, _) ) -> 1
+| Three( One, Three(One, _, Three), Three(Three, _, _) ) -> 1
+| Three( One, _, Three(One, _, One) ) -> 1
+| Three( One, _, Three(One, _, Three) ) -> 1
+| _ -> 0 // This case is unreachable
+
+// ERRORS:
+// (15,3): This case is already covered

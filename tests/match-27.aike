@@ -1,0 +1,11 @@
+type Node = Leaf int | Tree { left: Node; right: Node }
+
+let y = Tree(Leaf(1), Tree(Leaf(2), Leaf(3)))
+
+match y with
+| Leaf(x) -> x
+| Tree(Leaf(x), Tree(Leaf(y), Leaf(z))) -> (x + y) * z
+| _ -> 0
+
+// OUTPUT:
+// 9

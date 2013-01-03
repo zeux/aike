@@ -1,0 +1,13 @@
+type Node = Leaf int | Tree { left: Node; right: Node }
+
+let y = Tree(Leaf(1), Leaf(2))
+
+match y with
+| Leaf x -> x * 2
+| Tree(Tree(l, r), Leaf k) -> k
+| Tree(Tree(l, r), k) -> 1
+| Tree(Leaf l, Leaf(r)) -> l + r
+| _ -> 16
+
+// OUTPUT:
+// 3

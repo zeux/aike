@@ -288,14 +288,69 @@ struct SynForInDo: SynBase
 	}
 };
 
+struct SynMatch: SynBase
+{
+	SynMatch(const Location& location): SynBase(location) {}
+};
+
+struct SynMatchNumber: SynMatch
+{
+	long long value;
+
+	SynMatchNumber(const Location& location, long long value): SynMatch(location), value(value) {}
+};
+
+struct SynMatchBoolean: SynMatch
+{
+	bool value;
+
+	SynMatchBoolean(const Location& location, bool value): SynMatch(location), value(value) {}
+};
+
+struct SynMatchArray: SynMatch
+{
+	std::vector<SynMatch*> elements;
+
+	SynMatchArray(const Location& location, const std::vector<SynMatch*>& elements): SynMatch(location), elements(elements) {}
+};
+
+struct SynMatchTypeSimple: SynMatch
+{
+	SynIdentifier type;
+	SynIdentifier alias;
+
+	SynMatchTypeSimple(const Location& location, const SynIdentifier& type, const SynIdentifier& alias): SynMatch(location), type(type), alias(alias) {}
+};
+
+struct SynMatchTypeComplex: SynMatch
+{
+	SynIdentifier type;
+	std::vector<SynMatch*> arg_values;
+	std::vector<SynIdentifier> arg_names;
+
+	SynMatchTypeComplex(const Location& location, const SynIdentifier& type, const std::vector<SynMatch*>& arg_values, const std::vector<SynIdentifier>& arg_names): SynMatch(location), type(type), arg_values(arg_values), arg_names(arg_names) {}
+};
+
+// Later this can be resolved to MatchCaseUnion if the identifier was a union type tag
+struct SynMatchPlaceholder: SynMatch
+{
+	SynTypedVar alias;
+
+	SynMatchPlaceholder(const Location& location, const SynTypedVar& alias): SynMatch(location), alias(alias) {}
+};
+
+struct SynMatchPlaceholderUnnamed: SynMatch
+{
+	SynMatchPlaceholderUnnamed(const Location& location): SynMatch(location) {}
+};
+
 struct SynMatchWith: SynBase
 {
 	SynBase* variable;
-	std::vector<SynIdentifier> variants;
-	std::vector<SynIdentifier> aliases;
+	std::vector<SynMatch*> variants;
 	std::vector<SynBase*> expressions;
 
-	SynMatchWith(const Location& location, SynBase* variable, const std::vector<SynIdentifier> variants, const std::vector<SynIdentifier> aliases, const std::vector<SynBase*> expressions): SynBase(location), variable(variable), variants(variants), aliases(aliases), expressions(expressions)
+	SynMatchWith(const Location& location, SynBase* variable, const std::vector<SynMatch*>& variants, const std::vector<SynBase*> expressions): SynBase(location), variable(variable), variants(variants), expressions(expressions)
 	{
 	}
 };

@@ -1,0 +1,12 @@
+let y = "for"
+
+match y with
+| "if" -> 5
+| "do" -> 6
+| "for" -> 7
+| "for" -> 7
+| "while" -> 8
+| _ -> 9
+
+// ERRORS:
+// (7,3): This case is already covered

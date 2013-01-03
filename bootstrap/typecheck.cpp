@@ -227,6 +227,110 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 	return 0;
 }
 
+MatchCase* resolveMatch(SynMatch* match, Environment& env)
+{
+	if (CASE(SynMatchNumber, match))
+	{
+		return new MatchCaseNumber(new TypeInt(), _->location, _->value);
+	}
+
+	if (CASE(SynMatchBoolean, match))
+	{
+		return new MatchCaseNumber(new TypeBool(), _->location, _->value);
+	}
+
+	if (CASE(SynMatchArray, match))
+	{
+		std::vector<MatchCase*> elements;
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			elements.push_back(resolveMatch(_->elements[i], env));
+
+		return new MatchCaseArray(new TypeGeneric(), _->location, elements);
+	}
+
+	if (CASE(SynMatchTypeSimple, match))
+	{
+		Type* type = tryResolveType(_->type.name, env);
+
+		// Maybe it's a tag from a union
+		if (!type)
+		{
+			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
+
+			if (!union_tag.first)
+				errorf(_->location, "Unknown type or an union tag '%s'", _->type.name.c_str());
+
+			BindingTarget* target = new BindingTarget(_->alias.name, union_tag.first->member_types[union_tag.second]);
+		
+			env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
+
+			// First match the tag, then match the contents
+			return new MatchCaseUnion(union_tag.first, _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, target));
+		}
+
+		BindingTarget* target = new BindingTarget(_->alias.name, type);
+		
+		env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
+
+		return new MatchCaseAny(type, _->location, target);
+	}
+
+	if (CASE(SynMatchTypeComplex, match))
+	{
+		Type* type = tryResolveType(_->type.name, env);
+
+		std::vector<std::string> member_names;
+		std::vector<MatchCase*> member_values;
+
+		for (size_t i = 0; i < _->arg_values.size(); ++i)
+		{
+			if (!_->arg_names.empty())
+				member_names.push_back(_->arg_names[i].name);
+			member_values.push_back(resolveMatch(_->arg_values[i], env));
+		}
+
+		// Maybe it's a tag from a union
+		if (!type)
+		{
+			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
+
+			if (!union_tag.first)
+				errorf(_->location, "Unknown type or an union tag '%s'", _->type.name.c_str());
+
+			// First match the tag, then match the contents
+			return new MatchCaseUnion(union_tag.first, _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
+		}
+
+		return new MatchCaseMembers(type, _->location, member_values, member_names);
+	}
+
+	if (CASE(SynMatchPlaceholder, match))
+	{
+		// Special case for an unit union member
+		std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->alias.name.name, env);
+
+		if (union_tag.first)
+		{
+			return new MatchCaseUnion(union_tag.first, _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, 0));
+		}
+
+		BindingTarget* target = new BindingTarget(_->alias.name.name, new TypeGeneric());
+		
+		env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
+
+		return new MatchCaseAny(new TypeGeneric(), _->location, target);
+	}
+
+	if (CASE(SynMatchPlaceholderUnnamed, match))
+	{
+		return new MatchCaseAny(new TypeGeneric(), _->location, 0);
+	}
+
+	assert(!"Unrecognized AST SynMatch type");
+	return 0;
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -559,32 +663,17 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		std::vector<MatchCase*> cases;
 		std::vector<Expr*> expressions;
 
-		TypeUnion* union_type = dynamic_cast<TypeUnion*>(variable->type);
-
 		for (size_t i = 0; i < _->variants.size(); i++)
 		{
-			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->variants[i].name, env);
+			// Pattern can create new bindings to be used in the expression
+			size_t binding_count = env.bindings.back().size();
 
-			if (!union_tag.first)
-				errorf(_->variants[i].location, "Unknown union tag '%s'", _->variants[i].name.c_str());
-
-			// Check that the same variant is not already defined
-			for (size_t k = 0; k < cases.size(); ++k)
-			{
-				if (MatchCaseUnion* casek = dynamic_cast<MatchCaseUnion*>(cases[k]))
-					if (casek->type == union_tag.first && casek->tag == union_tag.second)
-						errorf(_->variants[i].location, "Case for tag '%s' is already defined", _->variants[i].name.c_str());
-			}
-
-			BindingTarget* target = new BindingTarget(_->aliases[i].name, new TypeGeneric());
-
-			cases.push_back(new MatchCaseUnion(union_tag.first, _->variants[i].location, union_tag.second, target));
-
-			env.bindings.back().push_back(Binding(_->aliases[i].name, new BindingLocal(target)));
+			cases.push_back(resolveMatch(_->variants[i], env));
 
 			expressions.push_back(resolveExpr(_->expressions[i], env));
 
-			env.bindings.back().pop_back();
+			while (env.bindings.back().size() > binding_count)
+				env.bindings.back().pop_back();
 		}
 
 		return new ExprMatchWith(new TypeGeneric(), _->location, variable, cases, expressions);
@@ -842,11 +931,89 @@ Type* analyze(BindingBase* binding, const std::vector<Type*>& nongen)
 
 Type* analyze(MatchCase* case_)
 {
+	if (CASE(MatchCaseAny, case_))
+	{
+		return _->type;
+	}
+
+	if (CASE(MatchCaseNumber, case_))
+	{
+		return _->type;
+	}
+
+	if (CASE(MatchCaseArray, case_))
+	{
+		if (!_->elements.empty())
+		{
+			Type* t0 = analyze(_->elements[0]);
+
+			for (size_t i = 1; i < _->elements.size(); ++i)
+			{
+				Type* ti = analyze(_->elements[i]);
+
+				mustUnify(ti, t0, _->elements[i]->location);
+			}
+
+			mustUnify(_->type, new TypeArray(t0), _->location);
+		}
+		else
+		{
+			mustUnify(_->type, new TypeArray(new TypeGeneric()), _->location);
+		}
+
+		return _->type;
+	}
+
+	if (CASE(MatchCaseMembers, case_))
+	{
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(_->type))
+		{
+			// Resolve named arguments into unnamed arguments
+			if (!_->member_names.empty())
+			{
+				std::vector<MatchCase*> clone_members;
+
+				clone_members.insert(clone_members.begin(), struct_type->member_types.size(), 0);
+
+				for (size_t i = 0; i < _->member_values.size(); ++i)
+				{
+					size_t member_index = struct_type->getMemberIndexByName(_->member_names[i], _->location);
+					if (clone_members[member_index])
+						errorf(_->location, "Member '%s' match is already specified", struct_type->member_names[member_index]);
+
+					clone_members[member_index] = _->member_values[i];
+				}
+
+				for (size_t i = 0; i < struct_type->member_types.size(); ++i)
+				{
+					if (!clone_members[i])
+						clone_members[i] = new MatchCaseAny(0, Location(), 0);
+				}
+
+				_->member_values = clone_members;
+				_->member_names.clear();
+			}
+
+			if (_->member_values.size() != struct_type->member_types.size())
+				errorf(_->location, "Type has %d members, but %d are specified", struct_type->member_types.size(), _->member_values.size());
+
+			for (size_t i = 0; i < _->member_values.size(); ++i)
+			{
+				analyze(_->member_values[i]);
+				_->member_values[i]->type = struct_type->member_types[i];
+			}
+		}
+
+		return _->type;
+	}
+
 	if (CASE(MatchCaseUnion, case_))
 	{
 		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
 
-		mustUnify(_->alias->type, tu->member_types[_->tag], _->location);
+		_->pattern->type = tu->member_types[_->tag];
+
+		analyze(_->pattern);
 
 		return tu;
 	}
@@ -1014,6 +1181,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 		// This prevents structure type discovery at a later point in time, but at the same time avoids unsoundness for generics...
 		// errorf(_->aggr->location, "Expected a structure type");
+		return _->type;
 	}
 
 	if (CASE(ExprLetVar, root))
