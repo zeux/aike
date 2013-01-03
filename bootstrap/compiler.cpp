@@ -29,8 +29,24 @@ struct Context
 	std::map<Type*, llvm::Type*> types;
 	std::vector<llvm::Type*> function_context_type;
 
-	std::vector<std::pair<Type*, llvm::Type*> > generic_instances;
+	std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > generic_instances;
 };
+
+Type* getTypeInstance(Context& context, Type* type, const Location& location)
+{
+	type = finalType(type);
+
+	if (CASE(TypeGeneric, type))
+	{
+		for (size_t i = 0; i < context.generic_instances.size(); ++i)
+			if (type == context.generic_instances[i].first)
+				return context.generic_instances[i].second.first;
+
+		errorf(location, "No instance of the generic type '%s found", _->name.empty() ? "a" : _->name.c_str());
+	}
+
+	return type;
+}
 
 llvm::Type* compileType(Context& context, Type* type, const Location& location)
 {
@@ -43,7 +59,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	{
 		for (size_t i = 0; i < context.generic_instances.size(); ++i)
 			if (type == context.generic_instances[i].first)
-				return context.generic_instances[i].second;
+				return context.generic_instances[i].second.second;
 
 		errorf(location, "No instance of the generic type '%s found", _->name.empty() ? "a" : _->name.c_str());
 	}
@@ -199,7 +215,7 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 
 	if (CASE(TypeGeneric, generic))
 	{
-		context.generic_instances.push_back(std::make_pair(generic, compileType(context, instance, location)));
+		context.generic_instances.push_back(std::make_pair(generic, std::make_pair(instance, compileType(context, instance, location))));
 	}
 
 	if (CASE(TypeArray, generic))
@@ -274,12 +290,12 @@ llvm::Function* compileFunction(Context& context, ExprLetFunc* node)
 	return func;
 }
 
-llvm::Function* compileFunctionInstance(Context& context, ExprLetFunc* node, Type* instance_type)
+llvm::Function* compileFunctionInstance(Context& context, ExprLetFunc* node, Type* instance_type, const Location& location)
 {
 	// node->type is the generic type, and type is the instance. Instantiate all types into context, following the shape of the type.
 	size_t generic_type_count = context.generic_instances.size();
 	
-	instantiateGenericTypes(context, node->type, instance_type, node->location);
+	instantiateGenericTypes(context, node->type, instance_type, location);
 
 	// compile function body given a non-generic type
 	llvm::Function* func = compileFunction(context, node);
@@ -304,7 +320,7 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 			ExprLetFunc* node = p.first;
 			llvm::Value* context_data = p.second;
 
-			llvm::Function* func = compileFunctionInstance(context, node, type);
+			llvm::Function* func = compileFunctionInstance(context, node, type, location);
 
 			// Create function value for use outside the function
 			llvm::Value* funcptr = compileFunctionValue(context, builder, func, type, context_data, node->location);
@@ -566,7 +582,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
-		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(finalType(_->aggr->type)))
+		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(getTypeInstance(context, _->aggr->type, _->aggr->location)))
 		{
 			assert(struct_type->member_names.size() == struct_type->member_types.size());
 			for (size_t i = 0; i < struct_type->member_names.size(); i++)
@@ -611,7 +627,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (_->target->name.empty())
 		{
 			// anonymous function, compile right now
-			llvm::Function* func = compileFunctionInstance(context, _, _->type);
+			llvm::Function* func = compileFunctionInstance(context, _, _->type, _->location);
 			llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, context_data, _->location);
 
 			context.values[_->target] = funcptr;

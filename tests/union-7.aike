@@ -6,5 +6,7 @@ let value(x) =
     match x with
     | Zero -> 0
 
+value(Zero)
+
 // ERRORS:
 // (6,5): Incomplete pattern matches: missing case for tag 'Succ'
