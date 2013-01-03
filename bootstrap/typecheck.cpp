@@ -176,6 +176,15 @@ std::pair<TypeUnion*, size_t> resolveUnionTypeByVariant(const std::string& varia
 	return std::make_pair(static_cast<TypeUnion*>(0), 0);
 }
 
+Type* resolveMemberTypeByName(TypeStructure* type, const std::string& name)
+{
+	for (size_t i = 0; i < type->member_names.size(); ++i)
+		if (name == type->member_names[i])
+			return type->member_types[i];
+
+	return 0;
+}
+
 Expr* resolveBindingAccess(const std::string& name, Location location, Environment& env)
 {
 	size_t scope;
@@ -411,19 +420,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* aggr = resolveExpr(_->aggr, env);
 
-		Type* result = 0;
-
-		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(aggr->type))
-		{
-			assert(struct_type->member_names.size() == struct_type->member_types.size());
-			for (size_t i = 0; i < struct_type->member_names.size() && !result; i++)
-			{
-				if (struct_type->member_names[i] == _->member.name)
-					result = struct_type->member_types[i];
-			}
-		}
-
-		return new ExprMemberAccess(result ? result : new TypeGeneric(), _->member.location, aggr, _->member.name);
+		return new ExprMemberAccess(new TypeGeneric(), _->member.location, aggr, _->member.name);
 	}
 
 	if (CASE(SynLetVar, node))
@@ -1003,19 +1000,20 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprMemberAccess, root))
 	{
-		Type* ta = analyze(_->aggr, nongen);
+		Type* ta = finalType(analyze(_->aggr, nongen));
 
 		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(ta))
 		{
-			assert(struct_type->member_names.size() == struct_type->member_types.size());
-			for (size_t i = 0; i < struct_type->member_names.size(); i++)
-			{
-				if (struct_type->member_names[i] == _->member_name)
-					_->type = struct_type->member_types[i];
-			}
+			Type* tm = resolveMemberTypeByName(struct_type, _->member_name);
+
+			if (!tm)
+				errorf(_->location, "Type %s doesn't have a member named '%s'", struct_type->name.c_str(), _->member_name.c_str());
+
+			return _->type = tm;
 		}
 
-		return _->type;
+		// This prevents structure type discovery at a later point in time, but at the same time avoids unsoundness for generics...
+		// errorf(_->aggr->location, "Expected a structure type");
 	}
 
 	if (CASE(ExprLetVar, root))
