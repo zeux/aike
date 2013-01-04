@@ -75,24 +75,14 @@ struct TypeStructure: Type
 	std::string name;
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
+	std::vector<TypeGeneric*> generics;
 
 	TypeStructure()
 	{
 	}
 
-	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names): name(name), member_types(member_types), member_names(member_names)
+	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names, const std::vector<TypeGeneric*>& generics): name(name), member_types(member_types), member_names(member_names), generics(generics)
 	{
-	}
-
-	size_t getMemberIndexByName(const std::string& name, const Location& location)
-	{
-		for (size_t i = 0; i < member_names.size(); ++i)
-		{
-			if (member_names[i] == name)
-				return i;
-		}
-
-		errorf(location, "Type doesn't have a member named '%s'", name.c_str());
 	}
 };
 
@@ -101,8 +91,9 @@ struct TypeUnion: Type
 	std::string name;
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
+	std::vector<TypeGeneric*> generics;
 
-	TypeUnion(const std::string& name): name(name)
+	TypeUnion(const std::string& name, const std::vector<TypeGeneric*>& generics): name(name), generics(generics)
 	{
 	}
 };
@@ -125,3 +116,5 @@ struct PrettyPrintContext
 std::string typeName(Type* type, PrettyPrintContext& context);
 
 Type* finalType(Type* type);
+
+size_t getMemberIndexByName(TypeStructure* type, const std::string& name, const Location& location);

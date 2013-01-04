@@ -83,16 +83,13 @@ Type* tryResolveType(const std::string& name, Environment& env)
 
 Type* resolveType(const std::string& name, Environment& env, const Location& location)
 {
-	if (name == "")
-		return new TypeGeneric();
-
 	if (Type* type = tryResolveType(name, env))
 		return type;
 
 	errorf(location, "Unknown type %s", name.c_str());
 }
 
-Type* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
+TypeGeneric* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
 {
 	for (size_t i = 0; i < env.generic_types.size(); ++i)
 		if (env.generic_types[i]->name == type->type.name)
@@ -102,6 +99,8 @@ Type* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
 
 	return env.generic_types.back();
 }
+
+TypeStructure* resolveStructureType(SynTypeStructure* type, const std::vector<SynTypeGeneric*>& generics, Environment& env);
 
 Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = false)
 {
@@ -148,20 +147,37 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 
 	if (CASE(SynTypeStructure, type))
 	{
-		std::vector<Type*> member_types;
-		std::vector<std::string> member_names;
-
-		for (size_t i = 0; i < _->members.size(); ++i)
-		{
-			member_types.push_back(resolveType(_->members[i].type, env));
-			member_names.push_back(_->members[i].name.name);
-		}
-
-		return new TypeStructure(_->name.name, member_types, member_names);
+		return resolveStructureType(_, std::vector<SynTypeGeneric*>(), env);
 	}
 
 	assert(!"Unknown syntax tree type");
 	return 0;
+}
+
+std::vector<TypeGeneric*> resolveGenericTypeList(const std::vector<SynTypeGeneric*>& generics, Environment& env)
+{
+	std::vector<TypeGeneric*> result;
+
+	for (size_t i = 0; i < generics.size(); ++i)
+		result.push_back(resolveNewGenericType(generics[i], env));
+
+	return result;
+}
+
+TypeStructure* resolveStructureType(SynTypeStructure* type, const std::vector<SynTypeGeneric*>& generics, Environment& env)
+{
+	std::vector<TypeGeneric*> generic_types = resolveGenericTypeList(generics, env);
+
+	std::vector<Type*> member_types;
+	std::vector<std::string> member_names;
+
+	for (size_t i = 0; i < type->members.size(); ++i)
+	{
+		member_types.push_back(resolveType(type->members[i].type, env));
+		member_names.push_back(type->members[i].name.name);
+	}
+
+	return new TypeStructure(type->name.name, member_types, member_names, generic_types);
 }
 
 TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env, bool allow_new_generics = false)
@@ -365,43 +381,31 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynTypeDefinition, node))
 	{
-		for (size_t i = 0; i < _->generics.size(); ++i)
-			resolveNewGenericType(_->generics[i], env);
-
-		std::vector<Type*> member_types;
-		std::vector<std::string> member_names;
+		TypeStructure* type = resolveStructureType(_->type_struct, _->generics, env);
 
 		std::vector<BindingTarget*> args;
 
-		for (size_t i = 0; i < _->type_struct->members.size(); ++i)
-		{
-			member_types.push_back(resolveType(_->type_struct->members[i].type, env));
-			member_names.push_back(_->type_struct->members[i].name.name);
-
-			args.push_back(new BindingTarget(_->type_struct->members[i].name.name, member_types.back()));
-		}
-
-		Type* type = resolveType(_->type_struct, env);
+		for (size_t i = 0; i < type->member_types.size(); ++i)
+			args.push_back(new BindingTarget(type->member_names[i], type->member_types[i]));
 
 		env.types.push_back(TypeBinding(_->type_struct->name.name, type));
 
-		TypeFunction* function_type = new TypeFunction(type, member_types);
+		TypeFunction* function_type = new TypeFunction(type, type->member_types);
 
 		BindingTarget* target = new BindingTarget(_->type_struct->name.name, function_type);
 
-		env.bindings.back().push_back(Binding(_->type_struct->name.name, new BindingFreeFunction(target, member_names)));
+		env.bindings.back().push_back(Binding(_->type_struct->name.name, new BindingFreeFunction(target, type->member_names)));
 
 		return new ExprStructConstructorFunc(function_type, _->location, target, args);
 	}
 
 	if (CASE(SynUnionDefinition, node))
 	{
-		for (size_t i = 0; i < _->generics.size(); ++i)
-			resolveNewGenericType(_->generics[i], env);
+		std::vector<TypeGeneric*> generics = resolveGenericTypeList(_->generics, env);
 
 		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
 
-		TypeUnion* target_type = new TypeUnion(_->name.name);
+		TypeUnion* target_type = new TypeUnion(_->name.name, generics);
 
 		env.types.push_back(TypeBinding(_->name.name, target_type));
 
@@ -992,7 +996,7 @@ Type* analyze(MatchCase* case_)
 
 				for (size_t i = 0; i < _->member_values.size(); ++i)
 				{
-					size_t member_index = struct_type->getMemberIndexByName(_->member_names[i], _->location);
+					size_t member_index = getMemberIndexByName(struct_type, _->member_names[i], _->location);
 					if (clone_members[member_index])
 						errorf(_->location, "Member '%s' match is already specified", struct_type->member_names[member_index]);
 

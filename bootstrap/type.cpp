@@ -47,6 +47,22 @@ bool containedTypeRequiresBraces(Type* type)
 	return dynamic_cast<TypeFunction*>(type) != 0;
 }
 
+void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context);
+
+void prettyPrint(std::ostream& os, const std::vector<TypeGeneric*>& generics, PrettyPrintContext& context)
+{
+	if (!generics.empty())
+	{
+		os << "<";
+		for (size_t i = 0; i < generics.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			prettyPrint(os, generics[i], context);
+		}
+		os << ">";
+	}
+}
+
 void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 {
 	type = finalType(type);
@@ -121,11 +137,13 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		else
 		{
 			os << _->name;
+			prettyPrint(os, _->generics, context);
 		}
 	}
 	else if (CASE(TypeUnion, type))
 	{
 		os << _->name;
+		prettyPrint(os, _->generics, context);
 	}
 	else
 	{
@@ -138,4 +156,13 @@ std::string typeName(Type* type, PrettyPrintContext& context)
 	std::ostringstream oss;
 	prettyPrint(oss, type, context);
 	return oss.str();
+}
+
+size_t getMemberIndexByName(TypeStructure* type, const std::string& name, const Location& location)
+{
+	for (size_t i = 0; i < type->member_names.size(); ++i)
+		if (type->member_names[i] == name)
+			return i;
+
+	errorf(location, "Type %s doesn't have a member named '%s'", type->name.c_str(), name.c_str());
 }

@@ -493,7 +493,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 				size_t id = ~0u;
 
 				if (!_->member_names.empty())
-					id = struct_type->getMemberIndexByName(_->member_names[i], _->location);
+					id = getMemberIndexByName(struct_type, _->member_names[i], _->location);
 
 				llvm::Value* element = builder.CreateExtractValue(value, id == ~0u ? i : id);
 
@@ -724,7 +724,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
 		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(getTypeInstance(context, _->aggr->type, _->aggr->location)))
-			return builder.CreateExtractValue(aggr, struct_type->getMemberIndexByName(_->member_name, _->location));
+			return builder.CreateExtractValue(aggr, getMemberIndexByName(struct_type, _->member_name, _->location));
 
 		errorf(_->location, "Cannot access members of a type that is not a structure");
 	}
