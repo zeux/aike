@@ -10,4 +10,4 @@ match x with
 | x -> 2
 
 // ERRORS:
-// (10,3) This case is already covered
+// (10,3): This case is already covered

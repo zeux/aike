@@ -192,69 +192,70 @@ MatchCase* simplify(MatchCase* pattern)
 				++it;
 		}
 
-		// Join duplicate union cases that have a one member difference in the constructor
-		if (MatchCaseUnion* first_tag = dynamic_cast<MatchCaseUnion*>(_->options.empty() ? 0 : _->options[0]))
+		// Join constructors that only have a difference in one member (including union cases that have contructors inside)
+		for (size_t i = 0; i < _->options.size(); ++i)
 		{
-			// For every option
-			for (size_t i = 0; i < _->options.size(); ++i)
+			// Get the second option
+			std::vector<MatchCase*>::iterator subit = _->options.begin() + i + 1;
+
+			for (; subit != _->options.end(); ++subit)
 			{
-				MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(_->options[i]);
+				MatchCaseMembers* curr_members = dynamic_cast<MatchCaseMembers*>(_->options[i]);
+				MatchCaseMembers* new_members = dynamic_cast<MatchCaseMembers*>(*subit);
 
-				// Get the second option
-				std::vector<MatchCase*>::iterator subit = _->options.begin() + i + 1;
-
-				for (; subit != _->options.end(); ++subit)
+				if (!curr_members || !new_members)
 				{
+					MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(_->options[i]);
 					MatchCaseUnion* new_tag = dynamic_cast<MatchCaseUnion*>(*subit);
 
 					// Only for constructors of the same type
-					if (curr_tag->tag != new_tag->tag)
+					if (!curr_tag || !new_tag || curr_tag->tag != new_tag->tag)
 						continue;
 
-					MatchCaseMembers* curr_members = dynamic_cast<MatchCaseMembers*>(curr_tag->pattern);
-					MatchCaseMembers* new_members = dynamic_cast<MatchCaseMembers*>(new_tag->pattern);
+					curr_members = dynamic_cast<MatchCaseMembers*>(curr_tag->pattern);
+					new_members = dynamic_cast<MatchCaseMembers*>(new_tag->pattern);
+				}
 
-					// Pattern must be a member list
-					if (!curr_members || !new_members)
-						continue;
+				// Pattern must be a member list
+				if (!curr_members || !new_members)
+					continue;
 
-					// Check if their difference is only in one argument
-					size_t mismatch_index = ~0u;
-					for (size_t k = 0; k < curr_members->member_values.size(); ++k)
+				// Check if their difference is only in one argument
+				size_t mismatch_index = ~0u;
+				for (size_t k = 0; k < curr_members->member_values.size(); ++k)
+				{
+					if (!(match(curr_members->member_values[k], new_members->member_values[k]) && match(new_members->member_values[k], curr_members->member_values[k])))
 					{
-						if (!(match(curr_members->member_values[k], new_members->member_values[k]) && match(new_members->member_values[k], curr_members->member_values[k])))
+						if (mismatch_index == ~0u)
 						{
-							if (mismatch_index == ~0u)
-							{
-								mismatch_index = k;
-							}else{
-								mismatch_index = ~0u;
-								break;
-							}
+							mismatch_index = k;
+						}else{
+							mismatch_index = ~0u;
+							break;
 						}
 					}
-
-					// More than one mismatch
-					if (mismatch_index == ~0u)
-						continue;
-
-					MatchCaseOr* arg_options = dynamic_cast<MatchCaseOr*>(curr_members->member_values[mismatch_index]);
-					
-					if (!arg_options)
-					{
-						arg_options = new MatchCaseOr(0, Location());
-						arg_options->addOption(curr_members->member_values[mismatch_index]);
-					}
-					if (dynamic_cast<MatchCaseOr*>(new_members->member_values[mismatch_index]))
-						arg_options = arg_options;
-
-					arg_options->addOption(new_members->member_values[mismatch_index]);
-					curr_members->member_values[mismatch_index] = arg_options;
-
-					_->options.erase(subit);
-
-					return simplify(_);
 				}
+
+				// More than one mismatch
+				if (mismatch_index == ~0u)
+					continue;
+
+				MatchCaseOr* arg_options = dynamic_cast<MatchCaseOr*>(curr_members->member_values[mismatch_index]);
+					
+				if (!arg_options)
+				{
+					arg_options = new MatchCaseOr(0, Location());
+					arg_options->addOption(curr_members->member_values[mismatch_index]);
+				}
+				if (dynamic_cast<MatchCaseOr*>(new_members->member_values[mismatch_index]))
+					arg_options = arg_options;
+
+				arg_options->addOption(new_members->member_values[mismatch_index]);
+				curr_members->member_values[mismatch_index] = arg_options;
+
+				_->options.erase(subit);
+
+				return simplify(_);
 			}
 		}
 
@@ -290,6 +291,13 @@ MatchCase* simplify(MatchCase* pattern)
 						return new MatchCaseAny(0, Location(), 0);
 				}
 			}
+		}
+
+		// If the members are bool numbers, and the member count covers all the cases, merge them to any
+		if (MatchCaseNumber* first_number = dynamic_cast<MatchCaseNumber*>(_->options.empty() ? 0 : _->options[0]))
+		{
+			if (dynamic_cast<TypeBool*>(finalType(first_number->type)) && _->options.size() == 2)
+				return new MatchCaseAny(0, Location(), 0);
 		}
 
 		// If it can match any, simplify it to any

@@ -6,4 +6,4 @@ match y2 with
 | _ -> 5
 
 // ERRORS:
-// (6,3) This case is already covered
+// (6,3): This case is already covered
