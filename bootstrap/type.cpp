@@ -49,7 +49,7 @@ bool containedTypeRequiresBraces(Type* type)
 
 void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context);
 
-void prettyPrint(std::ostream& os, const std::vector<TypeGeneric*>& generics, PrettyPrintContext& context)
+void prettyPrint(std::ostream& os, const std::vector<Type*>& generics, PrettyPrintContext& context)
 {
 	if (!generics.empty())
 	{

@@ -75,13 +75,13 @@ struct TypeStructure: Type
 	std::string name;
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
-	std::vector<TypeGeneric*> generics;
+	std::vector<Type*> generics;
 
-	TypeStructure()
+	TypeStructure(const std::string& name): name(name)
 	{
 	}
 
-	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names, const std::vector<TypeGeneric*>& generics): name(name), member_types(member_types), member_names(member_names), generics(generics)
+	TypeStructure(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names, const std::vector<Type*>& generics): name(name), member_types(member_types), member_names(member_names), generics(generics)
 	{
 	}
 };
@@ -91,9 +91,13 @@ struct TypeUnion: Type
 	std::string name;
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
-	std::vector<TypeGeneric*> generics;
+	std::vector<Type*> generics;
 
-	TypeUnion(const std::string& name, const std::vector<TypeGeneric*>& generics): name(name), generics(generics)
+	TypeUnion(const std::string& name): name(name)
+	{
+	}
+
+	TypeUnion(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names, const std::vector<Type*>& generics): name(name), member_types(member_types), member_names(member_names), generics(generics)
 	{
 	}
 };
