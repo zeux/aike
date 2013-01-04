@@ -1,0 +1,9 @@
+type Callback<'T, 'U> = { func: ('T) -> 'U }
+
+let test(y0, y1) =
+    Callback(fun x -> if x then y0 else y1)
+
+test(1, 2).func(true)
+
+// OUTPUT:
+// 1

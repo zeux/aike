@@ -702,7 +702,11 @@ std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
 
 		movenext(lexer);
 
-		if (lexer.current.type != LexComma && lexer.current.type != LexGreater)
+		if (lexer.current.type == LexComma)
+			movenext(lexer);
+		else if (lexer.current.type == LexGreater)
+			;
+		else
 			errorf(lexer.current.location, "Expected ',' or '>'");
 	}
 
