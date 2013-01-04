@@ -1179,9 +1179,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			return _->type = tm;
 		}
 
-		// This prevents structure type discovery at a later point in time, but at the same time avoids unsoundness for generics...
-		// errorf(_->aggr->location, "Expected a structure type");
-		return _->type;
+		errorf(_->aggr->location, "Expected a structure type");
 	}
 
 	if (CASE(ExprLetVar, root))

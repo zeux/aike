@@ -1,6 +1,6 @@
 type vec2 = { x: int; y: int }
 
-let foo(x) = x.x / x.y
+let foo(x:vec2) = x.x / x.y
 
 foo(vec2(y = 2, x = 6)) + foo(vec2(x = 60, y = 2))
 

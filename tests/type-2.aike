@@ -2,7 +2,7 @@ type vec2 = { x: int; y: int }
 
 let bar(x:vec2) = x.y
 
-let foo(x) = x.x + bar(x)
+let foo(x:vec2) = x.x + bar(x)
 
 foo(vec2(1, 2))
 
