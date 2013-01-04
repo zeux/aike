@@ -1,6 +1,8 @@
 type ref<'T> = { contents: 'T }
 
-ref(1).contents
+let value(x: ref) = x.contents
+
+value(ref(1))
 
 // OUTPUT:
 // 1

@@ -1,0 +1,11 @@
+type ref<'T> = { contents: 'T }
+
+let value(x: ref) = x.contents
+
+if value(ref(true)) then
+    value(ref(1))
+else
+    2
+
+// OUTPUT:
+// 1
