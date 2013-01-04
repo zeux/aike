@@ -2,12 +2,18 @@ type Integer =
 | Zero
 | Succ Integer
 
+type NonInteger =
+| NaN
+
 let value(x) =
     match x with
     | Zero -> 0
-    | One -> 1
+    | NaN -> 1
 
-value(Succ(4))
+value(Succ(Zero))
 
 // ERRORS:
-// (8,7): Unknown union tag 'One'
+// (11,7): Type mismatch. Expecting a
+//     Integer
+// but given a
+//     NonInteger
