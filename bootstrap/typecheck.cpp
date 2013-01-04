@@ -556,10 +556,6 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		Expr* body = resolveExpr(_->body, env);
 
-		// If the type is not defined, take the body type
-		if (!_->var.type)
-			target->type = body->type;
-
 		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
 		return new ExprLetVar(target->type, _->location, target, body);
@@ -822,9 +818,8 @@ Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<Type*, Type*>& r
 
 	if (CASE(TypeGeneric, t))
 	{
-		for (size_t i = 0; i < nongen.size(); ++i)
-			if (t == nongen[i])
-				return t;
+		if (occurs(t, nongen))
+			return t;
 
 		return remap[t] = new TypeGeneric(_->name);
 	}

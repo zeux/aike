@@ -1,0 +1,9 @@
+let y = 1
+
+let test(x) =
+    y
+
+test(true) + test(2)
+
+// OUTPUT:
+// 2

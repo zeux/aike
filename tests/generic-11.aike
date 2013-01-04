@@ -1,0 +1,10 @@
+let reduce(x, f) =
+    if true then
+        f(x)
+    else
+        reduce(x, f)
+
+reduce(2, fun x -> x * x)
+
+// OUTPUT:
+// 4
