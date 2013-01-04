@@ -26,7 +26,7 @@ struct Context
 	llvm::DataLayout* layout;
 
 	std::map<BindingTarget*, llvm::Value*> values;
-	std::map<BindingTarget*, std::pair<ExprLetFunc*, llvm::Value*> > functions;
+	std::map<BindingTarget*, std::pair<Expr*, llvm::Value*> > functions;
 	std::map<Type*, llvm::Type*> types;
 	std::vector<llvm::Type*> function_context_type;
 
@@ -241,7 +241,7 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
 
-llvm::Function* compileFunction(Context& context, ExprLetFunc* node)
+llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
@@ -287,7 +287,108 @@ llvm::Function* compileFunction(Context& context, ExprLetFunc* node)
 	return func;
 }
 
-llvm::Function* compileFunctionInstance(Context& context, ExprLetFunc* node, Type* instance_type, const Location& location)
+llvm::Function* compileStructConstructor(Context& context, ExprStructConstructorFunc* node)
+{
+	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
+
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
+
+	llvm::Function::arg_iterator argi = func->arg_begin();
+
+	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	{
+		if (i < node->args.size())
+			argi->setName(node->args[i]->name);
+	}
+
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+	llvm::IRBuilder<> builder(bb);
+
+	llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+
+	argi = func->arg_begin();
+
+	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+		aggr = builder.CreateInsertValue(aggr, argi, i);
+
+	builder.CreateRet(aggr);
+
+	return func;
+}
+
+llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFunc* node)
+{
+	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
+
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
+
+	llvm::Function::arg_iterator argi = func->arg_begin();
+
+	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	{
+		if (i < node->args.size())
+			argi->setName(node->args[i]->name);
+	}
+
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
+	llvm::IRBuilder<> builder(bb);
+
+	llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+
+	// Save type ID
+	aggr = builder.CreateInsertValue(aggr, builder.getInt32(node->member_id), 0);
+
+	// Create union storage
+	llvm::Type* member_type = compileType(context, node->member_type, node->location);
+	llvm::Type* member_ref_type = llvm::PointerType::getUnqual(member_type);
+
+	argi = func->arg_begin();
+
+	if (!node->args.empty())
+	{
+		llvm::Value* data = builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
+		llvm::Value* typed_data = builder.CreateBitCast(data, member_ref_type);
+
+		if (node->args.size() > 1)
+		{
+			for (size_t i = 0; i < node->args.size(); ++i, ++argi)
+				builder.CreateStore(argi, builder.CreateStructGEP(typed_data, i));
+		}
+		else
+		{
+			builder.CreateStore(argi, typed_data);
+		}
+
+		aggr = builder.CreateInsertValue(aggr, data, 1);
+	}
+
+	builder.CreateRet(aggr);
+
+	return func;
+}
+
+llvm::Function* compileFunction(Context& context, Expr* node)
+{
+	if (CASE(ExprLetFunc, node))
+	{
+		return compileRegularFunction(context, _);
+	}
+
+	if (CASE(ExprStructConstructorFunc, node))
+	{
+		return compileStructConstructor(context, _);
+	}
+
+	if (CASE(ExprUnionConstructorFunc, node))
+	{
+		return compileUnionConstructor(context, _);
+	}
+
+	assert(!"Unknown node type");
+	return 0;
+}
+
+llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* instance_type, const Location& location)
 {
 	// node->type is the generic type, and type is the instance. Instantiate all types into context, following the shape of the type.
 	size_t generic_type_count = context.generic_instances.size();
@@ -313,8 +414,8 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 		if (context.functions.count(_->target) > 0)
 		{
 			// Compile function instantiation
-			std::pair<ExprLetFunc*, llvm::Value*> p = context.functions[_->target];
-			ExprLetFunc* node = p.first;
+			std::pair<Expr*, llvm::Value*> p = context.functions[_->target];
+			Expr* node = p.first;
 			llvm::Value* context_data = p.second;
 
 			llvm::Function* func = compileFunctionInstance(context, node, type, location);
@@ -799,94 +900,20 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprStructConstructorFunc, node))
 	{
-		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
+		// defer function compilation till use site to support generics
+		context.functions[_->target] = std::make_pair(_, (llvm::Value*)0);
 
-		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
-
-		llvm::Function::arg_iterator argi = func->arg_begin();
-
-		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
-		{
-			if (i < _->args.size())
-				argi->setName(_->args[i]->name);
-		}
-
-		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-
-		llvm::IRBuilder<> funcbuilder(bb);
-
-		llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
-
-		argi = func->arg_begin();
-
-		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
-			aggr = funcbuilder.CreateInsertValue(aggr, argi, i);
-
-		funcbuilder.CreateRet(aggr);
-
-		llvm::Value* value = compileFunctionValue(context, builder, func, _->type, NULL, _->location);
-
-		assert(context.values.count(_->target) == 0);
-		context.values[_->target] = value;
-
-		return value;
+		// TODO: this is really wrong :-/
+		return NULL;
 	}
 
 	if (CASE(ExprUnionConstructorFunc, node))
 	{
-		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
+		// defer function compilation till use site to support generics
+		context.functions[_->target] = std::make_pair(_, (llvm::Value*)0);
 
-		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
-
-		llvm::Function::arg_iterator argi = func->arg_begin();
-
-		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
-		{
-			if (i < _->args.size())
-				argi->setName(_->args[i]->name);
-		}
-
-		llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-
-		llvm::IRBuilder<> funcbuilder(bb);
-
-		llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
-
-		// Save type ID
-		aggr = funcbuilder.CreateInsertValue(aggr, funcbuilder.getInt32(_->member_id), 0);
-
-		// Create union storage
-		llvm::Type* member_type = compileType(context, _->member_type, _->location);
-		llvm::Type* member_ref_type = llvm::PointerType::getUnqual(member_type);
-
-		argi = func->arg_begin();
-
-		if (!_->args.empty())
-		{
-			llvm::Value* data = funcbuilder.CreateCall(context.module->getFunction("malloc"), funcbuilder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
-			llvm::Value* typed_data = funcbuilder.CreateBitCast(data, member_ref_type);
-
-			if (_->args.size() > 1)
-			{
-				for (size_t i = 0; i < _->args.size(); ++i, ++argi)
-					funcbuilder.CreateStore(argi, funcbuilder.CreateStructGEP(typed_data, i));
-			}
-			else
-			{
-				funcbuilder.CreateStore(argi, typed_data);
-			}
-
-			aggr = funcbuilder.CreateInsertValue(aggr, data, 1);
-		}
-
-		funcbuilder.CreateRet(aggr);
-
-		llvm::Value* value = compileFunctionValue(context, builder, func, _->type, NULL, _->location);
-
-		assert(context.values.count(_->target) == 0);
-		context.values[_->target] = value;
-
-		return value;
+		// TODO: this is really wrong :-/
+		return NULL;
 	}
 
 	if (CASE(ExprLLVM, node))
