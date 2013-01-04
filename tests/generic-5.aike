@@ -1,0 +1,4 @@
+type ref = { contents: 'T }
+
+// ERRORS:
+// (1,24): Unknown type 'T

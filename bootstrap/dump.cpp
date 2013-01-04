@@ -143,7 +143,13 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynTypeDefinition, root))
 	{
-		os << "type " << _->type_struct->name.name << "\n";
+		os << "type " << _->type_struct->name.name << "<";
+		for (size_t i = 0; i < _->generics.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			dump(os, _->generics[i]);
+		}
+		os << ">\n";
 		indentout(os, indent);
 		os << "{\n";
 		for (size_t i = 0; i < _->type_struct->members.size(); ++i)
@@ -158,7 +164,13 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	}
 	else if (CASE(SynUnionDefinition, root))
 	{
-		os << "union " << _->name.name << "\n";
+		os << "union " << _->name.name << "<";
+		for (size_t i = 0; i < _->generics.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			dump(os, _->generics[i]);
+		}
+		os << ">\n";
 		for (size_t i = 0; i < _->members.size(); ++i)
 		{
 			indentout(os, indent);

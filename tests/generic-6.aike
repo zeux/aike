@@ -1,0 +1,6 @@
+type ref<'T> = { contents: 'T }
+
+0
+
+// OUTPUT:
+// 0

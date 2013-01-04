@@ -92,6 +92,17 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 	errorf(location, "Unknown type %s", name.c_str());
 }
 
+Type* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
+{
+	for (size_t i = 0; i < env.generic_types.size(); ++i)
+		if (env.generic_types[i]->name == type->type.name)
+			errorf(type->type.location, "Generic type '%s already exists", type->type.name.c_str());
+
+	env.generic_types.push_back(new TypeGeneric(type->type.name));
+
+	return env.generic_types.back();
+}
+
 Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = false)
 {
 	if (!type)
@@ -112,9 +123,7 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 
 		if (allow_new_generics)
 		{
-			env.generic_types.push_back(new TypeGeneric(_->type.name));
-
-			return env.generic_types.back();
+			return resolveNewGenericType(_, env);
 		}
 		else
 		{
@@ -356,6 +365,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynTypeDefinition, node))
 	{
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			resolveNewGenericType(_->generics[i], env);
+
 		std::vector<Type*> member_types;
 		std::vector<std::string> member_names;
 
@@ -384,6 +396,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynUnionDefinition, node))
 	{
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			resolveNewGenericType(_->generics[i], env);
+
 		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
 
 		TypeUnion* target_type = new TypeUnion(_->name.name);

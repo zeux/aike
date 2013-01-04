@@ -118,16 +118,18 @@ struct SynArrayLiteral: SynBase
 struct SynTypeDefinition: SynBase
 {
 	SynTypeStructure* type_struct;
+	std::vector<SynTypeGeneric*> generics;
 
-	SynTypeDefinition(const Location& location, SynTypeStructure* type_struct): SynBase(location), type_struct(type_struct) {}
+	SynTypeDefinition(const Location& location, SynTypeStructure* type_struct, const std::vector<SynTypeGeneric*>& generics): SynBase(location), type_struct(type_struct), generics(generics) {}
 };
 
 struct SynUnionDefinition: SynBase
 {
 	SynIdentifier name;
 	std::vector<SynTypedVar> members;
+	std::vector<SynTypeGeneric*> generics;
 
-	SynUnionDefinition(const Location& location, const SynIdentifier& name, const std::vector<SynTypedVar>& members): SynBase(location), name(name), members(members) {}
+	SynUnionDefinition(const Location& location, const SynIdentifier& name, const std::vector<SynTypedVar>& members, const std::vector<SynTypeGeneric*>& generics): SynBase(location), name(name), members(members), generics(generics) {}
 };
 
 struct SynVariableReference: SynBase

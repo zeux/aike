@@ -41,7 +41,7 @@ SynBase* parseTerm(Lexer& lexer)
 		SynBase* expr = parseExpr(lexer);
 
 		if (lexer.current.type != LexCloseBrace)
-			errorf(lexer.current.location, "Expected closing brace");
+			errorf(lexer.current.location, "Expected ')'");
 
 		movenext(lexer);
 
@@ -60,7 +60,7 @@ SynBase* parseTerm(Lexer& lexer)
 			if (!elements.empty())
 			{
 				if (lexer.current.type != LexComma)
-					errorf(lexer.current.location, "',' expected after previous array element");
+					errorf(lexer.current.location, "Expected ',' after previous array element");
 				movenext(lexer);
 			}
 
@@ -273,7 +273,7 @@ SynTypeStructure* parseTypeStructure(Lexer& lexer, const SynIdentifier name)
 		if (!members.empty())
 		{
 			if (lexer.current.type != LexSemicolon && lexer.current.location.line == prev_line)
-				errorf(lexer.current.location, "';' or a newline expected after previous type member");
+				errorf(lexer.current.location, "Expected ';' or a newline after previous type member");
 			if (lexer.current.type == LexSemicolon)
 				movenext(lexer);
 		}
@@ -328,7 +328,7 @@ std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 		else if (lexer.current.type == LexCloseBrace)
 			;
 		else
-			errorf(lexer.current.location, "Expected comma or closing brace");
+			errorf(lexer.current.location, "Expected ',' or ')'");
 	}
 
 	movenext(lexer);
@@ -349,7 +349,7 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
 		rettype = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '='");
 
 	movenext(lexer);
 
@@ -406,7 +406,7 @@ SynBase* parseAnonymousFunc(Lexer& lexer)
 		args.push_back(SynTypedVar(parseIdentifier(lexer), 0));
 	}
 
-	if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected ->");
+	if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected '->'");
 	movenext(lexer);
 
 	SynBase* body = parseBlock(lexer);
@@ -433,7 +433,7 @@ SynBase* parseLet(Lexer& lexer)
 		type = parseType(lexer);
 	}
 
-	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected =");
+	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '='");
 
 	movenext(lexer);
 
@@ -445,7 +445,7 @@ SynBase* parseLLVM(Lexer& lexer)
 	assert(iskeyword(lexer, "llvm"));
 	movenext(lexer);
 
-	if (lexer.current.type != LexString) errorf(lexer.current.location, "String expected after llvm keyword");
+	if (lexer.current.type != LexString) errorf(lexer.current.location, "Expected string after llvm keyword");
 
 	std::string body = lexer.current.contents;
 	Location location = lexer.current.location;
@@ -577,7 +577,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 				if (!arg_values.empty())
 				{
 					if (lexer.current.type != LexComma)
-						errorf(lexer.current.location, "',' expected after previous member pattern");
+						errorf(lexer.current.location, "Expected ',' after previous member pattern");
 					movenext(lexer);
 				}
 
@@ -636,7 +636,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 			if (!elements.empty())
 			{
 				if (lexer.current.type != LexComma)
-					errorf(lexer.current.location, "',' expected after previous array element");
+					errorf(lexer.current.location, "Expected ',' after previous array element");
 				movenext(lexer);
 			}
 
@@ -682,15 +682,46 @@ SynBase* parseMatchWith(Lexer& lexer)
 	return new SynMatchWith(location, variable, variants, expressions);
 }
 
+std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
+{
+	if (lexer.current.type != LexLess)
+		return std::vector<SynTypeGeneric*>();
+
+	movenext(lexer);
+
+	std::vector<SynTypeGeneric*> list;
+
+	while (lexer.current.type != LexGreater)
+	{
+		if (lexer.current.type != LexIdentifierGeneric)
+			errorf(lexer.current.location, "Expected generic identifier");
+
+		SynIdentifier var(lexer.current.contents, lexer.current.location);
+
+		list.push_back(new SynTypeGeneric(var));
+
+		movenext(lexer);
+
+		if (lexer.current.type != LexComma && lexer.current.type != LexGreater)
+			errorf(lexer.current.location, "Expected ',' or '>'");
+	}
+
+	movenext(lexer);
+
+	return list;
+}
+
 SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 {
 	size_t start_line = lexer.current.location.line;
+
+	std::vector<SynTypeGeneric*> generics = parseGenericTypeList(lexer);
 
 	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '=' after type name");
 	movenext(lexer);
 
 	if (lexer.current.type == LexOpenCurlyBrace)
-		return new SynTypeDefinition(name.location, parseTypeStructure(lexer, name));
+		return new SynTypeDefinition(name.location, parseTypeStructure(lexer, name), generics);
 
 	std::vector<SynTypedVar> members;
 
@@ -711,7 +742,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 		members.push_back(SynTypedVar(name, type));
 	}
 
-	return new SynUnionDefinition(name.location, name, members);
+	return new SynUnionDefinition(name.location, name, members, generics);
 }
 
 SynBase* parsePrimary(Lexer& lexer)
