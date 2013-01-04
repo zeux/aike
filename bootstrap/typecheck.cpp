@@ -259,7 +259,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
 
 			if (!union_tag.first)
-				errorf(_->location, "Unknown type or an union tag '%s'", _->type.name.c_str());
+				errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
 			BindingTarget* target = new BindingTarget(_->alias.name, union_tag.first->member_types[union_tag.second]);
 		
@@ -296,7 +296,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			std::pair<TypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
 
 			if (!union_tag.first)
-				errorf(_->location, "Unknown type or an union tag '%s'", _->type.name.c_str());
+				errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
 			// First match the tag, then match the contents
 			return new MatchCaseUnion(union_tag.first, _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
