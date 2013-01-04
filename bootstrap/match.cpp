@@ -1,6 +1,6 @@
-#include "match.h"
+#include "match.hpp"
 
-#include <assert.h>
+#include <cassert>
 
 #include "typecheck.hpp"
 

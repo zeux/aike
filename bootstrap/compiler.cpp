@@ -3,7 +3,7 @@
 #include "parser.hpp"
 #include "output.hpp"
 #include "typecheck.hpp"
-#include "match.h"
+#include "match.hpp"
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
