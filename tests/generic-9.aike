@@ -1,0 +1,16 @@
+type option<'T> =
+| Some 'T
+| None
+
+let value(x, def) =
+    match x with
+    | Some v -> v
+    | None -> def
+
+if value(Some(true), false) then
+    value(None, 1)
+else
+    0
+
+// OUTPUT:
+// 1

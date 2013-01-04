@@ -736,7 +736,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 
 		if (lexer.current.type == LexOpenCurlyBrace)
 			type = parseTypeStructure(lexer, name);
-		else if (lexer.current.type == LexIdentifier || lexer.current.type == LexOpenBrace)
+		else if (lexer.current.type == LexIdentifier || lexer.current.type == LexIdentifierGeneric || lexer.current.type == LexOpenBrace)
 			type = parseType(lexer);
 
 		members.push_back(SynTypedVar(name, type));

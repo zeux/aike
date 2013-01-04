@@ -1,0 +1,15 @@
+type Node<'T> =
+| Leaf 'T
+| Tree { left: Node; right: Node }
+
+let reduce(x, f) = 
+    match x with
+    | Leaf x -> x
+    | Tree x -> f(reduce(x.left, f), reduce(x.right, f))
+
+let x = Tree(Leaf(4), Tree(Leaf(20), Leaf(100)))
+
+reduce(x, fun (a, b) -> a + b)
+
+// OUTPUT:
+// 124
