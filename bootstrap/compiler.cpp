@@ -60,7 +60,9 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		return llvm::StructType::create(*context.context, members, _->name);
+		// TODO: To name types we have to create a unique mangled name.
+		// return llvm::StructType::create(*context.context, members, _->name);
+		return llvm::StructType::get(*context.context, members);
 	}
 
 	if (CASE(TypePrototypeUnion, proto))
@@ -857,12 +859,12 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(getTypeInstance(context, _->aggr->type, _->aggr->location));
-		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type) : 0;
+		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type->prototype) : 0;
 
 		if (record_type)
 			return builder.CreateExtractValue(aggr, getMemberIndexByName(record_type, _->member_name, _->location));
 
-		errorf(_->location, "Cannot access members of a type that is not a structure");
+		errorf(_->location, "Expected a record type");
 	}
 
 	if (CASE(ExprLetVar, node))

@@ -307,7 +307,15 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			if (!union_tag.first)
 				errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
-			BindingTarget* target = new BindingTarget(_->alias.name, union_tag.first->member_types[union_tag.second]);
+			std::vector<Type*> fake_generics;
+			for (size_t i = 0; i < union_tag.first->generics.size(); ++i)
+				fake_generics.push_back(new TypeGeneric());
+
+			TypeInstance* fake_inst = new TypeInstance(union_tag.first, fake_generics);
+
+			Type* member_type = getMemberTypeByIndex(fake_inst, union_tag.first, union_tag.second, _->location);
+
+			BindingTarget* target = new BindingTarget(_->alias.name, member_type);
 		
 			env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
 
@@ -1077,7 +1085,7 @@ Type* analyze(MatchCase* case_)
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
 				analyze(_->member_values[i]);
-				_->member_values[i]->type = record_type->member_types[i];
+				_->member_values[i]->type = getMemberTypeByIndex(inst_type, record_type, i, _->location);
 			}
 		}
 
@@ -1087,9 +1095,9 @@ Type* analyze(MatchCase* case_)
 	if (CASE(MatchCaseUnion, case_))
 	{
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(_->type);
-		TypePrototypeUnion* record_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
+		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
 
-		_->pattern->type = record_type->member_types[_->tag];
+		_->pattern->type = getMemberTypeByIndex(inst_type, union_type, _->tag, _->location);
 
 		analyze(_->pattern);
 
@@ -1252,12 +1260,12 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		{
 			size_t index = getMemberIndexByName(record_type, _->member_name, _->location);
 
-			Type* tm = record_type->member_types[index];
+			Type* tm = getMemberTypeByIndex(inst_type, record_type, index, _->location);
 
 			return _->type = tm;
 		}
 
-		errorf(_->aggr->location, "Expected a structure type");
+		errorf(_->aggr->location, "Expected a record type");
 	}
 
 	if (CASE(ExprLetVar, root))

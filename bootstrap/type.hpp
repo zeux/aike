@@ -129,4 +129,7 @@ Type* finalType(Type* type);
 
 size_t getMemberIndexByName(TypePrototypeRecord* type, const std::string& name, const Location& location);
 
+Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeRecord* proto, size_t index, const Location& location);
+Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeUnion* proto, size_t index, const Location& location);
+
 const std::vector<Type*>& getGenericTypes(TypePrototype* proto);

@@ -150,13 +150,13 @@ std::string typeName(Type* type, PrettyPrintContext& context)
 	return oss.str();
 }
 
-size_t getMemberIndexByName(TypePrototypeRecord* type, const std::string& name, const Location& location)
+size_t getMemberIndexByName(TypePrototypeRecord* proto, const std::string& name, const Location& location)
 {
-	for (size_t i = 0; i < type->member_names.size(); ++i)
-		if (type->member_names[i] == name)
+	for (size_t i = 0; i < proto->member_names.size(); ++i)
+		if (proto->member_names[i] == name)
 			return i;
 
-	errorf(location, "Type %s doesn't have a member named '%s'", type->name.c_str(), name.c_str());
+	errorf(location, "Type %s doesn't have a member named '%s'", proto->name.c_str(), name.c_str());
 }
 
 const std::vector<Type*>& getGenericTypes(TypePrototype* proto)
@@ -175,4 +175,71 @@ const std::vector<Type*>& getGenericTypes(TypePrototype* proto)
 
 	static std::vector<Type*> dummy;
 	return dummy;
+}
+
+Type* fresh(Type* t, std::map<Type*, Type*>& genremap, const Location& location)
+{
+	t = finalType(t);
+
+	if (CASE(TypeGeneric, t))
+	{
+		if (genremap.count(_))
+			return genremap[_];
+
+		errorf(location, "Unable to instantiate generic type %s", _->name.c_str());
+	}
+
+	if (CASE(TypeArray, t))
+	{
+		return new TypeArray(fresh(_->contained, genremap, location));
+	}
+
+	if (CASE(TypeFunction, t))
+	{
+		std::vector<Type*> args;
+		for (size_t i = 0; i < _->args.size(); ++i)
+			args.push_back(fresh(_->args[i], genremap, location));
+
+		return new TypeFunction(fresh(_->result, genremap, location), args);
+	}
+
+	if (CASE(TypeInstance, t))
+	{
+		std::vector<Type*> generics;
+
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			generics.push_back(fresh(_->generics[i], genremap, location));
+
+		return new TypeInstance(_->prototype, generics);
+	}
+
+	return t;
+}
+
+Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeRecord* proto, size_t index, const Location& location)
+{
+	assert(instance->prototype == proto);
+	assert(instance->generics.size() == proto->generics.size());
+	assert(index < proto->member_types.size());
+
+	std::map<Type*, Type*> genremap;
+
+	for (size_t i = 0; i < instance->generics.size(); ++i)
+		genremap[proto->generics[i]] = instance->generics[i];
+
+	return fresh(proto->member_types[index], genremap, location);
+}
+
+Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeUnion* proto, size_t index, const Location& location)
+{
+	assert(instance->prototype == proto);
+	assert(instance->generics.size() == proto->generics.size());
+	assert(index < proto->member_types.size());
+
+	std::map<Type*, Type*> genremap;
+
+	for (size_t i = 0; i < instance->generics.size(); ++i)
+		genremap[proto->generics[i]] = instance->generics[i];
+
+	return fresh(proto->member_types[index], genremap, location);
 }

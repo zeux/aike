@@ -4,4 +4,4 @@ let bar(x, f) = if true then x.x else f(foo(x))
 bar(vec2(1), fun x -> true)
 
 // ERRORS:
-// (3,30): Expected a structure type
+// (3,30): Expected a record type
