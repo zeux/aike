@@ -1,0 +1,13 @@
+type Lazy<'T> =
+| Value 'T
+| Cont Lazy<() -> 'T>
+
+let value(x: Lazy<'T>) =
+    match x with
+    | Value v -> v
+    | Cont c -> value(c)()
+
+value(Cont(Cont(Value(fun -> (fun -> 2)))))
+
+// ERRORS:
+// recursive unification

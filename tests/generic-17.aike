@@ -1,0 +1,18 @@
+type Lazy<'T> =
+| Value 'T
+| Cont Lazy<() -> 'T>
+
+let value1(x: Lazy<() -> 'a>, def) =
+    match x with
+    | Value v -> v
+    | Cont c -> def
+
+let value(x: Lazy<'a>, def) =
+    match x with
+    | Value v -> v
+    | Cont c -> value1(c, fun -> def)()
+
+value(Cont(Value(fun -> (fun -> 2)))) + value(Cont(Cont(Value(fun -> (fun -> 2)))))
+
+// OUTPUT:
+// 3

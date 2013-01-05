@@ -46,9 +46,9 @@ struct SynTypeGeneric: SynType
 struct SynTypeIdentifier: SynType
 {
 	SynIdentifier type;
-	std::vector<SynTypeGeneric*> generics;
+	std::vector<SynType*> generics;
 
-	SynTypeIdentifier(const SynIdentifier& type, const std::vector<SynTypeGeneric*>& generics): type(type), generics(generics)
+	SynTypeIdentifier(const SynIdentifier& type, const std::vector<SynType*>& generics): type(type), generics(generics)
 	{
 	}
 };

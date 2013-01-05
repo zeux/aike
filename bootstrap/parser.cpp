@@ -218,6 +218,32 @@ std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
 	return list;
 }
 
+std::vector<SynType*> parseGenericInstantiation(Lexer& lexer)
+{
+	if (lexer.current.type != LexLess)
+		return std::vector<SynType*>();
+
+	movenext(lexer);
+
+	std::vector<SynType*> list;
+
+	while (lexer.current.type != LexGreater)
+	{
+		list.push_back(parseType(lexer));
+
+		if (lexer.current.type == LexComma)
+			movenext(lexer);
+		else if (lexer.current.type == LexGreater)
+			;
+		else
+			errorf(lexer.current.location, "Expected ',' or '>'");
+	}
+
+	movenext(lexer);
+
+	return list;
+}
+
 SynType* parseTypeBraced(Lexer& lexer)
 {
 	assert(lexer.current.type == LexOpenBrace);
@@ -274,7 +300,7 @@ SynType* parseType(Lexer& lexer)
 	else
 	{
 		SynIdentifier ident = parseIdentifier(lexer);
-		std::vector<SynTypeGeneric*> generics = parseGenericTypeList(lexer);
+		std::vector<SynType*> generics = parseGenericInstantiation(lexer);
 
 		type = new SynTypeIdentifier(ident, generics);
 	}

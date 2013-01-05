@@ -1,0 +1,15 @@
+type ref<'T> = { contents: 'T }
+type refpair<'T1, 'T2> = { first: ref<'T1>; second: ref<'T2> }
+
+let car(x) =
+    match x with refpair(first = x: ref<'a>) -> x.contents
+
+let cdr(x) =
+    match x with refpair(second = x: ref<'a>) -> x.contents
+
+let y = refpair(ref(1), ref(true))
+
+if cdr(y) then car(y) else 2
+
+// OUTPUT:
+// 1

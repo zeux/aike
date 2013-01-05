@@ -1,0 +1,10 @@
+type ref<'T> = { contents: 'T }
+type refpair<'T1, 'T2> = { first: ref<'T1>; second: ref<'T2> }
+
+let reduce(x, f) =
+    match x with refpair(first = ref(x), second = ref(y)) -> f(x, y)
+
+reduce(refpair(ref(1), ref(2)), fun (x, y) -> x + y)
+
+// OUTPUT:
+// 3
