@@ -1061,7 +1061,7 @@ Type* analyze(MatchCase* case_)
 
 	if (CASE(MatchCaseMembers, case_))
 	{
-		if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(_->type))
+		if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type)))
 		if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype))
 		{
 			// Resolve named arguments into unnamed arguments
@@ -1106,7 +1106,7 @@ Type* analyze(MatchCase* case_)
 
 	if (CASE(MatchCaseUnion, case_))
 	{
-		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(_->type);
+		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
 		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
 
 		mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
