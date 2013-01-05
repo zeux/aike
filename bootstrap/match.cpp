@@ -284,7 +284,8 @@ MatchCase* simplify(MatchCase* pattern)
 
 				if (handle_any)
 				{
-					TypeUnion* union_type = dynamic_cast<TypeUnion*>(first_tag->type);
+					TypeInstance* inst_type = dynamic_cast<TypeInstance*>(first_tag->type);
+					TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
 
 					// If it can match any, simplify it to any
 					if (union_type->member_types.size() == _->options.size())

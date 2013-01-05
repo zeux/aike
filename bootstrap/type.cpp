@@ -114,14 +114,15 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		os << ") -> ";
 		prettyPrint(os, _->result, context);
 	}
-	else if (CASE(TypeStructure, type))
+	else if (CASE(TypeInstance, type))
 	{
-		os << _->name;
-		prettyPrint(os, _->generics, context);
-	}
-	else if (CASE(TypeUnion, type))
-	{
-		os << _->name;
+		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(_->prototype))
+			os << p->name;
+		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(_->prototype))
+			os << p->name;
+		else
+			assert(!"Unknown prototype");
+
 		prettyPrint(os, _->generics, context);
 	}
 	else if (CASE(TypeClosureContext, type))
@@ -149,11 +150,29 @@ std::string typeName(Type* type, PrettyPrintContext& context)
 	return oss.str();
 }
 
-size_t getMemberIndexByName(TypeStructure* type, const std::string& name, const Location& location)
+size_t getMemberIndexByName(TypePrototypeRecord* type, const std::string& name, const Location& location)
 {
 	for (size_t i = 0; i < type->member_names.size(); ++i)
 		if (type->member_names[i] == name)
 			return i;
 
 	errorf(location, "Type %s doesn't have a member named '%s'", type->name.c_str(), name.c_str());
+}
+
+const std::vector<Type*>& getGenericTypes(TypePrototype* proto)
+{
+	if (CASE(TypePrototypeRecord, proto))
+	{
+		return _->generics;
+	}
+
+	if (CASE(TypePrototypeUnion, proto))
+	{
+		return _->generics;
+	}
+
+	assert(!"Unknown prototype type");
+
+	static std::vector<Type*> dummy;
+	return dummy;
 }

@@ -49,6 +49,34 @@ Type* getTypeInstance(Context& context, Type* type, const Location& location)
 	return type;
 }
 
+llvm::Type* compileType(Context& context, Type* type, const Location& location);
+
+llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const Location& location)
+{
+	if (CASE(TypePrototypeRecord, proto))
+	{
+		std::vector<llvm::Type*> members;
+
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+			members.push_back(compileType(context, _->member_types[i], location));
+
+		return llvm::StructType::create(*context.context, members, _->name);
+	}
+
+	if (CASE(TypePrototypeUnion, proto))
+	{
+		std::vector<llvm::Type*> members;
+
+		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
+		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
+
+		return llvm::StructType::create(*context.context, members, _->name);
+	}
+
+	assert(!"Unknown prototype type");
+	return 0;
+}
+
 llvm::Type* compileType(Context& context, Type* type, const Location& location)
 {
 	type = finalType(type);
@@ -117,24 +145,21 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return /* context.types[type] = */ holder_type;
 	}
 
-	if (CASE(TypeStructure, type))
+	if (CASE(TypeInstance, type))
 	{
-		std::vector<llvm::Type*> members;
+		size_t generic_type_count = context.generic_instances.size();
 
-		for (size_t i = 0; i < _->member_types.size(); ++i)
-			members.push_back(compileType(context, _->member_types[i], location));
+		const std::vector<Type*>& generics = getGenericTypes(_->prototype);
+		assert(generics.size() == _->generics.size());
 
-		return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
-	}
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(_->generics[i], compileType(context, _->generics[i], location))));
 
-	if (CASE(TypeUnion, type))
-	{
-		std::vector<llvm::Type*> members;
+		llvm::Type* result = compileTypePrototype(context, _->prototype, location);
 
-		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
-		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
+		context.generic_instances.resize(generic_type_count);
 
-		return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
+		return result;
 	}
 
 	errorf(location, "Unrecognized type");
@@ -517,7 +542,7 @@ std::string compileInlineLLVM(const std::string& name, const std::string& body, 
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
 
-void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_, llvm::Value* value, Type* type, llvm::Value* target, Expr* rhs, llvm::BasicBlock* on_fail, llvm::BasicBlock* on_success)
+void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_, llvm::Value* value, llvm::Value* target, Expr* rhs, llvm::BasicBlock* on_fail, llvm::BasicBlock* on_success)
 {
 	if (CASE(MatchCaseAny, case_))
 	{
@@ -570,7 +595,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 			llvm::BasicBlock* next_check = i != _->elements.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
 
-			compileMatch(context, builder, _->elements[i], element, arr_type->contained, 0, 0, on_fail, next_check);
+			compileMatch(context, builder, _->elements[i], element, 0, 0, on_fail, next_check);
 
 			function->getBasicBlockList().push_back(next_check);
 			builder.SetInsertPoint(next_check);
@@ -587,7 +612,10 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
 
-		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(finalType(_->type)))
+		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
+		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type->prototype) : 0;
+
+		if (record_type)
 		{
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
@@ -596,11 +624,11 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 				size_t id = ~0u;
 
 				if (!_->member_names.empty())
-					id = getMemberIndexByName(struct_type, _->member_names[i], _->location);
+					id = getMemberIndexByName(record_type, _->member_names[i], _->location);
 
 				llvm::Value* element = builder.CreateExtractValue(value, id == ~0u ? i : id);
 
-				compileMatch(context, builder, _->member_values[i], element, struct_type->member_types[id == ~0u ? i : id], 0, 0, on_fail, next_check);
+				compileMatch(context, builder, _->member_values[i], element, 0, 0, on_fail, next_check);
 
 				function->getBasicBlockList().push_back(next_check);
 				builder.SetInsertPoint(next_check);
@@ -611,7 +639,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 			// This must be a union tag that is a type alias
 			assert(_->member_values.size() == 1);
 
-			compileMatch(context, builder, _->member_values[0], value, finalType(_->type), 0, 0, on_fail, success_all);
+			compileMatch(context, builder, _->member_values[0], value, 0, 0, on_fail, success_all);
 
 			function->getBasicBlockList().push_back(success_all);
 			builder.SetInsertPoint(success_all);
@@ -624,7 +652,9 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 	}
 	else if (CASE(MatchCaseUnion, case_))
 	{
-		TypeUnion* union_type = dynamic_cast<TypeUnion*>(finalType(_->type));
+		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
+		TypePrototypeUnion* union_type = inst_type ? dynamic_cast<TypePrototypeUnion*>(inst_type->prototype) : 0;
+
 		if (!union_type)
 			errorf(_->location, "union type is unknown");
 
@@ -643,7 +673,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		llvm::Value* element = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[_->tag], Location()))));
 
-		compileMatch(context, builder, _->pattern, element, union_type->member_types[_->tag], 0, 0, on_fail, success_all);
+		compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
 
 		function->getBasicBlockList().push_back(success_all);
 		builder.SetInsertPoint(success_all);
@@ -826,8 +856,11 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
-		if (TypeStructure* struct_type = dynamic_cast<TypeStructure*>(getTypeInstance(context, _->aggr->type, _->aggr->location)))
-			return builder.CreateExtractValue(aggr, getMemberIndexByName(struct_type, _->member_name, _->location));
+		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(getTypeInstance(context, _->aggr->type, _->aggr->location));
+		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type) : 0;
+
+		if (record_type)
+			return builder.CreateExtractValue(aggr, getMemberIndexByName(record_type, _->member_name, _->location));
 
 		errorf(_->location, "Cannot access members of a type that is not a structure");
 	}
@@ -1047,7 +1080,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		{
 			function->getBasicBlockList().push_back(case_blocks[i]);
 			builder.SetInsertPoint(case_blocks[i]);
-			compileMatch(context, builder, _->cases[i], variable, finalType(_->variable->type), value, _->expressions[i], i == _->cases.size() - 1 ? finish_block : case_blocks[i + 1], finish_block);
+			compileMatch(context, builder, _->cases[i], variable, value, _->expressions[i], i == _->cases.size() - 1 ? finish_block : case_blocks[i + 1], finish_block);
 		}
 
 		function->getBasicBlockList().push_back(finish_block);

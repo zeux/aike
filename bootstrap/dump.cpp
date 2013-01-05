@@ -470,7 +470,8 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 	}
 	else if (CASE(MatchCaseUnion, case_))
 	{
-		TypeUnion* tu = dynamic_cast<TypeUnion*>(_->type);
+		TypeInstance* ti = dynamic_cast<TypeInstance*>(_->type);
+		TypePrototypeUnion* tu = dynamic_cast<TypePrototypeUnion*>(ti->prototype);
 
 		os << tu->member_names[_->tag] << " of ";
 
