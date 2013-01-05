@@ -70,12 +70,34 @@ BindingBase* resolveBinding(const std::string& name, Environment& env, const Loc
 	errorf(location, "Unresolved binding %s", name.c_str());
 }
 
+TypeInstance* instantiatePrototype(TypePrototype* proto)
+{
+	size_t generic_count = getGenericTypes(proto).size();
+
+	std::vector<Type*> args;
+
+	for (size_t i = 0; i < generic_count; ++i)
+		args.push_back(new TypeGeneric());
+
+	return new TypeInstance(proto, args);
+}
+
 Type* tryResolveType(const std::string& name, Environment& env)
 {
 	for (size_t i = 0; i < env.types.size(); ++i)
 	{
 		if (env.types[i].name == name)
+		{
+			if (CASE(TypeInstance, env.types[i].type))
+			{
+				if (_->generics.size() > 0)
+				{
+					return instantiatePrototype(_->prototype);
+				}
+			}
+
 			return env.types[i].type;
+		}
 	}
 
 	return 0;
@@ -259,18 +281,6 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 	}
 
 	return 0;
-}
-
-TypeInstance* instantiatePrototype(TypePrototype* proto)
-{
-	size_t generic_count = getGenericTypes(proto).size();
-
-	std::vector<Type*> args;
-
-	for (size_t i = 0; i < generic_count; ++i)
-		args.push_back(new TypeGeneric());
-
-	return new TypeInstance(proto, args);
 }
 
 MatchCase* resolveMatch(SynMatch* match, Environment& env)
