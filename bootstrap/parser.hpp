@@ -347,6 +347,13 @@ struct SynMatchPlaceholderUnnamed: SynMatch
 	SynMatchPlaceholderUnnamed(const Location& location): SynMatch(location) {}
 };
 
+struct SynMatchOr: SynMatch
+{
+	std::vector<SynMatch*> options;
+
+	SynMatchOr(const Location& location, const std::vector<SynMatch*>& options): SynMatch(location), options(options) {}
+};
+
 struct SynMatchWith: SynBase
 {
 	SynBase* variable;

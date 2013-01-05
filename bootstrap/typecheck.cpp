@@ -3,6 +3,7 @@
 #include "output.hpp"
 
 #include <cassert>
+#include <algorithm>
 
 struct Binding
 {
@@ -375,20 +376,84 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->alias.name.name, env);
 
 		if (union_tag.first)
-		{
 			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, 0));
+
+		// Find a binding with the same name in current scope
+		BindingBase* previous = 0;
+		for (size_t i = 0; i < env.bindings.back().size() && !previous; ++i)
+		{
+			if (env.bindings.back()[i].name == _->alias.name.name)
+				previous = env.bindings.back()[i].binding;
 		}
 
-		BindingTarget* target = new BindingTarget(_->alias.name.name, new TypeGeneric());
+		if (!previous)
+		{
+			BindingTarget* target = new BindingTarget(_->alias.name.name, new TypeGeneric());
 		
-		env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
+			env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
 
-		return new MatchCaseAny(target->type, _->location, target);
+			return new MatchCaseAny(target->type, _->location, target);
+		}
+		else
+		{
+			errorf(_->location, "usage of the same binding is not yet implemented");
+		}
 	}
 
 	if (CASE(SynMatchPlaceholderUnnamed, match))
 	{
 		return new MatchCaseAny(new TypeGeneric(), _->location, 0);
+	}
+
+	if (CASE(SynMatchOr, match))
+	{
+		std::vector<MatchCase*> options;
+
+		std::vector<std::vector<BindingTarget*>> all_bindings;
+
+		for (size_t i = 0; i < _->options.size(); ++i)
+		{
+			env.bindings.push_back(std::vector<Binding>());
+
+			options.push_back(resolveMatch(_->options[i], env));
+
+			// Take all the bindings 
+			all_bindings.push_back(std::vector<BindingTarget*>());
+			for (size_t k = 0; k < env.bindings.back().size(); ++k)
+				all_bindings.back().push_back(dynamic_cast<BindingLocal*>(env.bindings.back()[k].binding)->target);
+
+			std::sort(all_bindings.back().begin(), all_bindings.back().end(), [](BindingTarget *left, BindingTarget *right){ return left->name < right->name; });
+
+			// Check that the exact same patterns are used in the following alternatives
+			if (i != 0)
+			{
+				if (all_bindings.back().size() != all_bindings[0].size())
+					errorf(_->options[i]->location, "Different patterns must use the same placeholders");
+
+				for (size_t k = 0; k < all_bindings[0].size(); ++k)
+				{
+					if (all_bindings.back()[k]->name != all_bindings[0][k]->name)
+						errorf(_->options[i]->location, "Different patterns must use the same placeholders");
+				}
+			}
+
+			env.bindings.pop_back();
+		}
+
+		std::vector<BindingTarget*> actual_bindings;
+
+		// Create new bindings for all used placeholders
+		for (size_t i = 0; i < all_bindings[0].size(); ++i)
+		{
+			BindingTarget* target = new BindingTarget(all_bindings[0][i]->name, new TypeGeneric());
+		
+			actual_bindings.push_back(target);
+			env.bindings.back().push_back(Binding(all_bindings[0][i]->name, new BindingLocal(target)));
+		}
+
+		std::sort(actual_bindings.begin(), actual_bindings.end(), [](BindingTarget *left, BindingTarget *right){ return left->name < right->name; });
+
+		return new MatchCaseOr(new TypeGeneric(), _->location, options, all_bindings, actual_bindings);
 	}
 
 	assert(!"Unrecognized AST SynMatch type");
@@ -744,14 +809,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		for (size_t i = 0; i < _->variants.size(); i++)
 		{
 			// Pattern can create new bindings to be used in the expression
-			size_t binding_count = env.bindings.back().size();
+			env.bindings.push_back(std::vector<Binding>());
 
 			cases.push_back(resolveMatch(_->variants[i], env));
 
 			expressions.push_back(resolveExpr(_->expressions[i], env));
 
-			while (env.bindings.back().size() > binding_count)
-				env.bindings.back().pop_back();
+			env.bindings.pop_back();
 		}
 
 		return new ExprMatchWith(new TypeGeneric(), _->location, variable, cases, expressions);
@@ -1127,7 +1191,7 @@ Type* analyze(MatchCase* case_)
 
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
-				mustUnify(_->member_values[i]->type, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->location);
+				mustUnify(_->member_values[i]->type, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
 
 				analyze(_->member_values[i]);
 			}
@@ -1146,6 +1210,22 @@ Type* analyze(MatchCase* case_)
 		analyze(_->pattern);
 
 		return inst_type;
+	}
+
+	if (CASE(MatchCaseOr, case_))
+	{
+		for (size_t i = 0; i < _->options.size(); ++i)
+			analyze(_->options[i]);
+
+		for (size_t i = 0; i < _->binding_actual.size(); ++i)
+		{
+			mustUnify(_->binding_alternatives[0][i]->type, _->binding_actual[i]->type, _->location);
+
+			for (size_t k = 1; k < _->binding_alternatives.size(); ++k)
+				mustUnify(_->binding_alternatives[k][i]->type, _->binding_alternatives[0][i]->type, _->location);
+		}
+
+		return _->type;
 	}
 
 	assert(!"Unknown match case type");

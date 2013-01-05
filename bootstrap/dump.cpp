@@ -363,6 +363,15 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	{
 		os << "_";
 	}
+	else if (CASE(SynMatchOr, root))
+	{
+		for (size_t i = 0; i < _->options.size(); ++i)
+		{
+			if (i != 0)
+				os << " | ";
+			dump(os, _->options[i], 0);
+		}
+	}
 	else if (CASE(SynMatchWith, root))
 	{
 		os << "match\n";

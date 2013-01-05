@@ -710,6 +710,48 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		builder.CreateBr(on_success);
 	}
+	else if (CASE(MatchCaseOr, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::BasicBlock* success_any = llvm::BasicBlock::Create(*context.context, "success_any");
+
+		std::vector<llvm::BasicBlock*> incoming;
+
+		for (size_t i = 0; i < _->options.size(); ++i)
+		{
+			llvm::BasicBlock* next_check = i != _->options.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : on_fail;
+
+			compileMatch(context, builder, _->options[i], value, 0, 0, next_check, success_any);
+
+			incoming.push_back(&function->getBasicBlockList().back());
+
+			if (next_check != on_fail)
+			{
+				function->getBasicBlockList().push_back(next_check);
+				builder.SetInsertPoint(next_check);
+			}
+		}
+
+		function->getBasicBlockList().push_back(success_any);
+		builder.SetInsertPoint(success_any);
+
+		// Merge all variants for binding into actual binding used in the expression
+		for (size_t i = 0; i < _->binding_actual.size(); ++i)
+		{
+			llvm::PHINode* pn = builder.CreatePHI(compileType(context, _->binding_actual[i]->type, Location()), _->binding_alternatives.size());
+
+			for (size_t k = 0; k < _->binding_alternatives.size(); ++k)
+				pn->addIncoming(compileBinding(context, builder, new BindingLocal(_->binding_alternatives[k][i]), _->binding_alternatives[k][i]->type, Location()), incoming[k]);
+
+			context.values[_->binding_actual[i]] = pn;
+		}
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
 	else
 	{
 		assert(!"Unknown MatchCase node");
@@ -1075,13 +1117,28 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		MatchCase* options = new MatchCaseOr(0, Location());
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			if (match(options, _->cases[i]))
-				errorf(_->cases[i]->location, "This case is already covered");
+			std::vector<MatchCase*> case_options;
 
-			if (MatchCaseOr* options_pack = dynamic_cast<MatchCaseOr*>(options))
-				options_pack->addOption(clone(_->cases[i]));
+			if (MatchCaseOr *or_node = dynamic_cast<MatchCaseOr*>(_->cases[i]))
+			{
+				for (size_t i = 0; i < or_node->options.size(); ++i)
+					case_options.push_back(or_node->options[i]);
+			}
+			else
+			{
+				case_options.push_back(_->cases[i]);
+			}
 
-			options = simplify(options);
+			for (size_t i = 0; i < case_options.size(); ++i)
+			{
+				if (match(options, case_options[i]))
+					errorf(case_options[i]->location, "This case is already covered");
+
+				if (MatchCaseOr* options_pack = dynamic_cast<MatchCaseOr*>(options))
+					options_pack->addOption(clone(case_options[i]));
+
+				options = simplify(options);
+			}
 		}
 
 		if (!match(options, new MatchCaseAny(0, Location(), 0)))

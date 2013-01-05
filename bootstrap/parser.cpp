@@ -728,12 +728,30 @@ SynBase* parseMatchWith(Lexer& lexer)
 	std::vector<SynBase*> expressions;
 
 	// Allow to skip first '|' as long as the identifier is on the same line
-	while (lexer.current.type == LexPipe || (variants.empty() && lexer.current.type == LexIdentifier && lexer.current.location.line == location.line))
+	while (lexer.current.type == LexPipe || (variants.empty() && (lexer.current.type == LexIdentifier || lexer.current.type == LexNumber) && lexer.current.location.line == location.line))
 	{
 		if (lexer.current.type == LexPipe)
 			movenext(lexer);
 
-		variants.push_back(parseMatchPattern(lexer));
+		Location location = lexer.current.location;
+
+		SynMatch *match = parseMatchPattern(lexer);
+		std::vector<SynMatch*> options;
+
+		if (lexer.current.type == LexPipe)
+			options.push_back(match);
+
+		while (lexer.current.type == LexPipe)
+		{
+			movenext(lexer);
+
+			options.push_back(parseMatchPattern(lexer));
+		}
+
+		if (options.empty())
+			variants.push_back(match);
+		else
+			variants.push_back(new SynMatchOr(location,options));
 
 		if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected '->'");
 			movenext(lexer);

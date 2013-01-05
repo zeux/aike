@@ -300,8 +300,13 @@ struct MatchCaseUnion: MatchCase
 struct MatchCaseOr: MatchCase
 {
 	std::vector<MatchCase*> options;
+	std::vector<std::vector<BindingTarget*>> binding_alternatives;
+	std::vector<BindingTarget*> binding_actual;
 
 	MatchCaseOr(Type* type, const Location& location): MatchCase(type, location)
+	{
+	}
+	MatchCaseOr(Type* type, const Location& location, const std::vector<MatchCase*>& options, const std::vector<std::vector<BindingTarget*>>& binding_alternatives, const std::vector<BindingTarget*>& binding_actual): MatchCase(type, location), options(options), binding_alternatives(binding_alternatives), binding_actual(binding_actual)
 	{
 	}
 
