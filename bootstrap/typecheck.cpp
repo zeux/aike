@@ -284,6 +284,8 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 	return 0;
 }
 
+Expr* resolveExpr(SynBase* node, Environment& env);
+
 MatchCase* resolveMatch(SynMatch* match, Environment& env)
 {
 	if (CASE(SynMatchNumber, match))
@@ -454,6 +456,13 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		std::sort(actual_bindings.begin(), actual_bindings.end(), [](BindingTarget *left, BindingTarget *right){ return left->name < right->name; });
 
 		return new MatchCaseOr(new TypeGeneric(), _->location, options, all_bindings, actual_bindings);
+	}
+
+	if (CASE(SynMatchIf, match))
+	{
+		MatchCase* match = resolveMatch(_->match, env);
+
+		return new MatchCaseIf(new TypeGeneric(), _->location, match, resolveExpr(_->condition, env));
 	}
 
 	assert(!"Unrecognized AST SynMatch type");
@@ -1120,7 +1129,9 @@ Type* analyze(BindingBase* binding, const std::vector<Type*>& nongen)
 	return 0;
 }
 
-Type* analyze(MatchCase* case_)
+Type* analyze(Expr* root, std::vector<Type*>& nongen);
+
+Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 {
 	if (CASE(MatchCaseAny, case_))
 	{
@@ -1136,11 +1147,11 @@ Type* analyze(MatchCase* case_)
 	{
 		if (!_->elements.empty())
 		{
-			Type* t0 = analyze(_->elements[0]);
+			Type* t0 = analyze(_->elements[0], nongen);
 
 			for (size_t i = 1; i < _->elements.size(); ++i)
 			{
-				Type* ti = analyze(_->elements[i]);
+				Type* ti = analyze(_->elements[i], nongen);
 
 				mustUnify(ti, t0, _->elements[i]->location);
 			}
@@ -1193,7 +1204,7 @@ Type* analyze(MatchCase* case_)
 			{
 				mustUnify(_->member_values[i]->type, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
 
-				analyze(_->member_values[i]);
+				analyze(_->member_values[i], nongen);
 			}
 		}
 
@@ -1207,7 +1218,7 @@ Type* analyze(MatchCase* case_)
 
 		mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
 
-		analyze(_->pattern);
+		analyze(_->pattern, nongen);
 
 		return inst_type;
 	}
@@ -1215,7 +1226,7 @@ Type* analyze(MatchCase* case_)
 	if (CASE(MatchCaseOr, case_))
 	{
 		for (size_t i = 0; i < _->options.size(); ++i)
-			analyze(_->options[i]);
+			analyze(_->options[i], nongen);
 
 		for (size_t i = 0; i < _->binding_actual.size(); ++i)
 		{
@@ -1224,6 +1235,15 @@ Type* analyze(MatchCase* case_)
 			for (size_t k = 1; k < _->binding_alternatives.size(); ++k)
 				mustUnify(_->binding_alternatives[k][i]->type, _->binding_alternatives[0][i]->type, _->location);
 		}
+
+		return _->type;
+	}
+
+	if (CASE(MatchCaseIf, case_))
+	{
+		analyze(_->match, nongen);
+
+		analyze(_->condition, nongen);
 
 		return _->type;
 	}
@@ -1475,7 +1495,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			Type* tci = analyze(_->cases[i]);
+			Type* tci = analyze(_->cases[i], nongen);
 
 			mustUnify(tci, tvar, _->cases[i]->location);
 

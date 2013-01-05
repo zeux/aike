@@ -372,6 +372,12 @@ void dump(std::ostream& os, SynBase* root, int indent)
 			dump(os, _->options[i], 0);
 		}
 	}
+	else if (CASE(SynMatchIf, root))
+	{
+		dump(os, _->match, 0);
+		os << " if\n";
+		dump(os, _->condition, indent + 1);
+	}
 	else if (CASE(SynMatchWith, root))
 	{
 		os << "match\n";
@@ -494,6 +500,12 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 				os << " | ";
 			dump(os, context, _->options[i]);
 		}
+	}
+	else if (CASE(MatchCaseIf, case_))
+	{
+		dump(os, context, _->match);
+		os << " if\n";
+		dump(os, _->condition);
 	}
 	else
 	{

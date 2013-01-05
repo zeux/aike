@@ -752,6 +752,30 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		builder.CreateBr(on_success);
 	}
+	else if (CASE(MatchCaseIf, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::BasicBlock* success_pattern = llvm::BasicBlock::Create(*context.context, "success_pattern");
+		llvm::BasicBlock* success_cond = llvm::BasicBlock::Create(*context.context, "success_cond");
+
+		compileMatch(context, builder, _->match, value, 0, 0, on_fail, success_pattern);
+
+		function->getBasicBlockList().push_back(success_pattern);
+		builder.SetInsertPoint(success_pattern);
+
+		llvm::Value* condition = compileExpr(context, builder, _->condition);
+
+		builder.CreateCondBr(condition, success_cond, on_fail);
+
+		function->getBasicBlockList().push_back(success_cond);
+		builder.SetInsertPoint(success_cond);
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
 	else
 	{
 		assert(!"Unknown MatchCase node");
@@ -1118,6 +1142,9 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
 			std::vector<MatchCase*> case_options;
+
+			if (dynamic_cast<MatchCaseIf*>(_->cases[i]))
+				continue;
 
 			if (MatchCaseOr *or_node = dynamic_cast<MatchCaseOr*>(_->cases[i]))
 			{

@@ -316,6 +316,16 @@ struct MatchCaseOr: MatchCase
 	}
 };
 
+struct MatchCaseIf: MatchCase
+{
+	MatchCase* match;
+	Expr* condition;
+
+	MatchCaseIf(Type* type, const Location& location, MatchCase* match, Expr* condition): MatchCase(type, location), match(match), condition(condition)
+	{
+	}
+};
+
 struct ExprMatchWith: Expr
 {
 	Expr* variable;

@@ -748,10 +748,16 @@ SynBase* parseMatchWith(Lexer& lexer)
 			options.push_back(parseMatchPattern(lexer));
 		}
 
-		if (options.empty())
-			variants.push_back(match);
-		else
-			variants.push_back(new SynMatchOr(location,options));
+		if (!options.empty())
+			match = new SynMatchOr(location, options);
+
+		if (iskeyword(lexer, "if"))
+		{
+			movenext(lexer);
+			match = new SynMatchIf(location, match, parseExpr(lexer));
+		}
+
+		variants.push_back(match);
 
 		if (lexer.current.type != LexArrow) errorf(lexer.current.location, "Expected '->'");
 			movenext(lexer);

@@ -354,6 +354,14 @@ struct SynMatchOr: SynMatch
 	SynMatchOr(const Location& location, const std::vector<SynMatch*>& options): SynMatch(location), options(options) {}
 };
 
+struct SynMatchIf: SynMatch
+{
+	SynMatch* match;
+	SynBase* condition;
+
+	SynMatchIf(const Location& location, SynMatch* match, SynBase* condition): SynMatch(location), match(match), condition(condition) {}
+};
+
 struct SynMatchWith: SynBase
 {
 	SynBase* variable;
