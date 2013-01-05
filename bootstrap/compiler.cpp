@@ -72,7 +72,9 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
 		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
 
-		return llvm::StructType::create(*context.context, members, _->name);
+		// TODO: To name types we have to create a unique mangled name.
+		// return llvm::StructType::create(*context.context, members, _->name);
+		return llvm::StructType::get(*context.context, members);
 	}
 
 	assert(!"Unknown prototype type");
@@ -265,6 +267,17 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			instantiateGenericTypes(context, _->args[i], inst->args[i], location);
+	}
+
+	if (CASE(TypeInstance, generic))
+	{
+		TypeInstance* inst = dynamic_cast<TypeInstance*>(instance);
+
+		assert(_->prototype == inst->prototype);
+		assert(_->generics.size() == inst->generics.size());
+
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			instantiateGenericTypes(context, _->generics[i], inst->generics[i], location);
 	}
 }
 
@@ -673,7 +686,9 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		builder.CreateCondBr(cond, success_tag, on_fail);
 		builder.SetInsertPoint(success_tag);
 
-		llvm::Value* element = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, union_type->member_types[_->tag], Location()))));
+		Type* type = getMemberTypeByIndex(inst_type, union_type, _->tag, _->location);
+
+		llvm::Value* element = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, type, _->location))));
 
 		compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
 
