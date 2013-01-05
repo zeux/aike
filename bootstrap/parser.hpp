@@ -34,20 +34,21 @@ struct SynTypedVar
 	}
 };
 
-struct SynTypeBasic: SynType
-{
-	SynIdentifier type;
-
-	SynTypeBasic(const SynIdentifier& type): type(type)
-	{
-	}
-};
-
 struct SynTypeGeneric: SynType
 {
 	SynIdentifier type;
 
 	SynTypeGeneric(const SynIdentifier& type): type(type)
+	{
+	}
+};
+
+struct SynTypeIdentifier: SynType
+{
+	SynIdentifier type;
+	std::vector<SynTypeGeneric*> generics;
+
+	SynTypeIdentifier(const SynIdentifier& type, const std::vector<SynTypeGeneric*>& generics): type(type), generics(generics)
 	{
 	}
 };

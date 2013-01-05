@@ -18,9 +18,19 @@ void dump(std::ostream& os, SynType* type)
 	{
 		os << "generic";
 	}
-	else if (CASE(SynTypeBasic, type))
+	else if (CASE(SynTypeIdentifier, type))
 	{
 		os << _->type.name;
+		if (!_->generics.empty())
+		{
+			os << "<";
+			for (size_t i = 0; i < _->generics.size(); ++i)
+			{
+				if (i != 0) os << ", ";
+				dump(os, _->generics[i]);
+			}
+			os << ">";
+		}
 	}
 	else if (CASE(SynTypeGeneric, type))
 	{

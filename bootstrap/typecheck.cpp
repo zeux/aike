@@ -100,6 +100,36 @@ Type* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
 	return env.generic_types.back();
 }
 
+Type* resolveTypeInstance(Type* type, const std::string& name, const Location& location, const std::vector<Type*>& generics, Environment& env)
+{
+	if (CASE(TypeStructure, type))
+	{
+		if (_->generics.empty() && !generics.empty())
+			errorf(location, "Can't instantiate non-generic type %s", name.c_str());
+
+		if (_->generics.size() != generics.size())
+			errorf(location, "Expected %d type arguments while instantiating %s, but got %d", static_cast<int>(_->generics.size()), name.c_str(), static_cast<int>(generics.size()));
+
+		return _;
+	}
+
+	if (CASE(TypeUnion, type))
+	{
+		if (_->generics.empty() && !generics.empty())
+			errorf(location, "Can't instantiate non-generic type %s", name.c_str());
+
+		if (_->generics.size() != generics.size())
+			errorf(location, "Expected %d type arguments while instantiating %s, but got %d", static_cast<int>(_->generics.size()), name.c_str(), static_cast<int>(generics.size()));
+
+		return _;
+	}
+
+	if (!generics.empty())
+		errorf(location, "Can't instantiate non-generic type %s", name.c_str());
+
+	return type;
+}
+
 TypeStructure* resolveStructureType(SynTypeStructure* type, const std::vector<SynTypeGeneric*>& generics, Environment& env);
 
 Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = false)
@@ -109,9 +139,16 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 		return new TypeGeneric();
 	}
 
-	if (CASE(SynTypeBasic, type))
+	if (CASE(SynTypeIdentifier, type))
 	{
-		return resolveType(_->type.name, env, _->type.location);
+		Type* type = resolveType(_->type.name, env, _->type.location);
+
+		std::vector<Type*> generics;
+
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			generics.push_back(resolveType(_->generics[i], env, allow_new_generics));
+
+		return resolveTypeInstance(type, _->type.name, _->type.location, generics, env);
 	}
 
 	if (CASE(SynTypeGeneric, type))

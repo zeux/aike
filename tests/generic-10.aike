@@ -1,6 +1,6 @@
 type Node<'T> =
 | Leaf 'T
-| Tree { left: Node; right: Node }
+| Tree { left: Node<'T>; right: Node<'T> }
 
 let reduce(x, f) = 
     match x with

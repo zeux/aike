@@ -185,6 +185,39 @@ SynIdentifier parseIdentifier(Lexer& lexer)
 
 SynType* parseType(Lexer& lexer);
 
+std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
+{
+	if (lexer.current.type != LexLess)
+		return std::vector<SynTypeGeneric*>();
+
+	movenext(lexer);
+
+	std::vector<SynTypeGeneric*> list;
+
+	while (lexer.current.type != LexGreater)
+	{
+		if (lexer.current.type != LexIdentifierGeneric)
+			errorf(lexer.current.location, "Expected generic identifier");
+
+		SynIdentifier var(lexer.current.contents, lexer.current.location);
+
+		list.push_back(new SynTypeGeneric(var));
+
+		movenext(lexer);
+
+		if (lexer.current.type == LexComma)
+			movenext(lexer);
+		else if (lexer.current.type == LexGreater)
+			;
+		else
+			errorf(lexer.current.location, "Expected ',' or '>'");
+	}
+
+	movenext(lexer);
+
+	return list;
+}
+
 SynType* parseTypeBraced(Lexer& lexer)
 {
 	assert(lexer.current.type == LexOpenBrace);
@@ -240,7 +273,10 @@ SynType* parseType(Lexer& lexer)
 	}
 	else
 	{
-		type = new SynTypeBasic(parseIdentifier(lexer));
+		SynIdentifier ident = parseIdentifier(lexer);
+		std::vector<SynTypeGeneric*> generics = parseGenericTypeList(lexer);
+
+		type = new SynTypeIdentifier(ident, generics);
 	}
 	
 	if (lexer.current.type == LexOpenBracket)
@@ -680,39 +716,6 @@ SynBase* parseMatchWith(Lexer& lexer)
 	}
 
 	return new SynMatchWith(location, variable, variants, expressions);
-}
-
-std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
-{
-	if (lexer.current.type != LexLess)
-		return std::vector<SynTypeGeneric*>();
-
-	movenext(lexer);
-
-	std::vector<SynTypeGeneric*> list;
-
-	while (lexer.current.type != LexGreater)
-	{
-		if (lexer.current.type != LexIdentifierGeneric)
-			errorf(lexer.current.location, "Expected generic identifier");
-
-		SynIdentifier var(lexer.current.contents, lexer.current.location);
-
-		list.push_back(new SynTypeGeneric(var));
-
-		movenext(lexer);
-
-		if (lexer.current.type == LexComma)
-			movenext(lexer);
-		else if (lexer.current.type == LexGreater)
-			;
-		else
-			errorf(lexer.current.location, "Expected ',' or '>'");
-	}
-
-	movenext(lexer);
-
-	return list;
 }
 
 SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)

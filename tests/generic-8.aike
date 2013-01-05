@@ -1,6 +1,6 @@
 type ref<'T> = { contents: 'T }
 
-let value(x: ref) = x.contents
+let value(x: ref<'a>) = x.contents
 
 if value(ref(true)) then
     value(ref(1))
