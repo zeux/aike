@@ -89,13 +89,13 @@ Type* resolveType(const std::string& name, Environment& env, const Location& loc
 	errorf(location, "Unknown type %s", name.c_str());
 }
 
-TypeGeneric* resolveNewGenericType(SynTypeGeneric* type, Environment& env)
+TypeGeneric* resolveNewGenericType(SynTypeGeneric* type, Environment& env, bool frozen = false)
 {
 	for (size_t i = 0; i < env.generic_types.size(); ++i)
 		if (env.generic_types[i]->name == type->type.name)
 			errorf(type->type.location, "Generic type '%s already exists", type->type.name.c_str());
 
-	env.generic_types.push_back(new TypeGeneric(type->type.name));
+	env.generic_types.push_back(new TypeGeneric(type->type.name, frozen));
 
 	return env.generic_types.back();
 }
@@ -178,7 +178,7 @@ std::vector<Type*> resolveGenericTypeList(const std::vector<SynTypeGeneric*>& ge
 	std::vector<Type*> result;
 
 	for (size_t i = 0; i < generics.size(); ++i)
-		result.push_back(resolveNewGenericType(generics[i], env));
+		result.push_back(resolveNewGenericType(generics[i], env, true));
 
 	return result;
 }
@@ -912,6 +912,7 @@ bool unify(Type* lhs, Type* rhs)
 		if (occurs(lhs, rhs))
 			return false;
 
+		assert(!_->frozen);
 		_->instance = rhs;
 
 		return true;
@@ -1072,7 +1073,7 @@ Type* analyze(MatchCase* case_)
 				for (size_t i = 0; i < record_type->member_types.size(); ++i)
 				{
 					if (!clone_members[i])
-						clone_members[i] = new MatchCaseAny(0, Location(), 0);
+						clone_members[i] = new MatchCaseAny(new TypeGeneric(), Location(), 0);
 				}
 
 				_->member_values = clone_members;
@@ -1084,8 +1085,9 @@ Type* analyze(MatchCase* case_)
 
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
+				mustUnify(_->member_values[i]->type, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->location);
+
 				analyze(_->member_values[i]);
-				_->member_values[i]->type = getMemberTypeByIndex(inst_type, record_type, i, _->location);
 			}
 		}
 
@@ -1388,12 +1390,10 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 	return 0;
 }
 
-Expr* typecheck(SynBase* root)
+Type* typecheck(Expr* root)
 {
-	Expr* result = resolve(root);
-
 	std::vector<Type*> nongen;
-	analyze(result, nongen);
+	Type* result = analyze(root, nongen);
 
 	assert(nongen.empty());
 

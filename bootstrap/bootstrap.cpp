@@ -28,8 +28,9 @@ enum DebugFlags
 {
 	DebugParse = 1,
 	DebugAST = 2,
-	DebugCode = 4,
-	DebugAll = DebugParse | DebugAST | DebugCode
+	DebugTypedAST = 4,
+	DebugCode = 8,
+	DebugAll = DebugParse | DebugAST | DebugTypedAST | DebugCode
 };
 
 #if defined(__linux)
@@ -128,9 +129,14 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		if (debugFlags & DebugParse)
 			dump(std::cout, synRoot);
 
-		Expr* root = typecheck(synRoot);
+		Expr* root = resolve(synRoot);
 
 		if (debugFlags & DebugAST)
+			dump(std::cout, root);
+
+		Type* rootType = typecheck(root);
+
+		if (debugFlags & DebugTypedAST)
 			dump(std::cout, root);
 
 		llvm::LLVMContext context;
@@ -237,6 +243,8 @@ unsigned int parseDebugFlags(int argc, char** argv)
 			result |= DebugParse;
 		else if (strcmp(argv[i], "--debug-ast") == 0)
 			result |= DebugAST;
+		else if (strcmp(argv[i], "--debug-tast") == 0)
+			result |= DebugTypedAST;
 		else if (strcmp(argv[i], "--debug-code") == 0)
 			result |= DebugCode;
 		else if (strcmp(argv[i], "--debug") == 0)

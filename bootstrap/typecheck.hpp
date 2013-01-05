@@ -335,4 +335,5 @@ struct ExprBlock: Expr
 #define CASE(type, node) type* _ = dynamic_cast<type*>(node)
 #endif
 
-Expr* typecheck(SynBase* root);
+Expr* resolve(SynBase* root);
+Type* typecheck(Expr* root);

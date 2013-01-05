@@ -16,12 +16,17 @@ struct TypeGeneric: Type
 {
 	std::string name;
 	Type* instance;
+	bool frozen;
 
-	TypeGeneric(): instance(NULL)
+	TypeGeneric(): instance(NULL), frozen(false)
 	{
 	}
 
-	TypeGeneric(const std::string& name): name(name), instance(NULL)
+	TypeGeneric(const std::string& name): name(name), instance(NULL), frozen(false)
+	{
+	}
+
+	TypeGeneric(const std::string& name, bool frozen): name(name), instance(NULL), frozen(frozen)
 	{
 	}
 };
