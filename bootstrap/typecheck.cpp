@@ -320,7 +320,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
 
 			// First match the tag, then match the contents
-			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, target));
+			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(member_type, _->location, target));
 		}
 
 		BindingTarget* target = new BindingTarget(_->alias.name, type);
@@ -373,7 +373,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		
 		env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
 
-		return new MatchCaseAny(new TypeGeneric(), _->location, target);
+		return new MatchCaseAny(target->type, _->location, target);
 	}
 
 	if (CASE(SynMatchPlaceholderUnnamed, match))
@@ -1097,7 +1097,7 @@ Type* analyze(MatchCase* case_)
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(_->type);
 		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
 
-		_->pattern->type = getMemberTypeByIndex(inst_type, union_type, _->tag, _->location);
+		mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
 
 		analyze(_->pattern);
 

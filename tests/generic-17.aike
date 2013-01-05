@@ -4,15 +4,15 @@ type Lazy<'T> =
 
 let value1(x: Lazy<() -> 'a>, def) =
     match x with
-    | Value v -> v
+    | Value v -> v ()
     | Cont c -> def
 
 let value(x: Lazy<'a>, def) =
     match x with
     | Value v -> v
-    | Cont c -> value1(c, fun -> def)()
+    | Cont c -> value1(c, def)
 
-value(Cont(Value(fun -> (fun -> 2)))) + value(Cont(Cont(Value(fun -> (fun -> 2)))))
+value(Value(1), 0) + value(Cont(Value(fun -> 2)), 0) + value(Cont(Cont(Value(fun -> (fun -> 2)))), 0)
 
 // OUTPUT:
 // 3

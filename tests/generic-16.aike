@@ -10,4 +10,7 @@ let value(x: Lazy<'T>) =
 value(Cont(Cont(Value(fun -> (fun -> 2)))))
 
 // ERRORS:
-// recursive unification
+// (8,17): Type mismatch. Expecting a
+//     (Lazy<() -> 'T>) -> 'a
+// but given a
+//     (Lazy<'T>) -> 'a
