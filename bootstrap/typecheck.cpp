@@ -847,6 +847,15 @@ bool occurs(Type* lhs, Type* rhs)
 		return false;
 	}
 
+    if (CASE(TypeTuple, rhs))
+    {
+		for (size_t i = 0; i < _->members.size(); ++i)
+			if (occurs(lhs, _->members[i]))
+                return true;
+
+		return false;
+    }
+
 	return false;
 }
 
@@ -897,6 +906,15 @@ Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<TypeGeneric*, Ty
 
 		return new TypeInstance(_->prototype, generics);
 	}
+
+    if (CASE(TypeTuple, t))
+    {
+		std::vector<Type*> members;
+		for (size_t i = 0; i < _->members.size(); ++i)
+			members.push_back(fresh(_->members[i], nongen, genremap));
+
+		return new TypeTuple(members);
+    }
 
 	return t;
 }
@@ -988,6 +1006,20 @@ bool unify(Type* lhs, Type* rhs)
 
 		for (size_t i = 0; i < _->generics.size(); ++i)
 			if (!unify(_->generics[i], r->generics[i]))
+				return false;
+
+		return true;
+	}
+
+	if (CASE(TypeTuple, lhs))
+	{
+		TypeTuple* r = dynamic_cast<TypeTuple*>(rhs);
+		if (!r) return false;
+
+		if (_->members.size() != r->members.size()) return false;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			if (!unify(_->members[i], r->members[i]))
 				return false;
 
 		return true;

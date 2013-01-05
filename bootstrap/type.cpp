@@ -44,7 +44,7 @@ std::string generateGenericName(PrettyPrintContext& context)
 
 bool containedTypeRequiresBraces(Type* type)
 {
-	return dynamic_cast<TypeFunction*>(type) != 0;
+	return dynamic_cast<TypeFunction*>(type) != 0 || dynamic_cast<TypeTuple*>(type) != 0;
 }
 
 void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context);
@@ -91,6 +91,14 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		os << "float";
 	else if (CASE(TypeBool, type))
 		os << "bool";
+	else if (CASE(TypeTuple, type))
+	{
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			if (i != 0) os << " * ";
+			prettyPrint(os, _->members[i], context);
+		}
+	}
 	else if (CASE(TypeArray, type))
 	{
 		if (containedTypeRequiresBraces(_->contained))
@@ -212,6 +220,15 @@ Type* fresh(Type* t, std::map<Type*, Type*>& genremap, const Location& location)
 
 		return new TypeInstance(_->prototype, generics);
 	}
+
+    if (CASE(TypeTuple, t))
+    {
+		std::vector<Type*> members;
+		for (size_t i = 0; i < _->members.size(); ++i)
+			members.push_back(fresh(_->members[i], genremap, location));
+
+		return new TypeTuple(members);
+    }
 
 	return t;
 }

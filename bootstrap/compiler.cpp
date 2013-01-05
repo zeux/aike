@@ -128,6 +128,16 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return llvm::PointerType::getUnqual(llvm::StructType::get(*context.context, members));
 	}
 
+	if (CASE(TypeTuple, type))
+	{
+		std::vector<llvm::Type*> members;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			members.push_back(compileType(context, _->members[i], location));
+
+		return llvm::StructType::get(*context.context, members);
+	}
+
 	if (CASE(TypeArray, type))
 	{
 		return /* context.types[type] = */ llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);

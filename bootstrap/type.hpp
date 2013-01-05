@@ -66,6 +66,15 @@ struct TypeFunction: Type
 	}
 };
 
+struct TypeTuple: Type
+{
+	std::vector<Type*> members;
+
+	TypeTuple(const std::vector<Type*>& members): members(members)
+	{
+	}
+};
+
 struct TypePrototype
 {
 	virtual ~TypePrototype() {}
