@@ -91,12 +91,6 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		os << "float";
 	else if (CASE(TypeBool, type))
 		os << "bool";
-	else if (CASE(TypeReference, type))
-	{
-		os << "ref<";
-		prettyPrint(os, _->contained, context);
-		os << ">";
-	}
 	else if (CASE(TypeArray, type))
 	{
 		if (containedTypeRequiresBraces(_->contained))
@@ -122,28 +116,25 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 	}
 	else if (CASE(TypeStructure, type))
 	{
-		if (_->name.empty())
-		{
-			os << "[";
-			assert(_->member_names.size() == _->member_types.size());
-			for (size_t i = 0; i < _->member_types.size(); ++i)
-			{
-				if (i != 0) os << ", ";
-				prettyPrint(os, _->member_types[i], context);
-				os << " " << _->member_names[i];
-			}
-			os << "]";
-		}
-		else
-		{
-			os << _->name;
-			prettyPrint(os, _->generics, context);
-		}
+		os << _->name;
+		prettyPrint(os, _->generics, context);
 	}
 	else if (CASE(TypeUnion, type))
 	{
 		os << _->name;
 		prettyPrint(os, _->generics, context);
+	}
+	else if (CASE(TypeClosureContext, type))
+	{
+		os << "context [";
+		assert(_->member_names.size() == _->member_types.size());
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			prettyPrint(os, _->member_types[i], context);
+			os << " " << _->member_names[i];
+		}
+		os << "]";
 	}
 	else
 	{

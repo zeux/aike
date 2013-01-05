@@ -86,9 +86,14 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		return context.types[type] = llvm::Type::getInt1Ty(*context.context);
 	}
 	
-	if (CASE(TypeReference, type))
+	if (CASE(TypeClosureContext, type))
 	{
-		return /* context.types[type] = */ llvm::PointerType::getUnqual(compileType(context, _->contained, location));
+		std::vector<llvm::Type*> members;
+
+		for (size_t i = 0; i < _->member_types.size(); ++i)
+			members.push_back(compileType(context, _->member_types[i], location));
+
+		return llvm::PointerType::getUnqual(llvm::StructType::get(*context.context, members));
 	}
 
 	if (CASE(TypeArray, type))
@@ -119,10 +124,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		if (!_->name.empty())
-			return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
-		else
-			return /* context.types[type] = */ llvm::StructType::get(*context.context, members, false);
+		return context.types[type] = llvm::StructType::create(*context.context, members, _->name);
 	}
 
 	if (CASE(TypeUnion, type))

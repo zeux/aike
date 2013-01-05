@@ -625,8 +625,8 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		BindingTarget* target = new BindingTarget(_->var.name, funty);
 
 		// Add info about function context. Context type will be resolved later
-		TypeStructure* context_type = new TypeStructure("");
-		BindingTarget* context_target = new BindingTarget("extern", new TypeReference(context_type));
+		TypeClosureContext* context_type = new TypeClosureContext();
+		BindingTarget* context_target = new BindingTarget("extern", context_type);
 		env.functions.back().context = new BindingLocal(context_target);
 
 		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));

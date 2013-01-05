@@ -42,15 +42,6 @@ struct TypeBool: Type
 {
 };
 
-struct TypeReference: Type
-{
-	Type* contained;
-
-	TypeReference(Type* contained): contained(contained)
-	{
-	}
-};
-
 struct TypeArray: Type
 {
 	Type* contained;
@@ -100,6 +91,14 @@ struct TypeUnion: Type
 	TypeUnion(const std::string& name, const std::vector<Type*>& member_types, const std::vector<std::string>& member_names, const std::vector<Type*>& generics): name(name), member_types(member_types), member_names(member_names), generics(generics)
 	{
 	}
+};
+
+struct TypeClosureContext: Type
+{
+	std::vector<Type*> member_types;
+	std::vector<std::string> member_names;
+
+	TypeClosureContext() {}
 };
 
 #ifndef CASE
