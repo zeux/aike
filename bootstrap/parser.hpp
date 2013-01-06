@@ -244,6 +244,16 @@ struct SynLetVar: SynBase
 	}
 };
 
+struct SynLetVars: SynBase
+{
+	std::vector<SynTypedVar> vars;
+	SynBase* body;
+
+	SynLetVars(const Location& location, const std::vector<SynTypedVar>& vars, SynBase* body): SynBase(location), vars(vars), body(body)
+	{
+	}
+};
+
 struct SynLLVM: SynBase
 {
 	std::string body;

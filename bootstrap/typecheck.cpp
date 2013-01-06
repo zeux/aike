@@ -722,6 +722,24 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprLetVar(target->type, _->location, target, body);
 	}
 
+	if (CASE(SynLetVars, node))
+	{
+		Expr* body = resolveExpr(_->body, env);
+
+		std::vector<BindingTarget*> targets;
+
+		for (size_t i = 0; i < _->vars.size(); ++i)
+		{
+			BindingTarget* target = new BindingTarget(_->vars[i].name.name, resolveType(_->vars[i].type, env));
+
+			env.bindings.back().push_back(Binding(_->vars[i].name.name, new BindingLocal(target)));
+
+			targets.push_back(target);
+		}
+
+		return new ExprLetVars(new TypeUnit(), _->location, targets, body);
+	}
+
 	if (CASE(SynLLVM, node))
 		return new ExprLLVM(new TypeGeneric(), _->location, _->body);
 
@@ -1459,6 +1477,19 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		Type* tb = analyze(_->body, nongen);
 
 		mustUnify(tb, _->target->type, _->body->location);
+
+		return _->type;
+	}
+
+	if (CASE(ExprLetVars, root))
+	{
+		Type* tb = analyze(_->body, nongen);
+
+		std::vector<Type*> types;
+		for (size_t i = 0; i < _->targets.size(); ++i)
+			types.push_back(_->targets[i]->type);
+
+		mustUnify(tb, new TypeTuple(types), _->body->location);
 
 		return _->type;
 	}

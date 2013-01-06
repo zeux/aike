@@ -999,6 +999,23 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return value;
 	}
 
+	if (CASE(ExprLetVars, node))
+	{
+		llvm::Value* value = compileExpr(context, builder, _->body);
+
+		for (size_t i = 0; i < _->targets.size(); ++i)
+		{
+			llvm::Value *element = builder.CreateExtractValue(value, i);
+
+			element->setName(_->targets[i]->name);
+
+			assert(context.values.count(_->targets[i]) == 0);
+			context.values[_->targets[i]] = element;
+		}
+
+		return builder.getInt32(0);
+	}
+
 	if (CASE(ExprLetFunc, node))
 	{
 		llvm::Value* context_data = 0;

@@ -280,6 +280,18 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << " =\n";
 		dump(os, _->body, indent + 1);
 	}
+	else if (CASE(SynLetVars, root))
+	{
+		os << "let (";
+		for (size_t i = 0; i < _->vars.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			os << _->vars[i].name.name << ": ";
+			dump(os, _->vars[i].type);
+		}
+		os << ") =\n";
+		dump(os, _->body, indent + 1);
+	}
 	else if (CASE(SynLLVM, root))
 	{
 		os << "llvm \"" << _->body << "\"\n";
@@ -664,6 +676,18 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		os << "let " << _->target->name << ": ";
 		dump(os, context, _->type);
 		os << " =\n";
+		dump(os, context, _->body, indent + 1);
+	}
+	else if (CASE(ExprLetVars, root))
+	{
+		os << "let (";
+		for (size_t i = 0; i < _->targets.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			os << _->targets[i]->name << ": ";
+			dump(os, context, _->targets[i]->type);
+		}
+		os << ") =\n";
 		dump(os, context, _->body, indent + 1);
 	}
 	else if (CASE(ExprLLVM, root))

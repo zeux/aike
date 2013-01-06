@@ -495,25 +495,73 @@ SynBase* parseLet(Lexer& lexer)
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
 
-	SynIdentifier name = parseIdentifier(lexer);
+	std::vector<SynTypedVar> vars;
+
+	Location location = lexer.current.location;
 
 	if (lexer.current.type == LexOpenBrace)
-		return parseLetFunc(lexer, name);
-
-	SynType* type = 0;
-
-	if (lexer.current.type == LexColon)
 	{
 		movenext(lexer);
 
-		type = parseType(lexer);
+		while (lexer.current.type != LexCloseBrace)
+		{
+			if (!vars.empty())
+			{
+				if (lexer.current.type != LexComma)
+					errorf(lexer.current.location, "Expected ',' after previous name");
+				movenext(lexer);
+			}
+
+			SynIdentifier name = parseIdentifier(lexer);
+
+			SynType* type = 0;
+
+			if (lexer.current.type == LexColon)
+			{
+				movenext(lexer);
+
+				type = parseType(lexer);
+			}
+
+			vars.push_back(SynTypedVar(name, type));
+		}
+
+		movenext(lexer);
+	}
+	else
+	{
+		SynIdentifier name = parseIdentifier(lexer);
+
+		SynType* type = 0;
+
+		if (lexer.current.type == LexColon)
+		{
+			movenext(lexer);
+
+			type = parseType(lexer);
+		}
+
+		vars.push_back(SynTypedVar(name, type));
+	}
+
+	if (lexer.current.type == LexOpenBrace)
+	{
+		if (vars.size() > 1)
+			errorf(lexer.current.location, "unexpected '(' after variable name list");
+		else if(vars[0].type)
+			errorf(lexer.current.location, "unexpected '(' after variable type");
+
+		return parseLetFunc(lexer, vars[0].name);
 	}
 
 	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '='");
 
 	movenext(lexer);
 
-	return new SynLetVar(name.location, SynTypedVar(name, type), parseBlock(lexer));
+	if (vars.size() == 1)
+		return new SynLetVar(location, vars[0], parseBlock(lexer));
+
+	return new SynLetVars(location, vars, parseBlock(lexer));
 }
 
 SynBase* parseLLVM(Lexer& lexer)

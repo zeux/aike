@@ -171,6 +171,16 @@ struct ExprLetVar: Expr
 	}
 };
 
+struct ExprLetVars: Expr
+{
+	std::vector<BindingTarget*> targets;
+	Expr* body;
+
+	ExprLetVars(Type* type, const Location& location, const std::vector<BindingTarget*>& targets, Expr* body): Expr(type, location), targets(targets), body(body)
+	{
+	}
+};
+
 struct ExprLetFunc: Expr
 {
 	BindingTarget* target;
