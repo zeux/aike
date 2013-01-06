@@ -1,0 +1,12 @@
+let f(x) =
+    match x with
+    | _ if 1 -> 0
+    | _ -> 1
+
+f(2)
+
+// ERRORS:
+// (3,12): Type mismatch. Expecting a
+//     bool
+// but given a
+//     int

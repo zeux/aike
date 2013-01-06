@@ -1241,11 +1241,12 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 
 	if (CASE(MatchCaseIf, case_))
 	{
-		analyze(_->match, nongen);
+		Type* tmatch = analyze(_->match, nongen);
+		Type* tcond = analyze(_->condition, nongen);
 
-		analyze(_->condition, nongen);
+		mustUnify(tcond, new TypeBool(), _->condition->location);
 
-		return _->type;
+		return _->type = tmatch;
 	}
 
 	assert(!"Unknown match case type");
