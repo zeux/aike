@@ -827,6 +827,21 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return builder.CreateInsertValue(arr, builder.getInt32(uint32_t(_->elements.size())), 1);
 	}
 
+	if (CASE(ExprTupleLiteral, node))
+	{
+		if (!dynamic_cast<TypeTuple*>(finalType(_->type)))
+			errorf(_->location, "tuple type is unknown");
+
+		llvm::Type* tuple_type = compileType(context, _->type, _->location);
+
+		llvm::Value* tuple = llvm::ConstantAggregateZero::get(tuple_type);
+
+		for (size_t i = 0; i < _->elements.size(); i++)
+			tuple = builder.CreateInsertValue(tuple, compileExpr(context, builder, _->elements[i]), uint32_t(i));
+
+		return tuple;
+	}
+
 	if (CASE(ExprBinding, node))
 	{
 		return compileBinding(context, builder, _->binding, _->type, _->location);

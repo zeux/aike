@@ -116,6 +116,13 @@ struct SynArrayLiteral: SynBase
 	SynArrayLiteral(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
 };
 
+struct SynTupleLiteral: SynBase
+{
+	std::vector<SynBase*> elements;
+
+	SynTupleLiteral(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
+};
+
 struct SynTypeDefinition: SynBase
 {
 	SynTypeStructure* type_struct;

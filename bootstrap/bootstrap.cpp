@@ -182,7 +182,7 @@ void compileModuleToObject(llvm::Module* module, const std::string& path, unsign
 	llvm::PassManager pm;
 
 	pm.add(new llvm::TargetLibraryInfo(llvm::Triple(triple)));
-    pm.add(new llvm::TargetTransformInfo(tm->getScalarTargetTransformInfo(), tm->getVectorTargetTransformInfo()));
+	pm.add(new llvm::TargetTransformInfo(tm->getScalarTargetTransformInfo(), tm->getVectorTargetTransformInfo()));
 	pm.add(new llvm::DataLayout(*tm->getDataLayout()));
 
 	std::ofstream out(path, std::ios::out | std::ios::binary);
@@ -191,7 +191,7 @@ void compileModuleToObject(llvm::Module* module, const std::string& path, unsign
 
 	tm->addPassesToEmitFile(pm, fos, llvm::TargetMachine::CGFT_ObjectFile);
 
-    pm.run(*module);
+	pm.run(*module);
 }
 
 bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
@@ -336,7 +336,7 @@ unsigned int parseDebugFlags(int argc, char** argv)
 		else if (strcmp(argv[i], "--debug-object") == 0)
 			result |= DebugObject;
 		else if (strcmp(argv[i], "--debug") == 0)
-			result |= DebugTypedAST | DebugCode;
+			result |= DebugParse | DebugAST | DebugTypedAST | DebugCode;
 	}
 
 	return result;

@@ -21,6 +21,8 @@ inline bool issameline(const Lexeme& start, const Lexeme& current)
 	return current.location.line == start.location.line;
 }
 
+SynType* parseType(Lexer& lexer);
+
 SynBase* parseExpr(Lexer& lexer);
 SynBase* parseBlock(Lexer& lexer);
 
@@ -28,6 +30,8 @@ SynBase* parseTerm(Lexer& lexer)
 {
 	if (lexer.current.type == LexOpenBrace)
 	{
+		Location location = lexer.current.location;
+
 		movenext(lexer);
 
 		if (lexer.current.type == LexCloseBrace)
@@ -38,14 +42,26 @@ SynBase* parseTerm(Lexer& lexer)
 			return result;
 		}
 
-		SynBase* expr = parseExpr(lexer);
+		std::vector<SynBase*> elements;
 
-		if (lexer.current.type != LexCloseBrace)
-			errorf(lexer.current.location, "Expected ')'");
+		while (lexer.current.type != LexCloseBrace)
+		{
+			if (!elements.empty())
+			{
+				if (lexer.current.type != LexComma)
+					errorf(lexer.current.location, "Expected ',' after previous tuple element");
+				movenext(lexer);
+			}
+
+			elements.push_back(parseExpr(lexer));
+		}
 
 		movenext(lexer);
 
-		return expr;
+		if (elements.size() == 1)
+			return elements[0];
+
+		return new SynTupleLiteral(location, elements);
 	}
 	else if (lexer.current.type == LexOpenBracket)
 	{
@@ -182,8 +198,6 @@ SynIdentifier parseIdentifier(Lexer& lexer)
 
 	return SynIdentifier(name, location);
 }
-
-SynType* parseType(Lexer& lexer);
 
 std::vector<SynTypeGeneric*> parseGenericTypeList(Lexer& lexer)
 {

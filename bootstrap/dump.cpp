@@ -151,6 +151,14 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		indentout(os, indent);
 		os << "]\n";
 	}
+	else if (CASE(SynTupleLiteral, root))
+	{
+		os << "(\n";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			dump(os, _->elements[i], indent + 1);
+		indentout(os, indent);
+		os << ")\n";
+	}
 	else if (CASE(SynTypeDefinition, root))
 	{
 		os << "type " << _->type_struct->name.name << "<";
@@ -557,6 +565,14 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 			dump(os, context, _->elements[i], indent + 1);
 		indentout(os, indent);
 		os << "]\n";
+	}
+	else if (CASE(ExprTupleLiteral, root))
+	{
+		os << "(\n";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			dump(os, context, _->elements[i], indent + 1);
+		indentout(os, indent);
+		os << ")\n";
 	}
 	else if (CASE(ExprBinding, root))
 	{

@@ -221,14 +221,14 @@ Type* fresh(Type* t, std::map<Type*, Type*>& genremap, const Location& location)
 		return new TypeInstance(_->prototype, generics);
 	}
 
-    if (CASE(TypeTuple, t))
-    {
+	if (CASE(TypeTuple, t))
+	{
 		std::vector<Type*> members;
 		for (size_t i = 0; i < _->members.size(); ++i)
 			members.push_back(fresh(_->members[i], genremap, location));
 
 		return new TypeTuple(members);
-    }
+	}
 
 	return t;
 }

@@ -80,6 +80,13 @@ struct ExprArrayLiteral: Expr
 	ExprArrayLiteral(Type* type, const Location& location, const std::vector<Expr*>& elements): Expr(type, location), elements(elements) {}
 };
 
+struct ExprTupleLiteral: Expr
+{
+	std::vector<Expr*> elements;
+
+	ExprTupleLiteral(Type* type, const Location& location, const std::vector<Expr*>& elements): Expr(type, location), elements(elements) {}
+};
+
 struct ExprBinding: Expr
 {
 	BindingBase* binding;

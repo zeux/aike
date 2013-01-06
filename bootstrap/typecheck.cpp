@@ -492,6 +492,20 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprArrayLiteral(elements.empty() ? (Type*)new TypeGeneric() : (Type*)new TypeArray(elements[0]->type), _->location, elements);
 	}
 
+	if (CASE(SynTupleLiteral, node))
+	{
+		std::vector<Expr*> elements;
+		std::vector<Type*> types;
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			elements.push_back(resolveExpr(_->elements[i], env));
+			types.push_back(elements.back()->type);
+		}
+
+		return new ExprTupleLiteral(new TypeTuple(types), _->location, elements);
+	}
+
 	if (CASE(SynTypeDefinition, node))
 	{
 		size_t generic_type_count = env.generic_types.size();
@@ -920,14 +934,14 @@ bool occurs(Type* lhs, Type* rhs)
 		return false;
 	}
 
-    if (CASE(TypeTuple, rhs))
-    {
+	if (CASE(TypeTuple, rhs))
+	{
 		for (size_t i = 0; i < _->members.size(); ++i)
 			if (occurs(lhs, _->members[i]))
-                return true;
+				return true;
 
 		return false;
-    }
+	}
 
 	return false;
 }
@@ -980,14 +994,14 @@ Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<TypeGeneric*, Ty
 		return new TypeInstance(_->prototype, generics);
 	}
 
-    if (CASE(TypeTuple, t))
-    {
+	if (CASE(TypeTuple, t))
+	{
 		std::vector<Type*> members;
 		for (size_t i = 0; i < _->members.size(); ++i)
 			members.push_back(fresh(_->members[i], nongen, genremap));
 
 		return new TypeTuple(members);
-    }
+	}
 
 	return t;
 }
@@ -1290,6 +1304,18 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		{
 			mustUnify(_->type, new TypeArray(new TypeGeneric()), _->location);
 		}
+
+		return _->type;
+	}
+
+	if (CASE(ExprTupleLiteral, root))
+	{
+		std::vector<Type*> types;
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			types.push_back(analyze(_->elements[i], nongen));
+
+		mustUnify(_->type, new TypeTuple(types), _->location);
 
 		return _->type;
 	}
