@@ -308,6 +308,20 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		return new MatchCaseArray(new TypeGeneric(), _->location, elements);
 	}
 
+	if (CASE(SynMatchTuple, match))
+	{
+		std::vector<MatchCase*> elements;
+		std::vector<Type*> types;
+
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			elements.push_back(resolveMatch(_->elements[i], env));
+			types.push_back(elements.back()->type);
+		}
+
+		return new MatchCaseMembers(new TypeTuple(types), _->location, elements, std::vector<std::string>());
+	}
+
 	if (CASE(SynMatchTypeSimple, match))
 	{
 		Type* type = tryResolveType(_->type.name, env);

@@ -659,6 +659,20 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 				builder.SetInsertPoint(next_check);
 			}
 		}
+		else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
+		{
+			for (size_t i = 0; i < _->member_values.size(); ++i)
+			{
+				llvm::BasicBlock* next_check = i != _->member_values.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+
+				llvm::Value* element = builder.CreateExtractValue(value, i);
+
+				compileMatch(context, builder, _->member_values[i], element, 0, 0, on_fail, next_check);
+
+				function->getBasicBlockList().push_back(next_check);
+				builder.SetInsertPoint(next_check);
+			}
+		}
 		else
 		{
 			// This must be a union tag that is a type alias

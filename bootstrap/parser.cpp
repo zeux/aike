@@ -724,6 +724,34 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 		return new SynMatchArray(location, elements);
 	}
 
+	// Check tuple matches
+	if (lexer.current.type == LexOpenBrace)
+	{
+		Location location = lexer.current.location;
+
+		movenext(lexer);
+
+		std::vector<SynMatch*> elements;
+		while (lexer.current.type != LexCloseBrace)
+		{
+			if (!elements.empty())
+			{
+				if (lexer.current.type != LexComma)
+					errorf(lexer.current.location, "Expected ',' after previous tuple element");
+				movenext(lexer);
+			}
+
+			elements.push_back(parseMatchPattern(lexer));
+		}
+
+		movenext(lexer);
+
+		if (elements.empty())
+			errorf(location, "unit cannot be matched");
+
+		return new SynMatchTuple(location, elements);
+	}
+
 	errorf(lexer.current.location, "Unexpected lexeme %d", lexer.current.type);
 }
 

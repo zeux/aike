@@ -341,6 +341,17 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		}
 		os << "]";
 	}
+	else if (CASE(SynMatchTuple, root))
+	{
+		os << "(";
+		for (size_t i = 0; i < _->elements.size(); ++i)
+		{
+			if (i != 0)
+				os << ", ";
+			dump(os, _->elements[i], 0);
+		}
+		os << ")";
+	}
 	else if (CASE(SynMatchTypeSimple, root))
 	{
 		os << _->type.name << " " << _->alias.name;

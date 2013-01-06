@@ -324,6 +324,13 @@ struct SynMatchArray: SynMatch
 	SynMatchArray(const Location& location, const std::vector<SynMatch*>& elements): SynMatch(location), elements(elements) {}
 };
 
+struct SynMatchTuple: SynMatch
+{
+	std::vector<SynMatch*> elements;
+
+	SynMatchTuple(const Location& location, const std::vector<SynMatch*>& elements): SynMatch(location), elements(elements) {}
+};
+
 struct SynMatchTypeSimple: SynMatch
 {
 	SynIdentifier type;
