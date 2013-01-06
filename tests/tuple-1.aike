@@ -1,0 +1,8 @@
+let x = (true, 3)
+
+match x with
+| (true, x) -> x
+| (false, _) -> 0
+
+// OUTPUT:
+// 3
