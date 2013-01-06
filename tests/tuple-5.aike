@@ -1,0 +1,9 @@
+let (x, y) = 3
+
+if x then y else 0
+
+// ERRORS:
+// (1,14): Type mismatch. Expecting a
+//     'a * 'b
+// but given a
+//     int
