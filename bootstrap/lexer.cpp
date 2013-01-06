@@ -235,3 +235,21 @@ void movenext(Lexer& lexer)
 
 	lexer.current.location = Location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, column, lexer.position - lexer.line_start_pos - column);
 }
+
+Lexer capturestate(const Lexer& lexer)
+{
+	Lexer result;
+	result.position = lexer.position;
+	result.line_start_pos = lexer.line_start_pos;
+	result.line = lexer.line;
+	result.current = lexer.current;
+	return result;
+}
+
+void restorestate(Lexer& lexer, const Lexer& state)
+{
+	lexer.position = state.position;
+	lexer.line_start_pos = state.line_start_pos;
+	lexer.line = state.line;
+	lexer.current = state.current;
+}

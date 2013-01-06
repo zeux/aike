@@ -11,12 +11,12 @@ inline bool iskeyword(Lexer& lexer, const char* expected)
 	return lexer.current.type == LexKeyword && lexer.current.contents == expected;
 }
 
-inline bool islower(Lexeme& start, Lexeme& current)
+inline bool islower(const Lexeme& start, const Lexeme& current)
 {
 	return current.location.column < start.location.column || current.type == LexEOF;
 }
 
-inline bool issameline(Lexeme& start, Lexeme& current)
+inline bool issameline(const Lexeme& start, const Lexeme& current)
 {
 	return current.location.line == start.location.line;
 }
@@ -646,7 +646,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 				// Try to parse a named argument
 				if (lexer.current.type == LexIdentifier)
 				{
-					Lexer state = lexer.save();
+					Lexer state = capturestate(lexer);
 
 					SynIdentifier id = parseIdentifier(lexer);
 
@@ -658,7 +658,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 					}
 					else
 					{
-						lexer.load(state);
+						restorestate(lexer, state);
 					}
 				}
 
@@ -862,7 +862,7 @@ SynBase* parsePrimary(Lexer& lexer)
 				// Try to parse a named argument
 				if (lexer.current.type == LexIdentifier)
 				{
-					Lexer state = lexer.save();
+					Lexer state = capturestate(lexer);
 
 					SynIdentifier id = parseIdentifier(lexer);
 
@@ -877,7 +877,8 @@ SynBase* parsePrimary(Lexer& lexer)
 					}
 					else
 					{
-						lexer.load(state);
+						restorestate(lexer, state);
+
 						if (!arg_names.empty())
 							errorf(lexer.current.location, "Named and unnamed function arguments are not allowed to be mixed in a single call");
 						arg_values.push_back(parseExpr(lexer));

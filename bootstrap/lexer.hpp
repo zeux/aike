@@ -77,24 +77,9 @@ struct Lexer
 	size_t line;
 
 	Lexeme current;
-
-	Lexer save()
-	{
-		Lexer result;
-		result.position = position;
-		result.line_start_pos = line_start_pos;
-		result.line = line;
-		result.current = current;
-		return result;
-	}
-
-	void load(const Lexer& state)
-	{
-		position = state.position;
-		line_start_pos = state.line_start_pos;
-		line = state.line;
-		current = state.current;
-	}
 };
 
 void movenext(Lexer& lexer);
+
+Lexer capturestate(const Lexer& lexer);
+void restorestate(Lexer& lexer, const Lexer& state);
