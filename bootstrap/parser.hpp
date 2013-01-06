@@ -82,6 +82,15 @@ struct SynTypeStructure: SynType
 	}
 };
 
+struct SynTypeTuple: SynType
+{
+	std::vector<SynType*> members;
+
+	SynTypeTuple(const std::vector<SynType*>& members): members(members)
+	{
+	}
+};
+
 struct SynBase
 {
 	Location location;

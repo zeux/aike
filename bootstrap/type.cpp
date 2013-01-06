@@ -93,11 +93,13 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		os << "bool";
 	else if (CASE(TypeTuple, type))
 	{
+		os << "(";
 		for (size_t i = 0; i < _->members.size(); ++i)
 		{
-			if (i != 0) os << " * ";
+			if (i != 0) os << ", ";
 			prettyPrint(os, _->members[i], context);
 		}
+		os << ")";
 	}
 	else if (CASE(TypeArray, type))
 	{

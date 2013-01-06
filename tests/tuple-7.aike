@@ -1,0 +1,6 @@
+let x = (1, 2)
+
+let (y, y) = x
+
+// ERRORS:
+// (3,9): This name is alredy used in this let expression

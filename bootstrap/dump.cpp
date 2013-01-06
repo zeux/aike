@@ -49,11 +49,11 @@ void dump(std::ostream& os, SynType* type)
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			os << (i == 0 ? "" : ", ");
+			if (i != 0) os << ", ";
 			dump(os, _->args[i]);
 		}
 
-		os << + ") -> ";
+		os << ") -> ";
 		dump(os, _->result);
 	}
 	else if (CASE(SynTypeStructure, type))
@@ -62,11 +62,24 @@ void dump(std::ostream& os, SynType* type)
 
 		for (size_t i = 0; i < _->members.size(); ++i)
 		{
-			os << (i == 0 ? "" : ", ") << _->members[i].name.name << ": ";
+			if (i != 0) os << ", ";
+			os << _->members[i].name.name << ": ";
 			dump(os, _->members[i].type);
 		}
 
-		os << + "]";
+		os << "]";
+	}
+	else if (CASE(SynTypeTuple, type))
+	{
+		os << "(";
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+		{
+			if (i != 0) os << ", ";
+			dump(os, _->members[i]);
+		}
+
+		os << ")";
 	}
 	else
 	{
@@ -684,8 +697,15 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		for (size_t i = 0; i < _->targets.size(); ++i)
 		{
 			if (i != 0) os << ", ";
-			os << _->targets[i]->name << ": ";
-			dump(os, context, _->targets[i]->type);
+			if (_->targets[i])
+			{
+				os << _->targets[i]->name << ": ";
+				dump(os, context, _->targets[i]->type);
+			}
+			else
+			{
+				os << "_";
+			}
 		}
 		os << ") =\n";
 		dump(os, context, _->body, indent + 1);

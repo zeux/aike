@@ -1005,6 +1005,9 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		for (size_t i = 0; i < _->targets.size(); ++i)
 		{
+			if (!_->targets[i])
+				continue;
+
 			llvm::Value *element = builder.CreateExtractValue(value, i);
 
 			element->setName(_->targets[i]->name);

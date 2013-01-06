@@ -8,4 +8,4 @@ if x then 1 else 0
 // (5,4): Type mismatch. Expecting a
 //     bool
 // but given a
-//     bool * int
+//     (bool, int)

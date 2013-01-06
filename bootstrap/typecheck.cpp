@@ -192,6 +192,16 @@ Type* resolveType(SynType* type, Environment& env, bool allow_new_generics = fal
 		return new TypeFunction(resolveType(_->result, env, allow_new_generics), argtys);
 	}
 
+	if (CASE(SynTypeTuple, type))
+	{
+		std::vector<Type*> members;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			members.push_back(resolveType(_->members[i], env, allow_new_generics));
+
+		return new TypeTuple(members);
+	}
+
 	assert(!"Unknown syntax tree type");
 	return 0;
 }
@@ -730,11 +740,18 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		for (size_t i = 0; i < _->vars.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->vars[i].name.name, resolveType(_->vars[i].type, env));
+			if (_->vars[i].name.name == "_")
+			{
+				targets.push_back(0);
+			}
+			else
+			{
+				BindingTarget* target = new BindingTarget(_->vars[i].name.name, resolveType(_->vars[i].type, env));
 
-			env.bindings.back().push_back(Binding(_->vars[i].name.name, new BindingLocal(target)));
+				env.bindings.back().push_back(Binding(_->vars[i].name.name, new BindingLocal(target)));
 
-			targets.push_back(target);
+				targets.push_back(target);
+			}
 		}
 
 		return new ExprLetVars(new TypeUnit(), _->location, targets, body);
@@ -1215,43 +1232,50 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 	if (CASE(MatchCaseMembers, case_))
 	{
 		if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type)))
-		if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype))
 		{
-			// Resolve named arguments into unnamed arguments
-			if (!_->member_names.empty())
+			if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype))
 			{
-				std::vector<MatchCase*> clone_members;
+				// Resolve named arguments into unnamed arguments
+				if (!_->member_names.empty())
+				{
+					std::vector<MatchCase*> clone_members;
 
-				clone_members.insert(clone_members.begin(), record_type->member_types.size(), 0);
+					clone_members.insert(clone_members.begin(), record_type->member_types.size(), 0);
+
+					for (size_t i = 0; i < _->member_values.size(); ++i)
+					{
+						size_t member_index = getMemberIndexByName(record_type, _->member_names[i], _->location);
+						if (clone_members[member_index])
+							errorf(_->location, "Member '%s' match is already specified", record_type->member_names[member_index]);
+
+						clone_members[member_index] = _->member_values[i];
+					}
+
+					for (size_t i = 0; i < record_type->member_types.size(); ++i)
+					{
+						if (!clone_members[i])
+							clone_members[i] = new MatchCaseAny(new TypeGeneric(), Location(), 0);
+					}
+
+					_->member_values = clone_members;
+					_->member_names.clear();
+				}
+
+				if (_->member_values.size() != record_type->member_types.size())
+					errorf(_->location, "Type has %d members, but %d are specified", record_type->member_types.size(), _->member_values.size());
 
 				for (size_t i = 0; i < _->member_values.size(); ++i)
 				{
-					size_t member_index = getMemberIndexByName(record_type, _->member_names[i], _->location);
-					if (clone_members[member_index])
-						errorf(_->location, "Member '%s' match is already specified", record_type->member_names[member_index]);
+					Type* mtype = analyze(_->member_values[i], nongen);
 
-					clone_members[member_index] = _->member_values[i];
+					mustUnify(mtype, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
 				}
-
-				for (size_t i = 0; i < record_type->member_types.size(); ++i)
-				{
-					if (!clone_members[i])
-						clone_members[i] = new MatchCaseAny(new TypeGeneric(), Location(), 0);
-				}
-
-				_->member_values = clone_members;
-				_->member_names.clear();
 			}
-
-			if (_->member_values.size() != record_type->member_types.size())
-				errorf(_->location, "Type has %d members, but %d are specified", record_type->member_types.size(), _->member_values.size());
-
-			for (size_t i = 0; i < _->member_values.size(); ++i)
-			{
-				Type* mtype = analyze(_->member_values[i], nongen);
-
-				mustUnify(mtype, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
-			}
+		}
+		else
+		{
+			if (!_->member_names.empty())
+				errorf(_->location, "Type has no named members");
 		}
 
 		return _->type;
@@ -1487,7 +1511,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 		std::vector<Type*> types;
 		for (size_t i = 0; i < _->targets.size(); ++i)
-			types.push_back(_->targets[i]->type);
+			types.push_back(_->targets[i] ? _->targets[i]->type : new TypeGeneric());
 
 		mustUnify(tb, new TypeTuple(types), _->body->location);
 

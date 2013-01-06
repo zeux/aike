@@ -1,0 +1,8 @@
+let x: (int, bool) = (1, false)
+
+let (y, x) = x
+
+if x then y else 5
+
+// OUTPUT:
+// 5

@@ -278,7 +278,7 @@ SynType* parseTypeBraced(Lexer& lexer)
 	}
 
 	if (lexer.current.type != LexCloseBrace)
-		errorf(lexer.current.location, "Expected ')' after function type argument list");
+		errorf(lexer.current.location, "Expected ')' after '('");
 	movenext(lexer);
 
 	if (lexer.current.type == LexArrow)
@@ -290,7 +290,7 @@ SynType* parseTypeBraced(Lexer& lexer)
 	else
 	{
 		if (list.size() != 1)
-			errorf(lexer.current.location, "Expected '->' after ')' in function type declaration");
+			return new SynTypeTuple(list);
 
 		return list[0];
 	}
@@ -521,6 +521,12 @@ SynBase* parseLet(Lexer& lexer)
 				movenext(lexer);
 
 				type = parseType(lexer);
+			}
+			
+			for (size_t i = 0; i < vars.size(); ++i)
+			{
+				if (name.name != "_" && vars[i].name.name == name.name)
+					errorf(name.location, "This name is alredy used in this let expression");
 			}
 
 			vars.push_back(SynTypedVar(name, type));
