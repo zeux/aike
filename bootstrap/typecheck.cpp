@@ -1202,9 +1202,9 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
-				mustUnify(_->member_values[i]->type, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
+				Type* mtype = analyze(_->member_values[i], nongen);
 
-				analyze(_->member_values[i], nongen);
+				mustUnify(mtype, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
 			}
 		}
 
@@ -1216,11 +1216,12 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
 		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
 
+		// Unify should be before analyze since analyze has to know the union type to resolve field names
 		mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
 
 		analyze(_->pattern, nongen);
 
-		return inst_type;
+		return _->type;
 	}
 
 	if (CASE(MatchCaseOr, case_))
