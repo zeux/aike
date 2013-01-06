@@ -5,7 +5,15 @@
 #include "llvm/Module.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/CodeGen.h"
+#include "llvm/PassManager.h"
+#include "llvm/DataLayout.h"
+#include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/TargetTransformInfo.h"
 
 #include "llvm/TypeBuilder.h"
 
@@ -31,7 +39,7 @@ enum DebugFlags
 	DebugAST = 2,
 	DebugTypedAST = 4,
 	DebugCode = 8,
-	DebugAll = DebugParse | DebugAST | DebugTypedAST | DebugCode
+	DebugObject = 16,
 };
 
 #if defined(__linux)
@@ -114,6 +122,78 @@ std::string extractCommentBlock(const std::string& data, const std::string& name
 	return result;
 }
 
+const llvm::Target* getTarget(const std::string& triple)
+{
+	std::string error;
+	const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple, error);
+
+	if (!target)
+	{
+		std::cout << error << std::endl;
+		assert(false);
+	}
+
+	return target;
+}
+
+llvm::CodeGenOpt::Level getCodeGenOptLevel(unsigned int optimizationLevel)
+{
+	switch (optimizationLevel)
+	{
+	case 0: return llvm::CodeGenOpt::None;
+	case 1: return llvm::CodeGenOpt::Less;
+	case 2: return llvm::CodeGenOpt::Default;
+	case 3: return llvm::CodeGenOpt::Aggressive;
+	default: return llvm::CodeGenOpt::Aggressive;
+	}
+}
+
+std::string getHostFeatures()
+{
+	llvm::StringMap<bool> features;
+	std::string result;
+
+	if (llvm::sys::getHostCPUFeatures(features))
+	{
+		for (llvm::StringMap<bool>::const_iterator it = features.begin(); it != features.end(); ++it)
+		{
+			if (result.empty()) result += ',';
+			result += it->second ? '+' : '-';
+			result += it->first();
+		}
+	}
+
+	return result;
+}
+
+void compileModuleToObject(llvm::Module* module, const std::string& path, unsigned int optimizationLevel)
+{
+	std::string triple = llvm::sys::getDefaultTargetTriple();
+	std::string cpu = llvm::sys::getHostCPUName();
+	std::string features = getHostFeatures();
+
+	const llvm::Target* target = getTarget(triple);
+
+	llvm::TargetOptions options;
+	llvm::CodeGenOpt::Level codeGenOptLevel = getCodeGenOptLevel(optimizationLevel);
+
+	llvm::TargetMachine* tm = target->createTargetMachine(triple, cpu, features, options, llvm::Reloc::Default, llvm::CodeModel::Default, codeGenOptLevel);
+
+	llvm::PassManager pm;
+
+	pm.add(new llvm::TargetLibraryInfo(llvm::Triple(triple)));
+    pm.add(new llvm::TargetTransformInfo(tm->getScalarTargetTransformInfo(), tm->getVectorTargetTransformInfo()));
+	pm.add(new llvm::DataLayout(*tm->getDataLayout()));
+
+	std::ofstream out(path, std::ios::out | std::ios::binary);
+	llvm::raw_os_ostream os(out);
+	llvm::formatted_raw_ostream fos(os);
+
+	tm->addPassesToEmitFile(pm, fos, llvm::TargetMachine::CGFT_ObjectFile);
+
+    pm.run(*module);
+}
+
 bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
 {
 	gOutput = &output;
@@ -157,6 +237,11 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		{
 			llvm::outs() << *module;
 			llvm::outs().flush();
+		}
+
+		if (debugFlags & DebugObject)
+		{
+			compileModuleToObject(module, "../output.obj", optimizationLevel);
 		}
 
 		std::vector<llvm::GenericValue> noargs;
@@ -248,8 +333,10 @@ unsigned int parseDebugFlags(int argc, char** argv)
 			result |= DebugTypedAST;
 		else if (strcmp(argv[i], "--debug-code") == 0)
 			result |= DebugCode;
+		else if (strcmp(argv[i], "--debug-object") == 0)
+			result |= DebugObject;
 		else if (strcmp(argv[i], "--debug") == 0)
-			result |= DebugAll;
+			result |= DebugTypedAST | DebugCode;
 	}
 
 	return result;
@@ -276,6 +363,7 @@ std::string parseTestName(int argc, char** argv)
 int main(int argc, char** argv)
 {
 	llvm::InitializeNativeTarget();
+	llvm::InitializeNativeTargetAsmPrinter();
 
 	SetCurrentDirectoryA("../tests");
 
