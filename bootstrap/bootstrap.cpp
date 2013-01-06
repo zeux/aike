@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <ctime>
 
 #include <Windows.h>
 
@@ -287,6 +288,8 @@ int main(int argc, char** argv)
 		std::vector<std::string> files;
 		findFilesRecursive(files, ".", "");
 
+		clock_t start = clock();
+
 		size_t total = 0, passed = 0;
 
 		for (size_t i = 0; i < files.size(); ++i)
@@ -297,7 +300,7 @@ int main(int argc, char** argv)
 			}
 
 		if (total == passed)
-			std::cout << "Success: " << total << " tests passed.\n";
+			std::cout << "Success: " << total << " tests passed in " << ((clock() - start) * 1000 / CLOCKS_PER_SEC) << " ms.\n";
 		else
 			std::cout << "FAILURE: " << (total - passed) << " out of " << total << " tests failed.\n";
 	}
