@@ -1,7 +1,0 @@
-if true then
-    1
-else
-    () 2
-
-// ERRORS:
-// (4,8): Expected newline after else block

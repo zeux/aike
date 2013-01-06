@@ -1,8 +1,7 @@
-extern print(i:int):unit
+let x =
+	5
 
-for i in [1, 2] do
-    print i
-0
+x
 
 // ERRORS:
-// (4,11): Expected newline after for expression
+// (2,1): Source file must not contain tabs

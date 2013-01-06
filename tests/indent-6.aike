@@ -1,5 +1,0 @@
-if true then
-    () 1
-
-// ERRORS:
-// (2,8): Expected newline after if block

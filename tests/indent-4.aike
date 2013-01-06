@@ -1,8 +1,0 @@
-let x = "a
-b
-c"
-
-y
-
-// ERRORS:
-// (5,1): Unresolved variable reference y
