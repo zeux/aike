@@ -23,6 +23,8 @@ void optimize(LLVMContext& context, Module* module, const DataLayout& layout)
 	fpm.add(createGVNPass());
 	fpm.add(createCFGSimplificationPass());
 	fpm.add(createConstantPropagationPass());
+	fpm.add(createTailCallEliminationPass());
+	fpm.add(createLICMPass());
 
 	PassManager pm;
 	pm.add(createFunctionInliningPass());
