@@ -1,0 +1,5 @@
+let x = llvm "
+"
+
+// ERRORS:
+// (1,14): Failed to parse llvm inline code: instructions returning void cannot have a name at '%out = '

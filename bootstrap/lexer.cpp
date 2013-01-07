@@ -229,11 +229,12 @@ void movenext(Lexer& lexer)
 		}
 	}
 
-	size_t column = lexer.position - lexer.line_start_pos;
+	Location location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, lexer.position - lexer.line_start_pos, 0);
+	size_t position = lexer.position;
 
 	lexer.current = readnext(lexer);
 
-	lexer.current.location = Location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, column, lexer.position - lexer.line_start_pos - column);
+	lexer.current.location = Location(location.lineStart, location.line, location.column, lexer.position - position);
 }
 
 Lexer capturestate(const Lexer& lexer)
