@@ -1,0 +1,47 @@
+let length(x: 'a[]): int =
+    llvm "extractvalue typeof(%x) %x, 1"
+
+let get_unsafe(x: 'a[], i: int): 'a =
+    llvm "
+    %r0 = extractvalue typeof(%x) %x, 0
+    %r1 = getelementptr typeof('a)* %r0, i32 %i
+    %out = load typeof('a)* %r1"
+
+let set_unsafe(x: 'a[], i: int, v: 'a): unit =
+    llvm "
+    %r0 = extractvalue typeof(%x) %x, 0
+    %r1 = getelementptr typeof(%v)* %r0, i32 %i
+    store typeof(%v) %v, typeof(%v)* %r1
+    %out = bitcast i32 0 to i32"
+
+let newarr_unsafe(l: int): 'a[] =
+    llvm "
+    %r0 = mul i32 %l, sizeof('a)
+    %r1 = call i8* @malloc(i32 %r0)
+    %r2 = bitcast i8* %r1 to typeof('a)*
+    %r3 = insertvalue { typeof('a)*, i32 } zeroinitializer, typeof('a)* %r2, 0
+    %out = insertvalue { typeof('a)*, i32 } %r3, i32 %l, 1
+    "
+
+let map(arr: 'a[], f) =
+    if arr#length == 0 then
+        []
+    else
+        let res = newarr_unsafe(arr#length)
+        let loop(i) =
+            if i < arr#length then
+                set_unsafe(res, i, f(get_unsafe(arr, i)))
+                loop(i + 1)
+        loop(0)
+        res
+
+let x = [1, 2, 3]
+let y =
+    x
+    #map (fun i -> i * i)
+    #map (fun i -> i + 2)
+
+y[2]
+
+// OUTPUT:
+// 11

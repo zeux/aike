@@ -501,7 +501,35 @@ llvm::Value* findFunctionArgument(llvm::Function* func, const std::string& name)
 	return NULL;
 }
 
-std::string compileInlineLLVM(const std::string& name, const std::string& body, llvm::Function* func, const Location& location)
+llvm::Type* parseInlineLLVMType(Context& context, const std::string& name, llvm::Function* func, const Location& location)
+{
+	if (name[0] == '%')
+	{
+		if (llvm::Value* arg = findFunctionArgument(func, name.substr(1)))
+		{
+			return arg->getType();
+		}
+
+		errorf(location, "Incorrect type expression %s: unknown variable", name.c_str());
+	}
+
+	if (name[0] == '\'')
+	{
+		for (size_t i = 0; i < context.generic_instances.size(); ++i)
+		{
+			TypeGeneric* type = dynamic_cast<TypeGeneric*>(context.generic_instances[i].first);
+
+			if (!type->name.empty() && type->name == name.substr(1))
+				return context.generic_instances[i].second.second;
+		}
+
+		errorf(location, "Incorrect type expression %s: unknown type variable", name.c_str());
+	}
+
+	errorf(location, "Incorrect type expression %s: expected %% or '", name.c_str());
+}
+
+std::string compileInlineLLVM(Context& context, const std::string& name, const std::string& body, llvm::Function* func, const Location& location)
 {
 	std::ostringstream declare;
 	std::ostringstream oss;
@@ -523,24 +551,31 @@ std::string compileInlineLLVM(const std::string& name, const std::string& body, 
 	// append body to stream, replacing typeof(%arg) with actual types
 	for (size_t i = 0; i < body.size(); )
 	{
-		if (body[i] == 't' && body.compare(i, 8, "typeof(%") == 0)
+		if (body[i] == 't' && body.compare(i, 7, "typeof(") == 0)
 		{
 			std::string::size_type end = body.find(')', i);
 
 			if (end == std::string::npos)
 				errorf(location, "Incorrect typeof expression: closing brace expected");
 
-			std::string var(body.begin() + i + 8, body.begin() + end);
+			std::string var(body.begin() + i + 7, body.begin() + end);
 
-			if (llvm::Value* arg = findFunctionArgument(func, var))
-			{
-				os << *arg->getType();
-				i = end + 1;
-			}
-			else
-			{
-				errorf(location, "Incorrect typeof expression: unknown variable %s", var.c_str());
-			}
+			i = end + 1;
+
+			os << *parseInlineLLVMType(context, var, func, location);
+		}
+		else if (body[i] == 's' && body.compare(i, 7, "sizeof(") == 0)
+		{
+			std::string::size_type end = body.find(')', i);
+
+			if (end == std::string::npos)
+				errorf(location, "Incorrect sizeof expression: closing brace expected");
+
+			std::string var(body.begin() + i + 7, body.begin() + end);
+
+			i = end + 1;
+
+			os << context.layout->getTypeAllocSize(parseInlineLLVMType(context, var, func, location));
 		}
 		else if (body[i] == 'd' && body.compare(i, 8, "declare ") == 0)
 		{
@@ -1098,7 +1133,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Function* func = builder.GetInsertBlock()->getParent();
 
 		std::string name = "autogen_" + func->getName().str();
-		std::string body = compileInlineLLVM(name, _->body, func, _->location);
+		std::string body = compileInlineLLVM(context, name, _->body, func, _->location);
 
 		llvm::SMDiagnostic err;
 		if (!llvm::ParseAssemblyString(body.c_str(), context.module, err, *context.context))
