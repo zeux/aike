@@ -81,7 +81,11 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 			os << context.generic_types[_];
 		}
 		else
+		{
+			context.generic_names.insert(_->name);
+
 			os << _->name;
+		}
 	}
 	else if (CASE(TypeUnit, type))
 		os << "unit";
