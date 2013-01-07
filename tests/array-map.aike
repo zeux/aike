@@ -41,7 +41,11 @@ let y =
     #map (fun i -> i * i)
     #map (fun i -> i + 2)
 
-y[2]
+let fx: (int[], (int) -> bool) -> bool[] = map
+
+let z = fx(x, fun i -> i == 2)
+
+if z[1] then y[2] else 0
 
 // OUTPUT:
 // 11

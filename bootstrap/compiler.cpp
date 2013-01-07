@@ -515,12 +515,12 @@ llvm::Type* parseInlineLLVMType(Context& context, const std::string& name, llvm:
 
 	if (name[0] == '\'')
 	{
-		for (size_t i = 0; i < context.generic_instances.size(); ++i)
+		for (size_t i = context.generic_instances.size(); i > 0; --i)
 		{
-			TypeGeneric* type = dynamic_cast<TypeGeneric*>(context.generic_instances[i].first);
+			TypeGeneric* type = dynamic_cast<TypeGeneric*>(context.generic_instances[i - 1].first);
 
 			if (!type->name.empty() && type->name == name.substr(1))
-				return context.generic_instances[i].second.second;
+				return context.generic_instances[i - 1].second.second;
 		}
 
 		errorf(location, "Incorrect type expression %s: unknown type variable", name.c_str());
