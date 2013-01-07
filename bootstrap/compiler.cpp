@@ -535,7 +535,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 	std::ostringstream oss;
 	llvm::raw_os_ostream os(oss);
 
-	os << "define " << *func->getReturnType() << " @" << name << "(";
+	os << "define internal " << *func->getReturnType() << " @" << name << "(";
 
 	for (llvm::Function::arg_iterator argi = func->arg_begin(); argi != func->arg_end(); ++argi)
 		os << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
