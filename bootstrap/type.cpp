@@ -44,7 +44,7 @@ std::string generateGenericName(PrettyPrintContext& context)
 
 bool containedTypeRequiresBraces(Type* type)
 {
-	return dynamic_cast<TypeFunction*>(type) != 0 || dynamic_cast<TypeTuple*>(type) != 0;
+	return dynamic_cast<TypeFunction*>(type) != 0;
 }
 
 void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context);
