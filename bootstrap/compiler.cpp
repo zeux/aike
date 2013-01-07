@@ -1028,7 +1028,6 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		value->setName(_->target->name);
 
-		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = value;
 
 		return value;
@@ -1047,7 +1046,6 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 			element->setName(_->targets[i]->name);
 
-			assert(context.values.count(_->targets[i]) == 0);
 			context.values[_->targets[i]] = element;
 		}
 
@@ -1104,7 +1102,6 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		llvm::Value* value = compileFunctionValue(context, builder, func, _->type, NULL, _->location);
 
-		assert(context.values.count(_->target) == 0);
 		context.values[_->target] = value;
 
 		return value;
