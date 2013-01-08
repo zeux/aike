@@ -397,7 +397,6 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		// while (true)
 		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 
