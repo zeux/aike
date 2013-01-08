@@ -1,0 +1,9 @@
+let foo(x: int) = x
+
+foo(true)
+
+// ERRORS:
+// (3,5): Type mismatch. Expecting a
+//     int
+// but given a
+//     bool

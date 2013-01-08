@@ -10,7 +10,7 @@ let value(x: Lazy<'T>) =
 value(Cont(Cont(Value(fun -> (fun -> 2)))))
 
 // ERRORS:
-// (8,17): Type mismatch. Expecting a
-//     (Lazy<() -> 'T>) -> 'a
+// (8,23): Type mismatch. Expecting a
+//     Lazy<'T>
 // but given a
-//     (Lazy<'T>) -> 'a
+//     Lazy<() -> 'T>

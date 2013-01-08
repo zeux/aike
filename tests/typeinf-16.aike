@@ -1,0 +1,6 @@
+let foo(x: int, y: int) = x + y
+
+foo(true)
+
+// ERRORS:
+// (3,4): Expected 2 arguments but given 1

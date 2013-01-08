@@ -7,7 +7,7 @@ let reduce(x, f) =
 reduce(refpair(ref(1), ref(true)), fun (x, y) -> x + y)
 
 // ERRORS:
-// (7,1): Type mismatch. Expecting a
-//     (refpair<int, bool>, (int, int) -> int) -> int
+// (7,36): Type mismatch. Expecting a
+//     (int, bool) -> int
 // but given a
-//     (refpair<int, bool>, (int, bool) -> int) -> int
+//     (int, int) -> int

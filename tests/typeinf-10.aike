@@ -9,7 +9,7 @@ let foo(x, y) =
 foo(1, 2)
 
 // ERRORS:
-// (7,9): Type mismatch. Expecting a
-//     (int, int) -> 'a
+// (7,13): Type mismatch. Expecting a
+//     bool
 // but given a
-//     (bool, bool) -> 'a
+//     int

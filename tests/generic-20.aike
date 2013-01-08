@@ -10,4 +10,4 @@ let isNone(x) =
 if isNone(None) then 1 else 2
 
 // ERRORS:
-// (10,4): No instance of the generic type 'T found
+// (10,4): No instance of the generic type 'a found

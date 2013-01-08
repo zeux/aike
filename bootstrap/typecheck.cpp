@@ -1442,11 +1442,25 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		for (size_t i = 0; i < _->args.size(); ++i)
 			argtys.push_back(analyze(_->args[i], nongen));
 
-		TypeFunction* funty = new TypeFunction(new TypeGeneric(), argtys);
+		// this if/else is really only needed for nicer error messages
+		if (TypeFunction* funty = dynamic_cast<TypeFunction*>(finalType(te)))
+		{
+			if (funty->args.size() != argtys.size())
+				errorf(_->location, "Expected %d arguments but given %d", funty->args.size(), argtys.size());
 
-		mustUnify(te, funty, _->expr->location);
+			for (size_t i = 0; i < argtys.size(); ++i)
+				mustUnify(argtys[i], funty->args[i], _->args[i]->location);
 
-		return _->type = funty->result;
+			return _->type = funty->result;
+		}
+		else
+		{
+			funty = new TypeFunction(new TypeGeneric(), argtys);
+
+			mustUnify(te, funty, _->expr->location);
+
+			return _->type = funty->result;
+		}
 	}
 
 	if (CASE(ExprArrayIndex, root))
