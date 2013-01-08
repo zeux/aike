@@ -271,6 +271,9 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 {
 	std::string data = readFile(path);
 
+	if (data.compare(0, 8, "// SKIP\n") == 0)
+		return true;
+
 	std::string expectedOutput = extractCommentBlock(data, "OUTPUT");
 	std::string expectedErrors = extractCommentBlock(data, "ERRORS");
 
@@ -394,6 +397,7 @@ int main(int argc, char** argv)
 	}
 	else
 	{
+		// while (true)
 		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 
