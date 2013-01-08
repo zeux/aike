@@ -164,6 +164,75 @@ std::string typeName(Type* type, PrettyPrintContext& context)
 	return oss.str();
 }
 
+void mangle(std::ostream& os, Type* type, const std::function<Type* (TypeGeneric*)>& resolve_generic)
+{
+	type = finalType(type);
+
+	if (CASE(TypeGeneric, type))
+	{
+		Type* type = resolve_generic(_);
+		assert(type != _);
+
+		mangle(os, type, resolve_generic);
+	}
+	else if (CASE(TypeUnit, type))
+		os << "u";
+	else if (CASE(TypeInt, type))
+		os << "i";
+	else if (CASE(TypeFloat, type))
+		os << "f";
+	else if (CASE(TypeBool, type))
+		os << "b";
+	else if (CASE(TypeTuple, type))
+	{
+		os << "T" << _->members.size();
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			mangle(os, _->members[i], resolve_generic);
+	}
+	else if (CASE(TypeArray, type))
+	{
+		os << "A";
+		mangle(os, _->contained, resolve_generic);
+	}
+	else if (CASE(TypeFunction, type))
+	{
+		os << "F" << _->args.size();
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			mangle(os, _->args[i], resolve_generic);
+
+		mangle(os, _->result, resolve_generic);
+	}
+	else if (CASE(TypeInstance, type))
+	{
+		os << "I" << _->generics.size();
+
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			mangle(os, _->generics[i], resolve_generic);
+
+		os << "N";
+
+		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(_->prototype))
+			os << p->name.length() << p->name;
+		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(_->prototype))
+			os << p->name.length() << p->name;
+		else
+			assert(!"Unknown prototype");
+	}
+	else
+	{
+		assert(!"Unknown type");
+	}
+}
+
+std::string typeNameMangled(Type* type, const std::function<Type* (TypeGeneric*)>& resolve_generic)
+{
+	std::ostringstream oss;
+	mangle(oss, type, resolve_generic);
+	return oss.str();
+}
+
 size_t getMemberIndexByName(TypePrototypeRecord* proto, const std::string& name, const Location& location)
 {
 	for (size_t i = 0; i < proto->member_names.size(); ++i)

@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <functional>
 
 #include "output.hpp"
 
@@ -138,6 +139,7 @@ struct PrettyPrintContext
 };
 
 std::string typeName(Type* type, PrettyPrintContext& context);
+std::string typeNameMangled(Type* type, const std::function<Type* (TypeGeneric*)>& resolve_generic);
 
 Type* finalType(Type* type);
 

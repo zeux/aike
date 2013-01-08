@@ -27,7 +27,9 @@ struct Context
 
 	std::map<BindingTarget*, llvm::Value*> values;
 	std::map<BindingTarget*, std::pair<Expr*, llvm::Value*> > functions;
-	std::map<Type*, llvm::Type*> types;
+	std::map<std::pair<Expr*, std::string>, llvm::Function*> function_instances;
+	std::map<llvm::Function*, llvm::Function*> function_thunks;
+	std::map<std::string, llvm::Type*> types;
 	std::vector<llvm::Type*> function_context_type;
 
 	std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > generic_instances;
@@ -51,7 +53,7 @@ Type* getTypeInstance(Context& context, Type* type, const Location& location)
 
 llvm::Type* compileType(Context& context, Type* type, const Location& location);
 
-llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const Location& location)
+llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const Location& location, const std::string& mtype)
 {
 	if (CASE(TypePrototypeRecord, proto))
 	{
@@ -60,9 +62,7 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		// TODO: To name types we have to create a unique mangled name.
-		// return llvm::StructType::create(*context.context, members, _->name);
-		return llvm::StructType::get(*context.context, members);
+		return llvm::StructType::create(*context.context, members, _->name + "." + mtype + ".");
 	}
 
 	if (CASE(TypePrototypeUnion, proto))
@@ -72,9 +72,7 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
 		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
 
-		// TODO: To name types we have to create a unique mangled name.
-		// return llvm::StructType::create(*context.context, members, _->name);
-		return llvm::StructType::get(*context.context, members);
+		return llvm::StructType::create(*context.context, members, _->name + "." + mtype + ".");
 	}
 
 	assert(!"Unknown prototype type");
@@ -84,9 +82,6 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 llvm::Type* compileType(Context& context, Type* type, const Location& location)
 {
 	type = finalType(type);
-
-	if (context.types.count(type) > 0)
-		return context.types[type];
 
 	if (CASE(TypeGeneric, type))
 	{
@@ -100,7 +95,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	if (CASE(TypeUnit, type))
 	{
 		// this might be void in the future
-		return context.types[type] = llvm::Type::getInt32Ty(*context.context);
+		return llvm::Type::getInt32Ty(*context.context);
 	}
 
 	if (CASE(TypeInt, type))
@@ -110,12 +105,12 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 	if (CASE(TypeFloat, type))
 	{
-		return context.types[type] = llvm::Type::getFloatTy(*context.context);
+		return llvm::Type::getFloatTy(*context.context);
 	}
 
 	if (CASE(TypeBool, type))
 	{
-		return context.types[type] = llvm::Type::getInt1Ty(*context.context);
+		return llvm::Type::getInt1Ty(*context.context);
 	}
 	
 	if (CASE(TypeClosureContext, type))
@@ -140,7 +135,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 	if (CASE(TypeArray, type))
 	{
-		return /* context.types[type] = */ llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
+		return llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
 	}
 
 	if (CASE(TypeFunction, type))
@@ -156,11 +151,17 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
 
-		return /* context.types[type] = */ holder_type;
+		return holder_type;
 	}
 
 	if (CASE(TypeInstance, type))
 	{
+		// compute mangled instance type name
+		std::string mtype = typeNameMangled(type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+
+		if (context.types.count(mtype) > 0)
+			return context.types[mtype];
+
 		size_t generic_type_count = context.generic_instances.size();
 
 		const std::vector<Type*>& generics = getGenericTypes(_->prototype);
@@ -169,11 +170,11 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->generics.size(); ++i)
 			context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(_->generics[i], compileType(context, _->generics[i], location))));
 
-		llvm::Type* result = compileTypePrototype(context, _->prototype, location);
+		llvm::Type* result = compileTypePrototype(context, _->prototype, location, mtype);
 
 		context.generic_instances.resize(generic_type_count);
 
-		return result;
+		return context.types[mtype] = result;
 	}
 
 	errorf(location, "Unrecognized type");
@@ -203,6 +204,13 @@ llvm::Function* compileFunctionThunk(Context& context, llvm::Function* target, l
 {
 	llvm::FunctionType* thunk_type = llvm::cast<llvm::FunctionType>(funcptr_type->getContainedType(0)->getContainedType(0));
 
+	if (context.function_thunks.count(target) > 0)
+	{
+		llvm::Function* result = context.function_thunks[target];
+		assert(result->getFunctionType() == thunk_type);
+		return result;
+	}
+
 	llvm::Function* thunk_func = llvm::Function::Create(thunk_type, llvm::Function::InternalLinkage, target->getName(), context.module);
 	assert(thunk_func->arg_size() == target->arg_size() || thunk_func->arg_size() == target->arg_size() + 1);
 
@@ -227,7 +235,7 @@ llvm::Function* compileFunctionThunk(Context& context, llvm::Function* target, l
 
 	builder.CreateRet(builder.CreateCall(target, args));
 
-	return thunk_func;
+	return context.function_thunks[target] = thunk_func;
 }
 
 llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, llvm::Function* target, Type* type, llvm::Value* context_ref, const Location& location)
@@ -293,11 +301,11 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
 
-llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node)
+llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, const std::string& mtype)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -339,11 +347,11 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node)
 	return func;
 }
 
-llvm::Function* compileStructConstructor(Context& context, ExprStructConstructorFunc* node)
+llvm::Function* compileStructConstructor(Context& context, ExprStructConstructorFunc* node, const std::string& mtype)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -368,11 +376,11 @@ llvm::Function* compileStructConstructor(Context& context, ExprStructConstructor
 	return func;
 }
 
-llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFunc* node)
+llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFunc* node, const std::string& mtype)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name, context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -419,21 +427,21 @@ llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFu
 	return func;
 }
 
-llvm::Function* compileFunction(Context& context, Expr* node)
+llvm::Function* compileFunction(Context& context, Expr* node, const std::string& mtype)
 {
 	if (CASE(ExprLetFunc, node))
 	{
-		return compileRegularFunction(context, _);
+		return compileRegularFunction(context, _, mtype);
 	}
 
 	if (CASE(ExprStructConstructorFunc, node))
 	{
-		return compileStructConstructor(context, _);
+		return compileStructConstructor(context, _, mtype);
 	}
 
 	if (CASE(ExprUnionConstructorFunc, node))
 	{
-		return compileUnionConstructor(context, _);
+		return compileUnionConstructor(context, _, mtype);
 	}
 
 	assert(!"Unknown node type");
@@ -442,18 +450,24 @@ llvm::Function* compileFunction(Context& context, Expr* node)
 
 llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* instance_type, const Location& location)
 {
+	// compute mangled instance type name
+	std::string mtype = typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+
+	if (context.function_instances.count(std::make_pair(node, mtype)))
+		return context.function_instances[std::make_pair(node, mtype)];
+
 	// node->type is the generic type, and type is the instance. Instantiate all types into context, following the shape of the type.
 	size_t generic_type_count = context.generic_instances.size();
 	
 	instantiateGenericTypes(context, node->type, instance_type, location);
 
 	// compile function body given a non-generic type
-	llvm::Function* func = compileFunction(context, node);
+	llvm::Function* func = compileFunction(context, node, mtype);
 
 	// remove generic type instantiations
 	context.generic_instances.resize(generic_type_count);
 
-	return func;
+	return context.function_instances[std::make_pair(node, mtype)] = func;
 }
 
 llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, BindingBase* binding, Type* type, const Location& location)
