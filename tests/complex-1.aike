@@ -1,4 +1,3 @@
-// SKIP
 // http://flyingfrogblog.blogspot.com/2010/04/variant-types-and-pattern-matching-in.html
 
 type expr =

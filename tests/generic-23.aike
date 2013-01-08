@@ -1,0 +1,13 @@
+let sizeof(x: 'a[]): int =
+    llvm "bitcast i32 sizeof('a) to i32"
+
+let f(x: 'a) =
+    let g() =
+        let h: 'a[] = []
+        sizeof(h)
+    g()
+
+f(1) + f(true)
+
+// OUTPUT:
+// 5

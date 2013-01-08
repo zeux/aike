@@ -30,7 +30,9 @@ struct Context
 	std::map<std::pair<Expr*, std::string>, llvm::Function*> function_instances;
 	std::map<llvm::Function*, llvm::Function*> function_thunks;
 	std::map<std::string, llvm::Type*> types;
+
 	std::vector<llvm::Type*> function_context_type;
+	std::vector<std::string> function_mangled_type;
 
 	std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > generic_instances;
 };
@@ -62,7 +64,7 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		return llvm::StructType::create(*context.context, members, _->name + "." + mtype + ".");
+		return llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
 	}
 
 	if (CASE(TypePrototypeUnion, proto))
@@ -72,7 +74,7 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
 		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
 
-		return llvm::StructType::create(*context.context, members, _->name + "." + mtype + ".");
+		return llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
 	}
 
 	assert(!"Unknown prototype type");
@@ -211,7 +213,7 @@ llvm::Function* compileFunctionThunk(Context& context, llvm::Function* target, l
 		return result;
 	}
 
-	llvm::Function* thunk_func = llvm::Function::Create(thunk_type, llvm::Function::InternalLinkage, target->getName(), context.module);
+	llvm::Function* thunk_func = llvm::Function::Create(thunk_type, llvm::Function::InternalLinkage, target->getName() + "..thunk", context.module);
 	assert(thunk_func->arg_size() == target->arg_size() || thunk_func->arg_size() == target->arg_size() + 1);
 
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", thunk_func);
@@ -305,7 +307,7 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -335,9 +337,11 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 
 	// Compile function body
 	context.function_context_type.push_back(context_value ? context_value->getType() : NULL);
+	context.function_mangled_type.push_back(mtype);
 
 	llvm::Value* value = compileExpr(context, builder, node->body);
 
+	context.function_mangled_type.pop_back();
 	context.function_context_type.pop_back();
 
 	builder.CreateRet(value);
@@ -351,7 +355,7 @@ llvm::Function* compileStructConstructor(Context& context, ExprStructConstructor
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -380,7 +384,7 @@ llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFu
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + "." + mtype + ".", context.module);
+	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
 
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
@@ -451,7 +455,12 @@ llvm::Function* compileFunction(Context& context, Expr* node, const std::string&
 llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* instance_type, const Location& location)
 {
 	// compute mangled instance type name
-	std::string mtype = typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+	// note that it depends on the full mangled type of the parent function to account for type variables that do not
+	// affect the signature of this function but do affect the compilation result
+	// alternatively we could just mangle together all currently defined type variables
+	std::string mtype =
+		(context.function_mangled_type.empty() ? "" : context.function_mangled_type.back() + ".")
+		+ typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
 
 	if (context.function_instances.count(std::make_pair(node, mtype)))
 		return context.function_instances[std::make_pair(node, mtype)];
@@ -1143,7 +1152,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::Function* func = builder.GetInsertBlock()->getParent();
 
-		std::string name = "autogen_" + func->getName().str();
+		std::string name = func->getName().str() + "..autogen";
 		std::string body = compileInlineLLVM(context, name, _->body, func, _->location);
 
 		llvm::SMDiagnostic err;
