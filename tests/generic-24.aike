@@ -1,0 +1,8 @@
+let f(t) =
+    let (a, b) = t
+    a(b)
+
+f((fun x -> x + 1, 2))
+
+// OUTPUT:
+// 3

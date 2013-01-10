@@ -299,6 +299,16 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 		for (size_t i = 0; i < _->generics.size(); ++i)
 			instantiateGenericTypes(context, _->generics[i], inst->generics[i], location);
 	}
+
+	if (CASE(TypeTuple, generic))
+	{
+		TypeTuple* inst = dynamic_cast<TypeTuple*>(instance);
+
+		assert(_->members.size() == inst->members.size());
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			instantiateGenericTypes(context, _->members[i], inst->members[i], location);
+	}
 }
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
