@@ -1,8 +1,10 @@
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -11,11 +13,8 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/PassManager.h"
-#include "llvm/DataLayout.h"
 #include "llvm/Target/TargetLibraryInfo.h"
-#include "llvm/TargetTransformInfo.h"
-
-#include "llvm/TypeBuilder.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include <iostream>
 #include <fstream>
@@ -182,7 +181,7 @@ void compileModuleToObject(llvm::Module* module, const std::string& path, unsign
 	llvm::PassManager pm;
 
 	pm.add(new llvm::TargetLibraryInfo(llvm::Triple(triple)));
-	pm.add(new llvm::TargetTransformInfo(tm->getScalarTargetTransformInfo(), tm->getVectorTargetTransformInfo()));
+	tm->addAnalysisPasses(pm);
 	pm.add(new llvm::DataLayout(*tm->getDataLayout()));
 
 	std::ofstream out(path, std::ios::out | std::ios::binary);

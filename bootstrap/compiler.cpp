@@ -5,15 +5,15 @@
 #include "typecheck.hpp"
 #include "match.hpp"
 
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/Instructions.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "llvm/Intrinsics.h"
+#include "llvm/IR/Intrinsics.h"
 
 #include <exception>
 #include <cassert>
@@ -1167,7 +1167,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		llvm::SMDiagnostic err;
 		if (!llvm::ParseAssemblyString(body.c_str(), context.module, err, *context.context))
-			errorf(_->location, "Failed to parse llvm inline code: %s at '%s'", err.getMessage().c_str(), err.getLineContents().c_str());
+			errorf(_->location, "Failed to parse llvm inline code: %s at '%s'", err.getMessage().str().c_str(), err.getLineContents().str().c_str());
 
 		std::vector<llvm::Value*> arguments;
 		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
