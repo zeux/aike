@@ -29,6 +29,8 @@ void optimize(LLVMContext& context, Module* module, const DataLayout& layout)
 	PassManager pm;
 	pm.add(createFunctionInliningPass());
 	pm.add(createFunctionAttrsPass());
+	pm.add(createIPConstantPropagationPass());
+	pm.add(createDeadArgEliminationPass());
 
 	fpm.doInitialization();
 

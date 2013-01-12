@@ -935,7 +935,15 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 		value = builder.CreatePointerCast(value, context.function_context_type.back());
 
-		return builder.CreateLoad(builder.CreateStructGEP(value, _->member_index));
+		llvm::Value *result = builder.CreateLoad(builder.CreateStructGEP(value, _->member_index));
+		
+		if (llvm::LoadInst *load = llvm::dyn_cast_or_null<llvm::LoadInst>(result))
+		{
+			llvm::SmallVector<llvm::Value *, 1> Elts;
+			load->setMetadata("invariant.load", llvm::MDNode::get(*context.context, Elts));
+		}
+
+		return result;
 	}
 
 	if (CASE(ExprUnaryOp, node))
