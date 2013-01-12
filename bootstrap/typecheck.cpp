@@ -1460,10 +1460,12 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		case SynBinaryOpLessEqual:
 		case SynBinaryOpGreater:
 		case SynBinaryOpGreaterEqual:
-		case SynBinaryOpEqual:
-		case SynBinaryOpNotEqual:
 			mustUnify(tl, new TypeInt(), _->left->location);
 			mustUnify(tr, new TypeInt(), _->right->location);
+			return _->type = new TypeBool();
+		case SynBinaryOpEqual:
+		case SynBinaryOpNotEqual:
+			mustUnify(tl, tr, _->left->location);
 			return _->type = new TypeBool();
 
 		default: assert(!"Unknown binary op");

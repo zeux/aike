@@ -1,0 +1,9 @@
+let x = ()
+
+if x == () then
+    2
+else
+    3
+
+// OUTPUT:
+// 2

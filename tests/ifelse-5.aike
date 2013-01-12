@@ -1,0 +1,12 @@
+let x = [2, 3]
+
+if x == [2, 3] then
+    if x == [2, 5] then
+        1
+    else
+        2
+else
+    3
+
+// OUTPUT:
+// 2
