@@ -1,0 +1,8 @@
+type A = A (int, int) | B int
+
+match A((1, 2)) with
+| B(x) -> x
+| A((x, y)) -> x + y
+
+// ERRORS:
+// (5,3): Type has 2 member(s), but 1 is (are) specified

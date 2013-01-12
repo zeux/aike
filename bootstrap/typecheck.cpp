@@ -334,15 +334,12 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 	if (CASE(SynMatchTypeSimple, match))
 	{
-		Type* type = tryResolveType(_->type.name, env);
+		std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
 
 		// Maybe it's a tag from a union
-		if (!type)
+		if (union_tag.first)
 		{
 			std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
-
-			if (!union_tag.first)
-				errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
 			std::vector<Type*> fake_generics;
 			for (size_t i = 0; i < union_tag.first->generics.size(); ++i)
@@ -360,6 +357,11 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(member_type, _->location, target));
 		}
 
+		Type* type = tryResolveType(_->type.name, env);
+
+		if (!type)
+			errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
+
 		BindingTarget* target = new BindingTarget(_->alias.name, type);
 		
 		env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
@@ -369,8 +371,6 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 	if (CASE(SynMatchTypeComplex, match))
 	{
-		Type* type = tryResolveType(_->type.name, env);
-
 		std::vector<std::string> member_names;
 		std::vector<MatchCase*> member_values;
 
@@ -381,17 +381,19 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			member_values.push_back(resolveMatch(_->arg_values[i], env));
 		}
 
+		std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
+
 		// Maybe it's a tag from a union
-		if (!type)
+		if (union_tag.first)
 		{
-			std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
-
-			if (!union_tag.first)
-				errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
-
 			// First match the tag, then match the contents
 			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
 		}
+
+		Type* type = tryResolveType(_->type.name, env);
+
+		if (!type)
+			errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
 		return new MatchCaseMembers(type, _->location, member_values, member_names);
 	}
@@ -1272,10 +1274,35 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 				}
 			}
 		}
-		else
+		else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
 		{
 			if (!_->member_names.empty())
 				errorf(_->location, "Type has no named members");
+
+			if (_->member_values.size() != tuple_type->members.size())
+				errorf(_->location, "Type has %d member(s), but %d is (are) specified", tuple_type->members.size(), _->member_values.size());
+
+			for (size_t i = 0; i < _->member_values.size(); ++i)
+			{
+				Type* mtype = analyze(_->member_values[i], nongen);
+
+				mustUnify(mtype, tuple_type->members[i], _->member_values[i]->location);
+			}
+		}
+		else
+		{
+			PrettyPrintContext context;
+			std::string name = typeName(finalType(_->type), context);
+
+			if (!_->member_names.empty() || _->member_values.size() > 1)
+				errorf(_->location, "Type %s has no members", name.c_str());
+
+			if (_->member_values.size() == 1)
+			{
+				Type* mtype = analyze(_->member_values[0], nongen);
+
+				mustUnify(mtype, finalType(_->type), _->member_values[0]->location);
+			}
 		}
 
 		return _->type;

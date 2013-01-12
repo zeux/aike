@@ -627,9 +627,13 @@ SynBase* parseForInDo(Lexer& lexer)
 SynMatch* parseMatchPattern(Lexer& lexer)
 {
 	// Check literal value matches
-	if (lexer.current.type == LexNumber)
+	if (lexer.current.type == LexMinus || lexer.current.type == LexPlus || lexer.current.type == LexNumber)
 	{
-		SynMatch* result = new SynMatchNumber(lexer.current.location, lexer.current.number);
+		bool negative = lexer.current.type == LexMinus;
+		if (lexer.current.type == LexMinus || lexer.current.type == LexPlus)
+			movenext(lexer);
+
+		SynMatch* result = new SynMatchNumber(lexer.current.location, lexer.current.number * (negative ? -1 : 1));
 		movenext(lexer);
 		return result;
 	}
@@ -824,7 +828,7 @@ SynBase* parseMatchWith(Lexer& lexer)
 	std::vector<SynBase*> expressions;
 
 	// Allow to skip first '|' as long as the identifier is on the same line
-	while (lexer.current.type == LexPipe || (variants.empty() && (lexer.current.type == LexIdentifier || lexer.current.type == LexNumber) && lexer.current.location.line == location.line))
+	while (lexer.current.type == LexPipe || (variants.empty() && lexer.current.location.line == location.line))
 	{
 		if (lexer.current.type == LexPipe)
 			movenext(lexer);

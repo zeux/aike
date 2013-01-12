@@ -5,4 +5,4 @@ match A(3) with
 | B(value = y) -> y
 
 // ERRORS:
-// (4,3): Type has no named members
+// (4,3): Type int has no members

@@ -743,6 +743,14 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		}
 		else
 		{
+			if (_->member_values.size() > 1)
+			{
+				PrettyPrintContext context;
+				std::string name = typeName(finalType(_->type), context);
+
+				errorf(_->member_values[1]->location, "Type %s has no members", name.c_str());
+			}
+
 			// This must be a union tag that is a type alias
 			assert(_->member_values.size() == 1);
 

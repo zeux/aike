@@ -1,0 +1,11 @@
+type A = A (int, int) | B int
+
+match A((1, 2)) with
+| B((x)) -> x
+| _ -> 0
+
+// ERRORS:
+// (4,5): Type mismatch. Expecting a
+//     int
+// but given a
+//     ('a)
