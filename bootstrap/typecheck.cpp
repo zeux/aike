@@ -590,6 +590,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 				element_type = inst_type;
 			}
+			else if (SynTypeTuple* type_tuple = dynamic_cast<SynTypeTuple*>(_->members[i].type))
+			{
+				TypeTuple* type = dynamic_cast<TypeTuple*>(resolveType(type_tuple, env));
+
+				member_types = type->members;
+				member_names.insert(member_names.begin(), member_types.size(), "value");
+
+				element_type = type;
+			}
 			else if (_->members[i].type)
 			{
 				Type* type = resolveType(_->members[i].type, env);

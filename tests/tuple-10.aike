@@ -6,7 +6,7 @@ let collide(a, b) =
     | (Circle x, Rectangle y) | (Rectangle y, Circle x) -> 1
     | (Rectangle x, Rectangle y) -> 0
 
-collide(Circle(5), Rectangle((3, 4)))
+collide(Circle(5), Rectangle(3, 4))
 
 // OUTPUT:
 // 1

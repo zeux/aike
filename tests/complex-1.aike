@@ -33,27 +33,27 @@ let cmp(f, g) : int =
 let add(f, g) : expr =
     match (f, g) with
     | (Int m, Int n) -> Int(m + n)
-    | (Int m, Add(Int n, f)) -> Add((Int(m + n), f))
+    | (Int m, Add(Int n, f)) -> Add(Int(m + n), f)
     | (f, Int(0)) -> f
     | (Int(0), f) -> f
     | (Add(f, g), h) -> add(f, add(g, h))
     | (f, Add(g, h)) ->
         (match cmp(f, g) with
-        | -1 -> Add((f, Add((g, h))))
-        | x if x == -1 -> Add((f, Add((g, h))))
-        | 0 -> Add((Mul((Int(2), f)), h))
+        | -1 -> Add(f, Add(g, h))
+        | x if x == -1 -> Add(f, Add(g, h))
+        | 0 -> Add(Mul(Int(2), f), h)
         | _ -> add(g, add(f, h)))
     | (f, g) ->
         match cmp(f, g) with
-        | -1 -> Add((f, g))
-        | x if x == -1 -> Add((f, g))
-        | 0 -> Mul((Int(2), f))
-        | _ -> Add((g, f))
+        | -1 -> Add(f, g)
+        | x if x == -1 -> Add(f, g)
+        | 0 -> Mul(Int(2), f)
+        | _ -> Add(g, f)
 
 let mul(f, g) : expr =
     match (f, g) with
     | (Int m, Int n) -> Int(m * n)
-    | (Int m, Mul(Int n, f)) -> Mul((Int(m * n), f))
+    | (Int m, Mul(Int n, f)) -> Mul(Int(m * n), f)
     | (f, Int(0)) -> Int(0)
     | (Int(0), f) -> Int(0)
     | (f, Int(1)) -> f
@@ -62,11 +62,11 @@ let mul(f, g) : expr =
     | (f, Mul(g, h)) ->
         (match cmp(f, g) with
         | 1 -> mul(g, mul(f, h))
-        | _ -> Mul((f, Mul((g, h)))))
+        | _ -> Mul(f, Mul(g, h)))
     | (f, g) ->
         match cmp(f, g) with
         | 1 -> mul(g, f)
-        | _ -> Mul((f, g))
+        | _ -> Mul(f, g)
 
 let d(f, x) : expr =
     match f with

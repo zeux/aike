@@ -1,6 +1,6 @@
 type A = A (int, int) | B int
 
-match A((1, 2)) with
+match A(1, 2) with
 | B((x)) -> x
 | _ -> 0
 
