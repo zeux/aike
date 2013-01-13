@@ -229,7 +229,9 @@ MatchCase* simplify(MatchCase* pattern)
 						if (mismatch_index == ~0u)
 						{
 							mismatch_index = k;
-						}else{
+						}
+						else
+						{
 							mismatch_index = ~0u;
 							break;
 						}

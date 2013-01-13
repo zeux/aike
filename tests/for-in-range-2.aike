@@ -1,0 +1,12 @@
+extern print(i:int):unit
+
+for i in -1..1 do
+    print(i)
+
+10
+
+// OUTPUT:
+// -1
+// 0
+// 1
+// 10

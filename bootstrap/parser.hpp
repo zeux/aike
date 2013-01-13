@@ -317,6 +317,18 @@ struct SynForInDo: SynBase
 	}
 };
 
+struct SynForInRangeDo: SynBase
+{
+	SynTypedVar var;
+	SynBase* start;
+	SynBase* end;
+	SynBase* body;
+
+	SynForInRangeDo(const Location& location, const SynTypedVar& var, SynBase* start, SynBase* end, SynBase* body): SynBase(location), var(var), start(start), end(end), body(body)
+	{
+	}
+};
+
 struct SynMatch: SynBase
 {
 	SynMatch(const Location& location): SynBase(location) {}

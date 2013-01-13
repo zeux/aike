@@ -882,6 +882,22 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprForInDo(new TypeUnit(), _->location, target, arr, body);
 	}
 
+	if (CASE(SynForInRangeDo, node))
+	{
+		Expr* start = resolveExpr(_->start, env);
+		Expr* end = resolveExpr(_->end, env);
+
+		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
+
+		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
+
+		Expr* body = resolveExpr(_->body, env);
+
+		env.bindings.back().pop_back();
+
+		return new ExprForInRangeDo(new TypeUnit(), _->location, target, start, end, body);
+	}
+
 	if (CASE(SynMatchWith, node))
 	{
 		Expr* variable = resolveExpr(_->variable, env);
@@ -1632,6 +1648,22 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		TypeArray* ta = new TypeArray(_->target->type);
 
 		mustUnify(tarr, ta, _->arr->location);
+		mustUnify(tbody, new TypeUnit(), _->body->location);
+
+		return _->type = new TypeUnit();
+	}
+
+	if (CASE(ExprForInRangeDo, root))
+	{
+		Type* tbody = analyze(_->body, nongen);
+
+		Type* tstart = analyze(_->start, nongen);
+		Type* tend = analyze(_->end, nongen);
+
+		mustUnify(_->target->type, new TypeInt(), _->location);
+		mustUnify(tstart, new TypeInt(), _->start->location);
+		mustUnify(tend, new TypeInt(), _->end->location);
+
 		mustUnify(tbody, new TypeUnit(), _->body->location);
 
 		return _->type = new TypeUnit();

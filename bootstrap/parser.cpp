@@ -617,9 +617,19 @@ SynBase* parseForInDo(Lexer& lexer)
 	movenext(lexer);
 
 	SynBase* arr = parseExpr(lexer);
+	SynBase* end = 0;
+
+	if (lexer.current.type == LexPointPoint)
+	{
+		movenext(lexer);
+		end = parseExpr(lexer);
+	}
 
 	if (!iskeyword(lexer, "do")) errorf(lexer.current.location, "Expected 'do' after array expression");
 	movenext(lexer);
+
+	if (end)
+		return new SynForInRangeDo(location, var, arr, end, parseBlock(lexer));
 
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }

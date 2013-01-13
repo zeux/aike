@@ -347,6 +347,21 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "do\n";
 		dump(os, _->body, indent + 1);
 	}
+	else if (CASE(SynForInRangeDo, root))
+	{
+		os << "for " << _->var.name.name << ": ";
+		dump(os, _->var.type);
+		os << " =\n";
+		indentout(os, indent);
+		os << "from\n";
+		dump(os, _->start, indent + 1);
+		indentout(os, indent);
+		os << "to\n";
+		dump(os, _->end, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, _->body, indent + 1);
+	}
 	else if (CASE(SynMatchNumber, root))
 	{
 		os << _->value;
@@ -767,6 +782,21 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		indentout(os, indent);
 		os << "in\n";
 		dump(os, context, _->arr, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, context, _->body, indent + 1);
+	}
+	else if (CASE(ExprForInRangeDo, root))
+	{
+		os << "for " << _->target->name << ": ";
+		dump(os, context, _->target->type);
+		os << "\n";
+		indentout(os, indent);
+		os << "from\n";
+		dump(os, context, _->start, indent + 1);
+		indentout(os, indent);
+		os << "to\n";
+		dump(os, context, _->end, indent + 1);
 		indentout(os, indent);
 		os << "do\n";
 		dump(os, context, _->body, indent + 1);

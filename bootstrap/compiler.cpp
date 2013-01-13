@@ -1459,6 +1459,46 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		return builder.getInt32(0); // Same as ExprUnit
 	}
 
+	if (CASE(ExprForInRangeDo, node))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* start = compileExpr(context, builder, _->start);
+		llvm::Value* end = compileExpr(context, builder, _->end);
+
+		llvm::BasicBlock* before = builder.GetInsertBlock();
+		llvm::BasicBlock* step_basic_block = llvm::BasicBlock::Create(*context.context, "for_step");
+		llvm::BasicBlock* body_basic_block = llvm::BasicBlock::Create(*context.context, "for_body");
+		llvm::BasicBlock* end_basic_block = llvm::BasicBlock::Create(*context.context, "for_end");
+
+		builder.CreateBr(step_basic_block);
+
+		function->getBasicBlockList().push_back(step_basic_block);
+		builder.SetInsertPoint(step_basic_block);
+
+		llvm::PHINode* index = builder.CreatePHI(builder.getInt32Ty(), 2);
+		index->addIncoming(start, before);
+
+		builder.CreateCondBr(builder.CreateICmpSLE(index, end), body_basic_block, end_basic_block);
+
+		function->getBasicBlockList().push_back(body_basic_block);
+		builder.SetInsertPoint(body_basic_block);
+
+		context.values[_->target] = index;
+
+		compileExpr(context, builder, _->body);
+
+		llvm::Value *next_index = builder.CreateAdd(index, builder.getInt32(1), "", true, true);
+		index->addIncoming(next_index, body_basic_block);
+
+		builder.CreateBr(step_basic_block);
+
+		function->getBasicBlockList().push_back(end_basic_block);
+		builder.SetInsertPoint(end_basic_block);
+
+		return builder.getInt32(0); // Same as ExprUnit
+	}
+
 	if (CASE(ExprMatchWith, node))
 	{
 		// Check that case list will handle any value and that there are no unreachable cases

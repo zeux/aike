@@ -258,6 +258,18 @@ struct ExprForInDo: Expr
 	}
 };
 
+struct ExprForInRangeDo: Expr
+{
+	BindingTarget* target;
+	Expr* start;
+	Expr* end;
+	Expr* body;
+
+	ExprForInRangeDo(Type* type, const Location& location, BindingTarget* target, Expr* start, Expr* end, Expr* body): Expr(type, location), target(target), start(start), end(end), body(body)
+	{
+	}
+};
+
 struct MatchCase
 {
 	Type* type;
