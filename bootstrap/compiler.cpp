@@ -55,6 +55,8 @@ Type* getTypeInstance(Context& context, Type* type, const Location& location)
 
 llvm::Type* compileType(Context& context, Type* type, const Location& location);
 
+llvm::Value* compileEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* type);
+
 llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const Location& location, const std::string& mtype)
 {
 	if (CASE(TypePrototypeRecord, proto))
@@ -664,6 +666,23 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		builder.CreateBr(on_success);
 	}
+	else if (CASE(MatchCaseValue, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* cond = compileEqualityOperator(_->location, context, builder, compileBinding(context, builder, _->value, finalType(_->type), _->location), value, finalType(_->type));
+
+		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+
+		builder.CreateCondBr(cond, success, on_fail);
+
+		builder.SetInsertPoint(success);
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
 	else if (CASE(MatchCaseArray, case_))
 	{
 		TypeArray* arr_type = dynamic_cast<TypeArray*>(finalType(_->type));
@@ -871,8 +890,6 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		assert(!"Unknown MatchCase node");
 	}
 }
-
-llvm::Value* compileEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* type);
 
 llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, std::vector<Type*> types)
 {

@@ -14,6 +14,10 @@ MatchCase* clone(MatchCase* pattern)
 	{
 		return new MatchCaseNumber(_->type, _->location, _->number);
 	}
+	if (CASE(MatchCaseValue, pattern))
+	{
+		return new MatchCaseValue(_->type, _->location, _->value);
+	}
 	if (CASE(MatchCaseArray, pattern))
 	{
 		std::vector<MatchCase*> clone_elements;
@@ -64,6 +68,10 @@ bool match(MatchCase* pattern, MatchCase* rhs)
 		if (CASE(MatchCaseNumber, rhs))
 			return pattern_->number == _->number;
 
+		return false;
+	}
+	if (CASE(MatchCaseValue, pattern))
+	{
 		return false;
 	}
 	if (CASE(MatchCaseArray, pattern))
@@ -133,6 +141,10 @@ MatchCase* simplify(MatchCase* pattern)
 		return _;
 	}
 	if (CASE(MatchCaseNumber, pattern))
+	{
+		return _;
+	}
+	if (CASE(MatchCaseValue, pattern))
 	{
 		return _;
 	}

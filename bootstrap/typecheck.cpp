@@ -416,7 +416,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 		if (!previous)
 		{
-			BindingTarget* target = new BindingTarget(_->alias.name.name, new TypeGeneric());
+			BindingTarget* target = new BindingTarget(_->alias.name.name, resolveType(_->alias.type, env, true));
 		
 			env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
 
@@ -424,7 +424,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		}
 		else
 		{
-			errorf(_->location, "usage of the same binding is not yet implemented");
+			return new MatchCaseValue(resolveType(_->alias.type, env, true), _->location, previous);
 		}
 	}
 
@@ -1230,6 +1230,13 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 
 	if (CASE(MatchCaseNumber, case_))
 	{
+		return _->type;
+	}
+
+	if (CASE(MatchCaseValue, case_))
+	{
+		mustUnify(_->type, analyze(_->value, nongen), _->location);
+
 		return _->type;
 	}
 

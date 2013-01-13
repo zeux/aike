@@ -517,6 +517,15 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 			dump(os, context, _->type);
 		}
 	}
+	else if (CASE(MatchCaseValue, case_))
+	{
+		dump(os, _->value);
+		if (_->type)
+		{
+			os << ": ";
+			dump(os, context, _->type);
+		}
+	}
 	else if (CASE(MatchCaseArray, case_))
 	{
 		os << "[";

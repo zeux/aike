@@ -297,6 +297,15 @@ struct MatchCaseNumber: MatchCase
 	}
 };
 
+struct MatchCaseValue: MatchCase
+{
+	BindingBase* value;
+
+	MatchCaseValue(Type* type, const Location& location, BindingBase* value): MatchCase(type, location), value(value)
+	{
+	}
+};
+
 struct MatchCaseArray: MatchCase
 {
 	std::vector<MatchCase*> elements;

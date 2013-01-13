@@ -1,0 +1,9 @@
+match (3, 3) with
+| (v, v: int[]) -> v
+| (u, v) -> u + v
+
+// ERRORS:
+// (2,3): Type mismatch. Expecting a
+//     (int, int)
+// but given a
+//     (int[], int[])
