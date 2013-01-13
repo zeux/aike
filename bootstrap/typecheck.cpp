@@ -538,15 +538,21 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		std::vector<Type*> generic_types = resolveGenericTypeList(_->generics, env);
 
-		TypePrototypeRecord* record_type = resolveRecordType(_->type_struct, generic_types, env);
-		TypeInstance* inst_type = new TypeInstance(record_type, generic_types);
+		TypePrototypeRecord* actual_record_type = resolveRecordType(_->type_struct, generic_types, env);
+
+		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(tryResolveType(_->type_struct->name.name, env));
+		TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype);
+
+		record_type->member_types = actual_record_type->member_types;
+		record_type->member_names = actual_record_type->member_names;
+		record_type->generics = actual_record_type->generics;
+
+		inst_type->generics = generic_types;
 
 		std::vector<BindingTarget*> args;
 
 		for (size_t i = 0; i < record_type->member_types.size(); ++i)
 			args.push_back(new BindingTarget(record_type->member_names[i], record_type->member_types[i]));
-
-		env.types.push_back(TypeBinding(_->type_struct->name.name, inst_type));
 
 		TypeFunction* function_type = new TypeFunction(inst_type, record_type->member_types);
 
@@ -927,6 +933,17 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		size_t type_count = env.types.size();
 
 		env.bindings.push_back(std::vector<Binding>());
+
+		for (size_t i = 0; i < _->expressions.size(); ++i)
+		{
+			if (SynTypeDefinition *type_definition = dynamic_cast<SynTypeDefinition*>(_->expressions[i]))
+			{
+				TypePrototypeRecord* record_type = new TypePrototypeRecord(type_definition->type_struct->name.name, std::vector<Type*>(), std::vector<std::string>(), std::vector<Type*>());
+				TypeInstance* inst_type = new TypeInstance(record_type, std::vector<Type*>());
+
+				env.types.push_back(TypeBinding(type_definition->type_struct->name.name, inst_type));
+			}
+		}
 
 		for (size_t i = 0; i < _->expressions.size(); ++i)
 			expression->expressions.push_back(resolveExpr(_->expressions[i], env));

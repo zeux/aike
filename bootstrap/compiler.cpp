@@ -63,10 +63,16 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 	{
 		std::vector<llvm::Type*> members;
 
+		llvm::StructType* struct_type = llvm::StructType::create(*context.context, _->name + ".." + mtype);
+
+		context.types[mtype] = struct_type;
+
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		return llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
+		struct_type->setBody(members);
+
+		return struct_type;
 	}
 
 	if (CASE(TypePrototypeUnion, proto))
@@ -76,7 +82,7 @@ llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const L
 		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
 		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
 
-		return llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
+		return context.types[mtype] = llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
 	}
 
 	assert(!"Unknown prototype type");
@@ -178,7 +184,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 		context.generic_instances.resize(generic_type_count);
 
-		return context.types[mtype] = result;
+		return result;
 	}
 
 	errorf(location, "Unrecognized type");
