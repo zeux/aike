@@ -35,8 +35,6 @@ struct Context
 	std::vector<std::string> function_mangled_type;
 
 	std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > generic_instances;
-
-	std::map<Type*, llvm::Function*> equality_operators;
 };
 
 Type* getTypeInstance(Context& context, Type* type, const Location& location)
@@ -901,16 +899,16 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, std::vector<Type*> types)
 {
-	if (context.equality_operators.find(parent) != context.equality_operators.end())
-		return builder.CreateCall2(context.equality_operators.find(parent)->second, left, right);
-	
+	PrettyPrintContext print_context;
+	std::string function_name = typeName(parent, print_context) + "..==";
+
+	if (llvm::Function *function = context.module->getFunction(function_name))
+		return builder.CreateCall2(function, left, right);
+
 	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
 	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
 
-	PrettyPrintContext print_context;
-
-	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, typeName(parent, print_context) + "..==", context.module);
-	context.equality_operators[parent] = function;
+	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
 
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
 	llvm::IRBuilder<> function_builder(bb);
@@ -959,16 +957,16 @@ llvm::Value* compileStructEqualityOperator(const Location& location, Context& co
 
 llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, TypePrototypeUnion* proto)
 {
-	if (context.equality_operators.find(parent) != context.equality_operators.end())
-		return builder.CreateCall2(context.equality_operators.find(parent)->second, left, right);
-	
+	PrettyPrintContext print_context;
+	std::string function_name = typeName(parent, print_context) + "..==";
+
+	if (llvm::Function *function = context.module->getFunction(function_name))
+		return builder.CreateCall2(function, left, right);
+
 	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
 	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
 
-	PrettyPrintContext print_context;
-
-	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, typeName(parent, print_context) + "..==", context.module);
-	context.equality_operators[parent] = function;
+	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
 
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
 	llvm::IRBuilder<> function_builder(bb);
