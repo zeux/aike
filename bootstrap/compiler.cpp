@@ -929,6 +929,128 @@ llvm::Value* compileStructEqualityOperator(const Location& location, Context& co
 	return result;
 }
 
+llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, TypePrototypeUnion* proto)
+{
+	llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+	llvm::Value* left_tag = builder.CreateExtractValue(left, 0);
+	llvm::Value* left_ptr = builder.CreateExtractValue(left, 1);
+
+	llvm::Value* right_tag = builder.CreateExtractValue(right, 0);
+	llvm::Value* right_ptr = builder.CreateExtractValue(right, 1);
+
+	llvm::BasicBlock* compare_start = builder.GetInsertBlock();
+	llvm::BasicBlock* compare_data = llvm::BasicBlock::Create(*context.context, "compare_data");
+	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
+
+	// Check tag equality
+	builder.CreateCondBr(builder.CreateICmpEQ(left_tag, right_tag), compare_data, compare_end);
+
+	// Switch by union tag
+	function->getBasicBlockList().push_back(compare_data);
+	builder.SetInsertPoint(compare_data);
+
+	llvm::SwitchInst *swichInst = builder.CreateSwitch(left_tag, compare_end, proto->member_types.size());
+
+	std::vector<llvm::Value*> case_results;
+	std::vector<llvm::BasicBlock*> case_blocks;
+
+	for (size_t i = 0; i < proto->member_types.size(); ++i)
+	{
+		llvm::BasicBlock* compare_tag = llvm::BasicBlock::Create(*context.context, "compare_tag", function);
+		builder.SetInsertPoint(compare_tag);
+
+		llvm::Value* left_elem = builder.CreateLoad(builder.CreateBitCast(left_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
+		llvm::Value* right_elem = builder.CreateLoad(builder.CreateBitCast(right_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
+
+		case_results.push_back(compileEqualityOperator(location, context, builder, left_elem, right_elem, proto->member_types[i]));
+		builder.CreateBr(compare_end);
+		
+		case_blocks.push_back(builder.GetInsertBlock());
+
+		swichInst->addCase(builder.getInt32(i), compare_tag);
+	}
+
+	// Result computation node
+	function->getBasicBlockList().push_back(compare_end);
+	builder.SetInsertPoint(compare_end);
+
+	llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 2 + proto->member_types.size());
+
+	// Tags are not equal
+	result->addIncoming(builder.getInt1(false), compare_start);
+	// Tag is invalid
+	result->addIncoming(builder.getInt1(false), compare_data);
+	// For other cases, take the result of the other comparisons
+	for (size_t i = 0; i < proto->member_types.size(); ++i)
+		result->addIncoming(case_results[i], case_blocks[i]);
+
+	return result;
+}
+
+llvm::Value* compileArrayEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, TypeArray* type)
+{
+	llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+	llvm::Value* left_arr = builder.CreateExtractValue(left, 0);
+	llvm::Value* left_size = builder.CreateExtractValue(left, 1);
+
+	llvm::Value* right_arr = builder.CreateExtractValue(right, 0);
+	llvm::Value* right_size = builder.CreateExtractValue(right, 1);
+
+	llvm::BasicBlock* compare_size = builder.GetInsertBlock();
+	llvm::BasicBlock* compare_content = llvm::BasicBlock::Create(*context.context, "compare_content");
+	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
+	llvm::BasicBlock* compare_elem = llvm::BasicBlock::Create(*context.context, "compare_elem");
+	llvm::BasicBlock* compare_content_end = llvm::BasicBlock::Create(*context.context, "compare_content_end");
+
+	// TODO: compare array pointers to determine equality immediately
+
+	builder.CreateCondBr(builder.CreateICmpEQ(left_size, right_size), compare_content, compare_end);
+
+	// Content computation node
+	function->getBasicBlockList().push_back(compare_content);
+	builder.SetInsertPoint(compare_content);
+
+	llvm::PHINode* index = builder.CreatePHI(builder.getInt32Ty(), 2);
+	index->addIncoming(builder.getInt32(0), compare_size);
+
+	builder.CreateCondBr(builder.CreateICmpULT(index, left_size), compare_elem, compare_end);
+
+	// Element computation node
+	function->getBasicBlockList().push_back(compare_elem);
+	builder.SetInsertPoint(compare_elem);
+
+	llvm::Value* left_elem = builder.CreateLoad(builder.CreateGEP(left_arr, index));
+	llvm::Value* right_elem = builder.CreateLoad(builder.CreateGEP(right_arr, index));
+
+	builder.CreateCondBr(compileEqualityOperator(location, context, builder, left_elem, right_elem, type->contained), compare_content_end, compare_end);
+
+	// Index increment node
+	function->getBasicBlockList().push_back(compare_content_end);
+	builder.SetInsertPoint(compare_content_end);
+
+	llvm::Value *next_index = builder.CreateAdd(index, builder.getInt32(1), "", true, true);
+	index->addIncoming(next_index, compare_content_end);
+
+	builder.CreateBr(compare_content);
+
+	// Result computation node
+	function->getBasicBlockList().push_back(compare_end);
+	builder.SetInsertPoint(compare_end);
+
+	llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 3);
+
+	// If we got here after we checked for equality of all array elements and succedeed, that means arrays are equal
+	result->addIncoming(builder.getInt1(true), compare_content);
+	// If we got here from the block where the size comparison happened and failed, that means arrays were not equal
+	result->addIncoming(builder.getInt1(false), compare_size);
+	// If we got here from the block where the array elements are compared and failed, that means arrays were not equal
+	result->addIncoming(builder.getInt1(false), compare_elem);
+
+	return result;
+}
+
 llvm::Value* compileEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* type)
 {
 	if (CASE(TypeUnit, type))
@@ -944,67 +1066,7 @@ llvm::Value* compileEqualityOperator(const Location& location, Context& context,
 		return builder.CreateICmpEQ(left, right);
 
 	if (CASE(TypeArray, type))
-	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
-
-		llvm::Value* left_arr = builder.CreateExtractValue(left, 0);
-		llvm::Value* left_size = builder.CreateExtractValue(left, 1);
-
-		llvm::Value* right_arr = builder.CreateExtractValue(right, 0);
-		llvm::Value* right_size = builder.CreateExtractValue(right, 1);
-
-		llvm::BasicBlock* compare_size = builder.GetInsertBlock();
-		llvm::BasicBlock* compare_content = llvm::BasicBlock::Create(*context.context, "compare_content");
-		llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
-		llvm::BasicBlock* compare_elem = llvm::BasicBlock::Create(*context.context, "compare_elem");
-		llvm::BasicBlock* compare_content_end = llvm::BasicBlock::Create(*context.context, "compare_content_end");
-
-		// TODO: compare array pointers to determine equality immediately
-
-		builder.CreateCondBr(builder.CreateICmpEQ(left_size, right_size), compare_content, compare_end);
-
-		// Content computation node
-		function->getBasicBlockList().push_back(compare_content);
-		builder.SetInsertPoint(compare_content);
-
-		llvm::PHINode* index = builder.CreatePHI(builder.getInt32Ty(), 2);
-		index->addIncoming(builder.getInt32(0), compare_size);
-
-		builder.CreateCondBr(builder.CreateICmpULT(index, left_size), compare_elem, compare_end);
-
-		// Element computation node
-		function->getBasicBlockList().push_back(compare_elem);
-		builder.SetInsertPoint(compare_elem);
-
-		llvm::Value* left_elem = builder.CreateLoad(builder.CreateGEP(left_arr, index));
-		llvm::Value* right_elem = builder.CreateLoad(builder.CreateGEP(right_arr, index));
-
-		builder.CreateCondBr(compileEqualityOperator(location, context, builder, left_elem, right_elem, _->contained), compare_content_end, compare_end);
-
-		// Index increment node
-		function->getBasicBlockList().push_back(compare_content_end);
-		builder.SetInsertPoint(compare_content_end);
-
-		llvm::Value *next_index = builder.CreateAdd(index, builder.getInt32(1), "", true, true);
-		index->addIncoming(next_index, compare_content_end);
-
-		builder.CreateBr(compare_content);
-
-		// Result computation node
-		function->getBasicBlockList().push_back(compare_end);
-		builder.SetInsertPoint(compare_end);
-
-		llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 3);
-
-		// If we got here after we checked for equality of all array elements and succedeed, that means arrays are equal
-		result->addIncoming(builder.getInt1(true), compare_content);
-		// If we got here from the block where the size comparison happened and failed, that means arrays were not equal
-		result->addIncoming(builder.getInt1(false), compare_size);
-		// If we got here from the block where the array elements are compared and failed, that means arrays were not equal
-		result->addIncoming(builder.getInt1(false), compare_elem);
-
-		return result;
-	}
+		return compileArrayEqualityOperator(location, context, builder, left, right, _);
 
 	if (CASE(TypeFunction, type))
 		errorf(location, "Cannot compare functions"); // Feel free to implement
@@ -1020,63 +1082,10 @@ llvm::Value* compileEqualityOperator(const Location& location, Context& context,
 			return compileStructEqualityOperator(location, context, builder, left, right, _->member_types);
 
 		if (CASE(TypePrototypeUnion, instance->prototype))
-		{
-			llvm::Function* function = builder.GetInsertBlock()->getParent();
+			return compileUnionEqualityOperator(location, context, builder, left, right, _);
 
-			llvm::Value* left_tag = builder.CreateExtractValue(left, 0);
-			llvm::Value* left_ptr = builder.CreateExtractValue(left, 1);
-
-			llvm::Value* right_tag = builder.CreateExtractValue(right, 0);
-			llvm::Value* right_ptr = builder.CreateExtractValue(right, 1);
-
-			llvm::BasicBlock* compare_start = builder.GetInsertBlock();
-			llvm::BasicBlock* compare_data = llvm::BasicBlock::Create(*context.context, "compare_data");
-			llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
-
-			// Check tag equality
-			builder.CreateCondBr(builder.CreateICmpEQ(left_tag, right_tag), compare_data, compare_end);
-
-			// Switch by union tag
-			function->getBasicBlockList().push_back(compare_data);
-			builder.SetInsertPoint(compare_data);
-
-			llvm::SwitchInst *swichInst = builder.CreateSwitch(left_tag, compare_end, _->member_types.size());
-
-			std::vector<llvm::Value*> case_results;
-			std::vector<llvm::BasicBlock*> case_blocks;
-
-			for (size_t i = 0; i < _->member_types.size(); ++i)
-			{
-				llvm::BasicBlock* compare_tag = llvm::BasicBlock::Create(*context.context, "compare_tag", function);
-				builder.SetInsertPoint(compare_tag);
-
-				llvm::Value* left_elem = builder.CreateLoad(builder.CreateBitCast(left_ptr, llvm::PointerType::getUnqual(compileType(context, _->member_types[i], location))));
-				llvm::Value* right_elem = builder.CreateLoad(builder.CreateBitCast(right_ptr, llvm::PointerType::getUnqual(compileType(context, _->member_types[i], location))));
-
-				case_results.push_back(compileEqualityOperator(location, context, builder, left_elem, right_elem, _->member_types[i]));
-				builder.CreateBr(compare_end);
-				
-				case_blocks.push_back(builder.GetInsertBlock());
-
-				swichInst->addCase(builder.getInt32(i), compare_tag);
-			}
-
-			// Result computation node
-			function->getBasicBlockList().push_back(compare_end);
-			builder.SetInsertPoint(compare_end);
-
-			llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 2 + _->member_types.size());
-
-			// Tags are not equal
-			result->addIncoming(builder.getInt1(false), compare_start);
-			// Tag is invalid
-			result->addIncoming(builder.getInt1(false), compare_data);
-			// For other cases, take the result of the other comparisons
-			for (size_t i = 0; i < _->member_types.size(); ++i)
-				result->addIncoming(case_results[i], case_blocks[i]);
-
-			return result;
-		}
+		assert(!"Unknown type prototype");
+		return 0;
 	}
 
 	assert(!"Unknown type in comparison");
