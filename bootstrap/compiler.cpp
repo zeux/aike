@@ -899,8 +899,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, std::vector<Type*> types)
 {
-	PrettyPrintContext print_context;
-	std::string function_name = typeName(parent, print_context) + "..==";
+	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
 	if (llvm::Function *function = context.module->getFunction(function_name))
 		return builder.CreateCall2(function, left, right);
@@ -957,8 +956,7 @@ llvm::Value* compileStructEqualityOperator(const Location& location, Context& co
 
 llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, TypePrototypeUnion* proto)
 {
-	PrettyPrintContext print_context;
-	std::string function_name = typeName(parent, print_context) + "..==";
+	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
 	if (llvm::Function *function = context.module->getFunction(function_name))
 		return builder.CreateCall2(function, left, right);
