@@ -174,13 +174,13 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 
 		size_t generic_type_count = context.generic_instances.size();
 
-		const std::vector<Type*>& generics = getGenericTypes(_->prototype);
+		const std::vector<Type*>& generics = getGenericTypes(*_->prototype);
 		assert(generics.size() == _->generics.size());
 
 		for (size_t i = 0; i < _->generics.size(); ++i)
 			context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(_->generics[i], compileType(context, _->generics[i], location))));
 
-		llvm::Type* result = compileTypePrototype(context, _->prototype, location, mtype);
+		llvm::Type* result = compileTypePrototype(context, *_->prototype, location, mtype);
 
 		context.generic_instances.resize(generic_type_count);
 
@@ -731,7 +731,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
 
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
-		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type->prototype) : 0;
+		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype) : 0;
 
 		if (record_type)
 		{
@@ -793,7 +793,7 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 	else if (CASE(MatchCaseUnion, case_))
 	{
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
-		TypePrototypeUnion* union_type = inst_type ? dynamic_cast<TypePrototypeUnion*>(inst_type->prototype) : 0;
+		TypePrototypeUnion* union_type = inst_type ? dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype) : 0;
 
 		if (!union_type)
 			errorf(_->location, "union type is unknown");
@@ -1084,10 +1084,10 @@ llvm::Value* compileEqualityOperator(const Location& location, Context& context,
 	{
 		auto instance = _;
 
-		if (CASE(TypePrototypeRecord, instance->prototype))
+		if (CASE(TypePrototypeRecord, *instance->prototype))
 			return compileStructEqualityOperator(location, context, builder, left, right, _->member_types);
 
-		if (CASE(TypePrototypeUnion, instance->prototype))
+		if (CASE(TypePrototypeUnion, *instance->prototype))
 			return compileUnionEqualityOperator(location, context, builder, left, right, _);
 
 		assert(!"Unknown type prototype");
@@ -1289,7 +1289,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
 
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(getTypeInstance(context, _->aggr->type, _->aggr->location));
-		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(inst_type->prototype) : 0;
+		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype) : 0;
 
 		if (record_type)
 			return builder.CreateExtractValue(aggr, getMemberIndexByName(record_type, _->member_name, _->location));

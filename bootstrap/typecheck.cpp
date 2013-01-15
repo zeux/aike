@@ -71,10 +71,8 @@ BindingBase* resolveBinding(const std::string& name, Environment& env, const Loc
 	errorf(location, "Unresolved binding %s", name.c_str());
 }
 
-TypeInstance* instantiatePrototype(TypePrototype* proto)
+TypeInstance* instantiatePrototype(TypePrototype** proto, size_t generic_count)
 {
-	size_t generic_count = getGenericTypes(proto).size();
-
 	std::vector<Type*> args;
 
 	for (size_t i = 0; i < generic_count; ++i)
@@ -93,7 +91,7 @@ Type* tryResolveType(const std::string& name, Environment& env)
 			{
 				if (_->generics.size() > 0)
 				{
-					return instantiatePrototype(_->prototype);
+					return instantiatePrototype(_->prototype, _->generics.size());
 				}
 			}
 
@@ -216,7 +214,7 @@ std::vector<Type*> resolveGenericTypeList(const std::vector<SynTypeGeneric*>& ge
 	return result;
 }
 
-TypePrototypeRecord* resolveRecordType(SynTypeStructure* type, const std::vector<Type*>& generics, Environment& env)
+TypePrototypeRecord* resolveRecordType(const SynIdentifier& name, SynTypeRecord* type, const std::vector<Type*>& generics, Environment& env)
 {
 	std::vector<Type*> member_types;
 	std::vector<std::string> member_names;
@@ -227,7 +225,7 @@ TypePrototypeRecord* resolveRecordType(SynTypeStructure* type, const std::vector
 		member_names.push_back(type->members[i].name.name);
 	}
 
-	return new TypePrototypeRecord(type->name.name, member_types, member_names, generics);
+	return new TypePrototypeRecord(name.name, member_types, member_names, generics);
 }
 
 TypeFunction* resolveFunctionType(SynType* rettype, const std::vector<SynTypedVar>& args, Environment& env, bool allow_new_generics = false)
@@ -244,7 +242,7 @@ std::pair<TypePrototypeUnion*, size_t> resolveUnionTypeByVariant(const std::stri
 {
 	for (size_t i = 0; i < env.types.size(); ++i)
 		if (TypeInstance* ti = dynamic_cast<TypeInstance*>(env.types[i].type))
-			if (TypePrototypeUnion* tu = dynamic_cast<TypePrototypeUnion*>(ti->prototype))
+			if (TypePrototypeUnion* tu = dynamic_cast<TypePrototypeUnion*>(*ti->prototype))
 				for (size_t j = 0; j < tu->member_names.size(); ++j)
 					if (tu->member_names[j] == variant)
 						return std::make_pair(tu, j);
@@ -339,22 +337,16 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		// Maybe it's a tag from a union
 		if (union_tag.first)
 		{
-			std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->type.name, env);
+			TypeInstance* inst = instantiatePrototype(new TypePrototype*(union_tag.first), union_tag.first->generics.size());
 
-			std::vector<Type*> fake_generics;
-			for (size_t i = 0; i < union_tag.first->generics.size(); ++i)
-				fake_generics.push_back(new TypeGeneric());
-
-			TypeInstance* fake_inst = new TypeInstance(union_tag.first, fake_generics);
-
-			Type* member_type = getMemberTypeByIndex(fake_inst, union_tag.first, union_tag.second, _->location);
+			Type* member_type = getMemberTypeByIndex(inst, union_tag.first, union_tag.second, _->location);
 
 			BindingTarget* target = new BindingTarget(_->alias.name, member_type);
 		
 			env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
 
 			// First match the tag, then match the contents
-			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(member_type, _->location, target));
+			return new MatchCaseUnion(inst, _->location, union_tag.second, new MatchCaseAny(member_type, _->location, target));
 		}
 
 		Type* type = tryResolveType(_->type.name, env);
@@ -387,7 +379,9 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		if (union_tag.first)
 		{
 			// First match the tag, then match the contents
-			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
+			TypeInstance* inst = instantiatePrototype(new TypePrototype*(union_tag.first), union_tag.first->generics.size());
+
+			return new MatchCaseUnion(inst, _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
 		}
 
 		Type* type = tryResolveType(_->type.name, env);
@@ -404,7 +398,11 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		std::pair<TypePrototypeUnion*, size_t> union_tag = resolveUnionTypeByVariant(_->alias.name.name, env);
 
 		if (union_tag.first)
-			return new MatchCaseUnion(instantiatePrototype(union_tag.first), _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, 0));
+		{
+			TypeInstance* inst = instantiatePrototype(new TypePrototype*(union_tag.first), union_tag.first->generics.size());
+
+			return new MatchCaseUnion(inst, _->location, union_tag.second, new MatchCaseAny(new TypeGeneric(), _->location, 0));
+		}
 
 		// Find a binding with the same name in current scope
 		BindingBase* previous = 0;
@@ -495,6 +493,30 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 	return 0;
 }
 
+TypeInstance* resolveTypeDeclaration(const std::string& name, const std::vector<SynTypeGeneric*>& generics, Environment& env)
+{
+	size_t generic_type_count = env.generic_types.size();
+
+	std::vector<Type*> generic_types = resolveGenericTypeList(generics, env);
+
+	env.generic_types.resize(generic_type_count);
+
+	TypeInstance* inst_type = new TypeInstance(new TypePrototype*(0), generic_types);
+
+	env.types.push_back(TypeBinding(name, inst_type));
+
+	return inst_type;
+}
+
+TypeInstance* resolveTypeDeclarationRec(const std::string& name, const std::vector<SynTypeGeneric*>& generics, Environment& env)
+{
+	for (size_t i = 0; i < env.types.size(); ++i)
+		if (env.types[i].name == name)
+			return dynamic_cast<TypeInstance*>(env.types[i].type);
+
+	return resolveTypeDeclaration(name, generics, env);
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -532,22 +554,20 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprTupleLiteral(new TypeTuple(types), _->location, elements);
 	}
 
-	if (CASE(SynTypeDefinition, node))
+	if (CASE(SynRecordDefinition, node))
 	{
+		TypeInstance* inst_type = resolveTypeDeclarationRec(_->name.name, _->generics, env);
+
 		size_t generic_type_count = env.generic_types.size();
 
-		std::vector<Type*> generic_types = resolveGenericTypeList(_->generics, env);
+		const std::vector<Type*>& generic_types = inst_type->generics;
 
-		TypePrototypeRecord* actual_record_type = resolveRecordType(_->type_struct, generic_types, env);
+		for (size_t i = 0; i < generic_types.size(); ++i)
+			env.generic_types.push_back(dynamic_cast<TypeGeneric*>(generic_types[i]));
 
-		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(tryResolveType(_->type_struct->name.name, env));
-		TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype);
+		TypePrototypeRecord* record_type = resolveRecordType(_->name, _->type, generic_types, env);
 
-		record_type->member_types = actual_record_type->member_types;
-		record_type->member_names = actual_record_type->member_names;
-		record_type->generics = actual_record_type->generics;
-
-		inst_type->generics = generic_types;
+		*inst_type->prototype = record_type;
 
 		std::vector<BindingTarget*> args;
 
@@ -556,9 +576,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		TypeFunction* function_type = new TypeFunction(inst_type, record_type->member_types);
 
-		BindingTarget* target = new BindingTarget(_->type_struct->name.name, function_type);
+		BindingTarget* target = new BindingTarget(_->name.name, function_type);
 
-		env.bindings.back().push_back(Binding(_->type_struct->name.name, new BindingFreeFunction(target, record_type->member_names)));
+		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target, record_type->member_names)));
 
 		env.generic_types.resize(generic_type_count);
 
@@ -567,12 +587,18 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynUnionDefinition, node))
 	{
+		TypeInstance* inst_type = resolveTypeDeclarationRec(_->name.name, _->generics, env);
+
 		size_t generic_type_count = env.generic_types.size();
 
-		std::vector<Type*> generic_types = resolveGenericTypeList(_->generics, env);
+		const std::vector<Type*>& generic_types = inst_type->generics;
+
+		for (size_t i = 0; i < generic_types.size(); ++i)
+			env.generic_types.push_back(dynamic_cast<TypeGeneric*>(generic_types[i]));
 
 		TypePrototypeUnion* union_type = new TypePrototypeUnion(_->name.name, std::vector<Type*>(), std::vector<std::string>(), generic_types);
-		TypeInstance* inst_type = new TypeInstance(union_type, generic_types);
+
+		*inst_type->prototype = union_type;
 
 		ExprBlock *expression = new ExprBlock(new TypeUnit(), _->location);
 
@@ -586,10 +612,10 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 			Type* element_type = 0;
 
-			if (SynTypeStructure* type_struct = dynamic_cast<SynTypeStructure*>(_->members[i].type))
+			if (SynTypeRecord* type_record = dynamic_cast<SynTypeRecord*>(_->members[i].type))
 			{
-				TypePrototypeRecord* record_type = resolveRecordType(type_struct, generic_types, env);
-				TypeInstance* inst_type = new TypeInstance(record_type, generic_types);
+				TypePrototypeRecord* record_type = resolveRecordType(_->members[i].name, type_record, generic_types, env);
+				TypeInstance* inst_type = new TypeInstance(new TypePrototype*(record_type), generic_types);
 
 				member_types = record_type->member_types;
 				member_names = record_type->member_names;
@@ -936,12 +962,14 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		for (size_t i = 0; i < _->expressions.size(); ++i)
 		{
-			if (SynTypeDefinition *type_definition = dynamic_cast<SynTypeDefinition*>(_->expressions[i]))
+			if (SynRecordDefinition *type_definition = dynamic_cast<SynRecordDefinition*>(_->expressions[i]))
 			{
-				TypePrototypeRecord* record_type = new TypePrototypeRecord(type_definition->type_struct->name.name, std::vector<Type*>(), std::vector<std::string>(), std::vector<Type*>());
-				TypeInstance* inst_type = new TypeInstance(record_type, std::vector<Type*>());
+				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
+			}
 
-				env.types.push_back(TypeBinding(type_definition->type_struct->name.name, inst_type));
+			if (SynUnionDefinition *type_definition = dynamic_cast<SynUnionDefinition*>(_->expressions[i]))
+			{
+				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
 			}
 		}
 
@@ -1180,7 +1208,7 @@ bool unify(Type* lhs, Type* rhs)
 		TypeInstance* r = dynamic_cast<TypeInstance*>(rhs);
 		if (!r) return false;
 
-		if (_->prototype != r->prototype) return false;
+		if (*_->prototype != *r->prototype) return false;
 
 		if (_->generics.size() != r->generics.size()) return false;
 
@@ -1284,7 +1312,7 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 	{
 		if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type)))
 		{
-			if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype))
+			if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype))
 			{
 				// Resolve named arguments into unnamed arguments
 				if (!_->member_names.empty())
@@ -1360,7 +1388,7 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 	if (CASE(MatchCaseUnion, case_))
 	{
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
-		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(inst_type->prototype);
+		TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype);
 
 		// Unify should be before analyze since analyze has to know the union type to resolve field names
 		mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
@@ -1577,7 +1605,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		Type* ta = finalType(analyze(_->aggr, nongen));
 
 		if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(ta))
-		if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(inst_type->prototype))
+		if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype))
 		{
 			size_t index = getMemberIndexByName(record_type, _->member_name, _->location);
 

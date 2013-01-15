@@ -130,9 +130,9 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 	}
 	else if (CASE(TypeInstance, type))
 	{
-		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(_->prototype))
+		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(*_->prototype))
 			os << p->name;
-		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(_->prototype))
+		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(*_->prototype))
 			os << p->name;
 		else
 			assert(!"Unknown prototype");
@@ -213,9 +213,9 @@ void mangle(std::ostream& os, Type* type, const std::function<Type* (TypeGeneric
 
 		os << "N";
 
-		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(_->prototype))
+		if (TypePrototypeRecord* p = dynamic_cast<TypePrototypeRecord*>(*_->prototype))
 			os << p->name.length() << p->name;
-		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(_->prototype))
+		else if (TypePrototypeUnion* p = dynamic_cast<TypePrototypeUnion*>(*_->prototype))
 			os << p->name.length() << p->name;
 		else
 			assert(!"Unknown prototype");
@@ -310,7 +310,7 @@ Type* fresh(Type* t, std::map<Type*, Type*>& genremap, const Location& location)
 
 Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeRecord* proto, size_t index, const Location& location)
 {
-	assert(instance->prototype == proto);
+	assert(*instance->prototype == proto);
 	assert(instance->generics.size() == proto->generics.size());
 	assert(index < proto->member_types.size());
 
@@ -324,7 +324,7 @@ Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeRecord* proto, s
 
 Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeUnion* proto, size_t index, const Location& location)
 {
-	assert(instance->prototype == proto);
+	assert(*instance->prototype == proto);
 	assert(instance->generics.size() == proto->generics.size());
 	assert(index < proto->member_types.size());
 

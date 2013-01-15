@@ -72,12 +72,11 @@ struct SynTypeFunction: SynType
 	}
 };
 
-struct SynTypeStructure: SynType
+struct SynTypeRecord: SynType
 {
-	SynIdentifier name;
 	std::vector<SynTypedVar> members;
 
-	SynTypeStructure(const SynIdentifier& name, const std::vector<SynTypedVar>& members): name(name), members(members)
+	SynTypeRecord(const std::vector<SynTypedVar>& members): members(members)
 	{
 	}
 };
@@ -132,12 +131,13 @@ struct SynTupleLiteral: SynBase
 	SynTupleLiteral(const Location& location, const std::vector<SynBase*>& elements): SynBase(location), elements(elements) {}
 };
 
-struct SynTypeDefinition: SynBase
+struct SynRecordDefinition: SynBase
 {
-	SynTypeStructure* type_struct;
+	SynIdentifier name;
+	SynTypeRecord* type;
 	std::vector<SynTypeGeneric*> generics;
 
-	SynTypeDefinition(const Location& location, SynTypeStructure* type_struct, const std::vector<SynTypeGeneric*>& generics): SynBase(location), type_struct(type_struct), generics(generics) {}
+	SynRecordDefinition(const Location& location, const SynIdentifier& name, SynTypeRecord* type, const std::vector<SynTypeGeneric*>& generics): SynBase(location), name(name), type(type), generics(generics) {}
 };
 
 struct SynUnionDefinition: SynBase

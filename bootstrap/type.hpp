@@ -107,10 +107,10 @@ struct TypePrototypeUnion: TypePrototype
 
 struct TypeInstance: Type
 {
-	TypePrototype* prototype;
+	TypePrototype** prototype;
 	std::vector<Type*> generics;
 
-	TypeInstance(TypePrototype* prototype, const std::vector<Type*>& generics): prototype(prototype), generics(generics)
+	TypeInstance(TypePrototype** prototype, const std::vector<Type*>& generics): prototype(prototype), generics(generics)
 	{
 	}
 };

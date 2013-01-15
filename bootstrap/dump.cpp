@@ -56,7 +56,7 @@ void dump(std::ostream& os, SynType* type)
 		os << ") -> ";
 		dump(os, _->result);
 	}
-	else if (CASE(SynTypeStructure, type))
+	else if (CASE(SynTypeRecord, type))
 	{
 		os << "[";
 
@@ -172,9 +172,9 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		indentout(os, indent);
 		os << ")\n";
 	}
-	else if (CASE(SynTypeDefinition, root))
+	else if (CASE(SynRecordDefinition, root))
 	{
-		os << "type " << _->type_struct->name.name << "<";
+		os << "record " << _->name.name << "<";
 		for (size_t i = 0; i < _->generics.size(); ++i)
 		{
 			if (i != 0) os << ", ";
@@ -183,11 +183,11 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << ">\n";
 		indentout(os, indent);
 		os << "{\n";
-		for (size_t i = 0; i < _->type_struct->members.size(); ++i)
+		for (size_t i = 0; i < _->type->members.size(); ++i)
 		{
 			indentout(os, indent + 1);
-			os <<  _->type_struct->members[i].name.name << ": ";
-			dump(os, _->type_struct->members[i].type);
+			os <<  _->type->members[i].name.name << ": ";
+			dump(os, _->type->members[i].type);
 			os << "\n";
 		}
 		indentout(os, indent);
@@ -554,7 +554,7 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 	else if (CASE(MatchCaseUnion, case_))
 	{
 		TypeInstance* ti = dynamic_cast<TypeInstance*>(_->type);
-		TypePrototypeUnion* tu = dynamic_cast<TypePrototypeUnion*>(ti->prototype);
+		TypePrototypeUnion* tu = dynamic_cast<TypePrototypeUnion*>(*ti->prototype);
 
 		os << tu->member_names[_->tag] << " of ";
 
