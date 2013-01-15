@@ -517,6 +517,43 @@ TypeInstance* resolveTypeDeclarationRec(const std::string& name, const std::vect
 	return resolveTypeDeclaration(name, generics, env);
 }
 
+size_t resolveRecursiveDeclarations(const std::vector<SynBase*>& expressions, size_t offset, Environment& env)
+{
+	if (dynamic_cast<SynRecordDefinition*>(expressions[offset]) || dynamic_cast<SynUnionDefinition*>(expressions[offset]))
+	{
+		size_t count = 0;
+
+		for (; offset + count < expressions.size(); ++count)
+		{
+			if (SynRecordDefinition* type_definition = dynamic_cast<SynRecordDefinition*>(expressions[offset + count]))
+				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
+			else if (SynUnionDefinition *type_definition = dynamic_cast<SynUnionDefinition*>(expressions[offset + count]))
+				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
+			else
+				break;
+		}
+
+		return count;
+	}
+
+	if (dynamic_cast<SynLetFunc*>(expressions[offset]))
+	{
+		size_t count = 0;
+
+		for (; offset + count < expressions.size(); ++count)
+		{
+			if (SynLetFunc* func_definition = dynamic_cast<SynLetFunc*>(expressions[offset + count]))
+				;
+			else
+				break;
+		}
+
+		return count;
+	}
+
+	return 1;
+}
+
 Expr* resolveExpr(SynBase* node, Environment& env)
 {
 	assert(node);
@@ -960,21 +997,16 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		env.bindings.push_back(std::vector<Binding>());
 
-		for (size_t i = 0; i < _->expressions.size(); ++i)
+		for (size_t i = 0; i < _->expressions.size(); )
 		{
-			if (SynRecordDefinition *type_definition = dynamic_cast<SynRecordDefinition*>(_->expressions[i]))
-			{
-				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
-			}
+			size_t decls = resolveRecursiveDeclarations(_->expressions, i, env);
+			assert(decls > 0);
 
-			if (SynUnionDefinition *type_definition = dynamic_cast<SynUnionDefinition*>(_->expressions[i]))
-			{
-				resolveTypeDeclaration(type_definition->name.name, type_definition->generics, env);
-			}
+			for (size_t j = 0; j < decls; ++j)
+				expression->expressions.push_back(resolveExpr(_->expressions[i + j], env));
+
+			i += decls;
 		}
-
-		for (size_t i = 0; i < _->expressions.size(); ++i)
-			expression->expressions.push_back(resolveExpr(_->expressions[i], env));
 
 		env.bindings.pop_back();
 
