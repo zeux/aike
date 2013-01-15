@@ -897,11 +897,28 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 	}
 }
 
-llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, std::vector<Type*> types)
+llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, std::vector<Type*> types)
 {
-	llvm::Function* function = builder.GetInsertBlock()->getParent();
+	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
-	llvm::BasicBlock* compare_last = builder.GetInsertBlock();
+	if (llvm::Function *function = context.module->getFunction(function_name))
+		return builder.CreateCall2(function, left, right);
+
+	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
+	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
+
+	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
+
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
+	llvm::IRBuilder<> function_builder(bb);
+
+	llvm::Function::arg_iterator argi = function->arg_begin();
+	llvm::Value* left_internal = argi;
+
+	argi++;
+	llvm::Value* right_internal = argi;
+
+	llvm::BasicBlock* compare_last = function_builder.GetInsertBlock();
 	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
 
 	std::vector<llvm::BasicBlock*> fail_block;
@@ -910,53 +927,70 @@ llvm::Value* compileStructEqualityOperator(const Location& location, Context& co
 	{
 		llvm::BasicBlock* compare_next = llvm::BasicBlock::Create(*context.context, "compare_next");
 
-		builder.CreateCondBr(compileEqualityOperator(location, context, builder, builder.CreateExtractValue(left, i), builder.CreateExtractValue(right, i), types[i]), compare_next, compare_end);
+		function_builder.CreateCondBr(compileEqualityOperator(location, context, function_builder, function_builder.CreateExtractValue(left_internal, i), function_builder.CreateExtractValue(right_internal, i), types[i]), compare_next, compare_end);
 				
-		fail_block.push_back(builder.GetInsertBlock());
+		fail_block.push_back(function_builder.GetInsertBlock());
 		compare_last = compare_next;
 		function->getBasicBlockList().push_back(compare_next);
-		builder.SetInsertPoint(compare_next);
+		function_builder.SetInsertPoint(compare_next);
 	}
 
-	builder.CreateBr(compare_end);
+	function_builder.CreateBr(compare_end);
 
 	// Result computation node
 	function->getBasicBlockList().push_back(compare_end);
-	builder.SetInsertPoint(compare_end);
+	function_builder.SetInsertPoint(compare_end);
 
-	llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 1 + fail_block.size());
+	llvm::PHINode* result = function_builder.CreatePHI(function_builder.getInt1Ty(), 1 + fail_block.size());
 
 	// Comparison is only successful if we came here from the last node
-	result->addIncoming(builder.getInt1(true), compare_last);
+	result->addIncoming(function_builder.getInt1(true), compare_last);
 	// If we came from any other block, it was from a member comparison failure
 	for (size_t i = 0; i < fail_block.size(); ++i)
-		result->addIncoming(builder.getInt1(false), fail_block[i]);
+		result->addIncoming(function_builder.getInt1(false), fail_block[i]);
 
-	return result;
+	function_builder.CreateRet(result);
+
+	return builder.CreateCall2(function, left, right);
 }
 
-llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, TypePrototypeUnion* proto)
+llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, TypePrototypeUnion* proto)
 {
-	llvm::Function* function = builder.GetInsertBlock()->getParent();
+	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
-	llvm::Value* left_tag = builder.CreateExtractValue(left, 0);
-	llvm::Value* left_ptr = builder.CreateExtractValue(left, 1);
+	if (llvm::Function *function = context.module->getFunction(function_name))
+		return builder.CreateCall2(function, left, right);
 
-	llvm::Value* right_tag = builder.CreateExtractValue(right, 0);
-	llvm::Value* right_ptr = builder.CreateExtractValue(right, 1);
+	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
+	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
 
-	llvm::BasicBlock* compare_start = builder.GetInsertBlock();
+	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
+
+	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
+	llvm::IRBuilder<> function_builder(bb);
+
+	llvm::Function::arg_iterator argi = function->arg_begin();
+
+	llvm::Value* left_tag = function_builder.CreateExtractValue(argi, 0);
+	llvm::Value* left_ptr = function_builder.CreateExtractValue(argi, 1);
+
+	argi++;
+
+	llvm::Value* right_tag = function_builder.CreateExtractValue(argi, 0);
+	llvm::Value* right_ptr = function_builder.CreateExtractValue(argi, 1);
+
+	llvm::BasicBlock* compare_start = function_builder.GetInsertBlock();
 	llvm::BasicBlock* compare_data = llvm::BasicBlock::Create(*context.context, "compare_data");
 	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
 
 	// Check tag equality
-	builder.CreateCondBr(builder.CreateICmpEQ(left_tag, right_tag), compare_data, compare_end);
+	function_builder.CreateCondBr(function_builder.CreateICmpEQ(left_tag, right_tag), compare_data, compare_end);
 
 	// Switch by union tag
 	function->getBasicBlockList().push_back(compare_data);
-	builder.SetInsertPoint(compare_data);
+	function_builder.SetInsertPoint(compare_data);
 
-	llvm::SwitchInst *swichInst = builder.CreateSwitch(left_tag, compare_end, proto->member_types.size());
+	llvm::SwitchInst *swichInst = function_builder.CreateSwitch(left_tag, compare_end, proto->member_types.size());
 
 	std::vector<llvm::Value*> case_results;
 	std::vector<llvm::BasicBlock*> case_blocks;
@@ -964,34 +998,36 @@ llvm::Value* compileUnionEqualityOperator(const Location& location, Context& con
 	for (size_t i = 0; i < proto->member_types.size(); ++i)
 	{
 		llvm::BasicBlock* compare_tag = llvm::BasicBlock::Create(*context.context, "compare_tag", function);
-		builder.SetInsertPoint(compare_tag);
+		function_builder.SetInsertPoint(compare_tag);
 
-		llvm::Value* left_elem = builder.CreateLoad(builder.CreateBitCast(left_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
-		llvm::Value* right_elem = builder.CreateLoad(builder.CreateBitCast(right_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
+		llvm::Value* left_elem = function_builder.CreateLoad(function_builder.CreateBitCast(left_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
+		llvm::Value* right_elem = function_builder.CreateLoad(function_builder.CreateBitCast(right_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
 
-		case_results.push_back(compileEqualityOperator(location, context, builder, left_elem, right_elem, proto->member_types[i]));
-		builder.CreateBr(compare_end);
+		case_results.push_back(compileEqualityOperator(location, context, function_builder, left_elem, right_elem, finalType(proto->member_types[i])));
+		function_builder.CreateBr(compare_end);
 		
-		case_blocks.push_back(builder.GetInsertBlock());
+		case_blocks.push_back(function_builder.GetInsertBlock());
 
-		swichInst->addCase(builder.getInt32(i), compare_tag);
+		swichInst->addCase(function_builder.getInt32(i), compare_tag);
 	}
 
 	// Result computation node
 	function->getBasicBlockList().push_back(compare_end);
-	builder.SetInsertPoint(compare_end);
+	function_builder.SetInsertPoint(compare_end);
 
-	llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 2 + proto->member_types.size());
+	llvm::PHINode* result = function_builder.CreatePHI(function_builder.getInt1Ty(), 2 + proto->member_types.size());
 
 	// Tags are not equal
-	result->addIncoming(builder.getInt1(false), compare_start);
+	result->addIncoming(function_builder.getInt1(false), compare_start);
 	// Tag is invalid
-	result->addIncoming(builder.getInt1(false), compare_data);
+	result->addIncoming(function_builder.getInt1(false), compare_data);
 	// For other cases, take the result of the other comparisons
 	for (size_t i = 0; i < proto->member_types.size(); ++i)
 		result->addIncoming(case_results[i], case_blocks[i]);
 
-	return result;
+	function_builder.CreateRet(result);
+
+	return builder.CreateCall2(function, left, right);
 }
 
 llvm::Value* compileArrayEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, TypeArray* type)
@@ -1078,17 +1114,17 @@ llvm::Value* compileEqualityOperator(const Location& location, Context& context,
 		errorf(location, "Cannot compare functions"); // Feel free to implement
 
 	if (CASE(TypeTuple, type))
-		return compileStructEqualityOperator(location, context, builder, left, right, _->members);
+		return compileStructEqualityOperator(location, context, builder, left, right, finalType(_), _->members);
 
 	if (CASE(TypeInstance, type))
 	{
 		auto instance = _;
 
 		if (CASE(TypePrototypeRecord, *instance->prototype))
-			return compileStructEqualityOperator(location, context, builder, left, right, _->member_types);
+			return compileStructEqualityOperator(location, context, builder, left, right, finalType(instance), _->member_types);
 
 		if (CASE(TypePrototypeUnion, *instance->prototype))
-			return compileUnionEqualityOperator(location, context, builder, left, right, _);
+			return compileUnionEqualityOperator(location, context, builder, left, right, finalType(instance), _);
 
 		assert(!"Unknown type prototype");
 		return 0;
