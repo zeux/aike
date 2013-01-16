@@ -24,23 +24,23 @@ MatchCase* clone(MatchCase* pattern)
 	}
 	if (CASE(MatchCaseArray, pattern))
 	{
-		std::vector<MatchCase*> clone_elements;
+		std::vector<MatchCase*> elements;
 
 		for (size_t i = 0; i < _->elements.size(); ++i)
-			clone_elements.push_back(clone(_->elements[i]));
+			elements.push_back(clone(_->elements[i]));
 
-		return new MatchCaseArray(_->type, _->location, clone_elements);
+		return new MatchCaseArray(_->type, _->location, elements);
 	}
 	if (CASE(MatchCaseMembers, pattern))
 	{
 		assert(_->member_names.empty()); // Must be resolved in typecheck
 
-		std::vector<MatchCase*> clone_members;
+		std::vector<MatchCase*> member_values;
 
 		for (size_t i = 0; i < _->member_values.size(); ++i)
-			clone_members.push_back(clone(_->member_values[i]));
+			member_values.push_back(clone(_->member_values[i]));
 
-		return new MatchCaseMembers(_->type, _->location, clone_members, std::vector<std::string>());
+		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>());
 	}
 	if (CASE(MatchCaseUnion, pattern))
 	{
@@ -48,12 +48,12 @@ MatchCase* clone(MatchCase* pattern)
 	}
 	if (CASE(MatchCaseOr, pattern))
 	{
-		MatchCaseOr* copy = new MatchCaseOr(_->type, _->location);
+		std::vector<MatchCase*> options;
 
 		for (size_t i = 0; i < _->options.size(); ++i)
-			copy->addOption(clone(_->options[i]));
+			options.push_back(clone(_->options[i]));
 
-		return copy;
+		return new MatchCaseOr(_->type, _->location, options);
 	}
 
 	assert(!"Unknown case");
@@ -166,75 +166,76 @@ MatchCase* simplify(MatchCase* pattern)
 	}
 	if (CASE(MatchCaseArray, pattern))
 	{
-		for (size_t i = 0; i < _->elements.size(); ++i)
-			_->elements[i] = simplify(_->elements[i]);
+		std::vector<MatchCase*> elements;
 
-		// Array match cannot be simplified further
-		return _;
+		for (size_t i = 0; i < _->elements.size(); ++i)
+			elements.push_back(simplify(_->elements[i]));
+
+		return new MatchCaseArray(_->type, _->location, elements);
 	}
 	if (CASE(MatchCaseMembers, pattern))
 	{
 		assert(_->member_names.empty()); // Must be resolved in typecheck
 
-		for (size_t i = 0; i < _->member_values.size(); ++i)
-			_->member_values[i] = simplify(_->member_values[i]);
+		std::vector<MatchCase*> member_values;
 
-		// If all member match anything then the whole expression matches anything
+		for (size_t i = 0; i < _->member_values.size(); ++i)
+			member_values.push_back(simplify(_->member_values[i]));
+
+		// If all members match anything then the whole expression matches anything
 		bool matchesAny = true;
-		for (size_t i = 0; i < _->member_values.size() && matchesAny; ++i)
+		for (size_t i = 0; i < member_values.size() && matchesAny; ++i)
 		{
-			if (!match(_->member_values[i], new MatchCaseAny(0, Location(), 0)))
+			if (!match(member_values[i], new MatchCaseAny(0, Location(), 0)))
 				matchesAny = false;
 		}
 
 		if (matchesAny)
 			return new MatchCaseAny(0, Location(), 0);
 
-		return _;
+		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>());
 	}
 	if (CASE(MatchCaseUnion, pattern))
 	{
-		_->pattern = simplify(_->pattern);
-
-		return _;
+		return new MatchCaseUnion(_->type, _->location, _->tag, simplify(_->pattern));
 	}
 	if (CASE(MatchCaseOr, pattern))
 	{
+		std::vector<MatchCase*> options;
+
 		for (size_t i = 0; i < _->options.size(); ++i)
-			_->options[i] = simplify(_->options[i]);
+			options.push_back(simplify(_->options[i]));
 
 		// Remove cases which are covered by the other cases
-		for (std::vector<MatchCase*>::iterator it = _->options.begin(); it != _->options.end();)
+		for (std::vector<MatchCase*>::iterator it = options.begin(); it != options.end();)
 		{
 			bool covered = false;
 
-			for (std::vector<MatchCase*>::iterator subit = _->options.begin(); subit != _->options.end() && !covered; ++subit)
+			for (std::vector<MatchCase*>::iterator subit = options.begin(); subit != options.end() && !covered; ++subit)
 			{
 				if (it != subit && match(*subit, *it))
 					covered = true;
 			}
 
 			if (covered)
-				it = _->options.erase(it);
+				it = options.erase(it);
 			else
 				++it;
 		}
 
 		// Join constructors that only have a difference in one member (including union cases that have contructors inside)
-		for (size_t i = 0; i < _->options.size(); ++i)
+		for (size_t i = 0; i < options.size(); ++i)
 		{
 			// Get the second option
-			std::vector<MatchCase*>::iterator subit = _->options.begin() + i + 1;
-
-			for (; subit != _->options.end(); ++subit)
+			for (size_t k = i + 1; k < options.size(); ++k)
 			{
-				MatchCaseMembers* curr_members = dynamic_cast<MatchCaseMembers*>(_->options[i]);
-				MatchCaseMembers* new_members = dynamic_cast<MatchCaseMembers*>(*subit);
+				MatchCaseMembers* curr_members = dynamic_cast<MatchCaseMembers*>(options[i]);
+				MatchCaseMembers* new_members = dynamic_cast<MatchCaseMembers*>(options[k]);
 
 				if (!curr_members || !new_members)
 				{
-					MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(_->options[i]);
-					MatchCaseUnion* new_tag = dynamic_cast<MatchCaseUnion*>(*subit);
+					MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(options[i]);
+					MatchCaseUnion* new_tag = dynamic_cast<MatchCaseUnion*>(options[k]);
 
 					// Only for constructors of the same type
 					if (!curr_tag || !new_tag || curr_tag->tag != new_tag->tag)
@@ -250,13 +251,13 @@ MatchCase* simplify(MatchCase* pattern)
 
 				// Check if their difference is only in one argument
 				size_t mismatch_index = ~0u;
-				for (size_t k = 0; k < curr_members->member_values.size(); ++k)
+				for (size_t l = 0; l < curr_members->member_values.size(); ++l)
 				{
-					if (!(match(curr_members->member_values[k], new_members->member_values[k]) && match(new_members->member_values[k], curr_members->member_values[k])))
+					if (!(match(curr_members->member_values[l], new_members->member_values[l]) && match(new_members->member_values[l], curr_members->member_values[l])))
 					{
 						if (mismatch_index == ~0u)
 						{
-							mismatch_index = k;
+							mismatch_index = l;
 						}
 						else
 						{
@@ -275,30 +276,60 @@ MatchCase* simplify(MatchCase* pattern)
 				if (!arg_options)
 				{
 					arg_options = new MatchCaseOr(0, Location());
-					arg_options->addOption(curr_members->member_values[mismatch_index]);
+					arg_options->options.push_back(curr_members->member_values[mismatch_index]);
 				}
-				if (dynamic_cast<MatchCaseOr*>(new_members->member_values[mismatch_index]))
-					arg_options = arg_options;
 
-				arg_options->addOption(new_members->member_values[mismatch_index]);
-				curr_members->member_values[mismatch_index] = arg_options;
+				arg_options->options.push_back(new_members->member_values[mismatch_index]);
 
-				_->options.erase(subit);
+				// Create new option array without the option at index 'k' and with the option at index 'i' replaced with a duplicate of 'curr_members' that has member at 'mismatch_index' replaced with 'arg_options'
+				std::vector<MatchCase*> next_options;
 
-				return simplify(_);
+				for (size_t l = 0; l < options.size(); ++l)
+				{
+					if (l == k)
+						continue;
+
+					if (l == i)
+					{
+						// Create a copy of curr_members with a member at 'mismatch_index' replaced with 'arg_options'
+						std::vector<MatchCase*> next_member_values;
+
+						for (size_t m = 0; m < curr_members->member_values.size(); ++m)
+						{
+							if (m == mismatch_index)
+								next_member_values.push_back(arg_options);
+							else
+								next_member_values.push_back(curr_members->member_values[m]);
+						}
+
+						MatchCaseMembers *next_members = new MatchCaseMembers(curr_members->type, curr_members->location, next_member_values, std::vector<std::string>());
+
+						// This could be a type match or a union tag match
+						if (MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(options[i]))
+							next_options.push_back(new MatchCaseUnion(curr_tag->type, curr_tag->location, curr_tag->tag, next_members));
+						else
+							next_options.push_back(next_members);
+					}
+					else
+					{
+						next_options.push_back(options[l]);
+					}
+				}
+
+				return simplify(new MatchCaseOr(_->type, _->location, next_options));
 			}
 		}
 
 		// If the members are union tags, they can be merged to MatchAny if all of the tags are fully handled
-		if (MatchCaseUnion* first_tag = dynamic_cast<MatchCaseUnion*>(_->options.empty() ? 0 : _->options[0]))
+		if (MatchCaseUnion* first_tag = dynamic_cast<MatchCaseUnion*>(options.empty() ? 0 : options[0]))
 		{
 			// Every tag must be matched only once (fully handled)
 			bool no_duplicates = true;
-			for (size_t i = 0; i < _->options.size() && no_duplicates; ++i)
+			for (size_t i = 0; i < options.size() && no_duplicates; ++i)
 			{
-				for (size_t k = i + 1; k < _->options.size() && no_duplicates; ++k)
+				for (size_t k = i + 1; k < options.size() && no_duplicates; ++k)
 				{
-					if (dynamic_cast<MatchCaseUnion*>(_->options[i])->tag == dynamic_cast<MatchCaseUnion*>(_->options[k])->tag)
+					if (dynamic_cast<MatchCaseUnion*>(options[i])->tag == dynamic_cast<MatchCaseUnion*>(options[k])->tag)
 						no_duplicates = false;
 				}
 			}
@@ -306,9 +337,9 @@ MatchCase* simplify(MatchCase* pattern)
 			if (no_duplicates)
 			{
 				bool handle_any = true;
-				for (size_t i = 0; i < _->options.size() && handle_any; ++i)
+				for (size_t i = 0; i < options.size() && handle_any; ++i)
 				{
-					if (!match(dynamic_cast<MatchCaseUnion*>(_->options[i])->pattern, new MatchCaseAny(0, Location(), 0)))
+					if (!match(dynamic_cast<MatchCaseUnion*>(options[i])->pattern, new MatchCaseAny(0, Location(), 0)))
 						handle_any = false;
 				}
 
@@ -318,24 +349,26 @@ MatchCase* simplify(MatchCase* pattern)
 					TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype);
 
 					// If it can match any, simplify it to any
-					if (union_type->member_types.size() == _->options.size())
+					if (union_type->member_types.size() == options.size())
 						return new MatchCaseAny(0, Location(), 0);
 				}
 			}
 		}
 
 		// If the members are bool numbers, and the member count covers all the cases, merge them to any
-		if (MatchCaseBoolean* first_number = dynamic_cast<MatchCaseBoolean*>(_->options.empty() ? 0 : _->options[0]))
+		if (MatchCaseBoolean* first_number = dynamic_cast<MatchCaseBoolean*>(options.empty() ? 0 : options[0]))
 		{
-			if (_->options.size() == 2)
+			if (options.size() == 2)
 				return new MatchCaseAny(0, Location(), 0);
 		}
 
+		MatchCaseOr *simplified = new MatchCaseOr(_->type, _->location, options);
+
 		// If it can match any, simplify it to any
-		if (match(_, new MatchCaseAny(0, Location(), 0)))
+		if (match(simplified, new MatchCaseAny(0, Location(), 0)))
 			return new MatchCaseAny(0, Location(), 0);
 
-		return _;
+		return simplified;
 	}
 
 	assert(!"Unknown case");

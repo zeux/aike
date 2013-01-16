@@ -1672,7 +1672,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 					errorf(case_options[i]->location, "This case is already covered");
 
 				if (MatchCaseOr* options_pack = dynamic_cast<MatchCaseOr*>(options))
-					options_pack->addOption(clone(case_options[i]));
+					options_pack->options.push_back(clone(case_options[i]));
 
 				options = simplify(options);
 			}
