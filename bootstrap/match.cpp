@@ -10,9 +10,13 @@ MatchCase* clone(MatchCase* pattern)
 	{
 		return new MatchCaseAny(_->type, _->location, _->alias);
 	}
+	if (CASE(MatchCaseBoolean, pattern))
+	{
+		return new MatchCaseBoolean(_->type, _->location, _->value);
+	}
 	if (CASE(MatchCaseNumber, pattern))
 	{
-		return new MatchCaseNumber(_->type, _->location, _->number);
+		return new MatchCaseNumber(_->type, _->location, _->value);
 	}
 	if (CASE(MatchCaseValue, pattern))
 	{
@@ -62,11 +66,19 @@ bool match(MatchCase* pattern, MatchCase* rhs)
 	{
 		return true;
 	}
+	if (CASE(MatchCaseBoolean, pattern))
+	{
+		auto pattern_ = _;
+		if (CASE(MatchCaseBoolean, rhs))
+			return pattern_->value == _->value;
+
+		return false;
+	}
 	if (CASE(MatchCaseNumber, pattern))
 	{
 		auto pattern_ = _;
 		if (CASE(MatchCaseNumber, rhs))
-			return pattern_->number == _->number;
+			return pattern_->value == _->value;
 
 		return false;
 	}
@@ -137,6 +149,10 @@ bool match(MatchCase* pattern, MatchCase* rhs)
 MatchCase* simplify(MatchCase* pattern)
 {
 	if (CASE(MatchCaseAny, pattern))
+	{
+		return _;
+	}
+	if (CASE(MatchCaseBoolean, pattern))
 	{
 		return _;
 	}
@@ -309,9 +325,9 @@ MatchCase* simplify(MatchCase* pattern)
 		}
 
 		// If the members are bool numbers, and the member count covers all the cases, merge them to any
-		if (MatchCaseNumber* first_number = dynamic_cast<MatchCaseNumber*>(_->options.empty() ? 0 : _->options[0]))
+		if (MatchCaseBoolean* first_number = dynamic_cast<MatchCaseBoolean*>(_->options.empty() ? 0 : _->options[0]))
 		{
-			if (dynamic_cast<TypeBool*>(finalType(first_number->type)) && _->options.size() == 2)
+			if (_->options.size() == 2)
 				return new MatchCaseAny(0, Location(), 0);
 		}
 

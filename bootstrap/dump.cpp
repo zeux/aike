@@ -508,9 +508,18 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 			dump(os, context, _->type);
 		}
 	}
+	else if (CASE(MatchCaseBoolean, case_))
+	{
+		os << (_->value ? "true" : "false");
+		if (_->type)
+		{
+			os << ": ";
+			dump(os, context, _->type);
+		}
+	}
 	else if (CASE(MatchCaseNumber, case_))
 	{
-		os << _->number;
+		os << _->value;
 		if (_->type)
 		{
 			os << ": ";

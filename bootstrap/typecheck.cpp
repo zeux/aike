@@ -303,7 +303,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 	if (CASE(SynMatchBoolean, match))
 	{
-		return new MatchCaseNumber(new TypeBool(), _->location, _->value);
+		return new MatchCaseBoolean(new TypeBool(), _->location, _->value);
 	}
 
 	if (CASE(SynMatchArray, match))
@@ -1341,6 +1341,11 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen);
 Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 {
 	if (CASE(MatchCaseAny, case_))
+	{
+		return _->type;
+	}
+
+	if (CASE(MatchCaseBoolean, case_))
 	{
 		return _->type;
 	}

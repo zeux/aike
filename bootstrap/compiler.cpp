@@ -680,11 +680,28 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 		builder.CreateBr(on_success);
 	}
+	else if (CASE(MatchCaseBoolean, case_))
+	{
+		llvm::Function* function = builder.GetInsertBlock()->getParent();
+
+		llvm::Value* cond = builder.CreateICmpEQ(value, builder.getInt1(_->value));
+
+		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+
+		builder.CreateCondBr(cond, success, on_fail);
+
+		builder.SetInsertPoint(success);
+
+		if (target)
+			builder.CreateStore(compileExpr(context, builder, rhs), target);
+
+		builder.CreateBr(on_success);
+	}
 	else if (CASE(MatchCaseNumber, case_))
 	{
 		llvm::Function* function = builder.GetInsertBlock()->getParent();
 
-		llvm::Value* cond = builder.CreateICmpEQ(value, builder.CreateIntCast(builder.getInt32(uint32_t(_->number)), compileType(context, _->type, _->location), false));
+		llvm::Value* cond = builder.CreateICmpEQ(value, builder.getInt32(uint32_t(_->value)));
 
 		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
 

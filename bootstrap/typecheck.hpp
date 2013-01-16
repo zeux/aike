@@ -290,11 +290,20 @@ struct MatchCaseAny: MatchCase
 	}
 };
 
+struct MatchCaseBoolean: MatchCase
+{
+	bool value;
+
+	MatchCaseBoolean(Type* type, const Location& location, bool value): MatchCase(type, location), value(value)
+	{
+	}
+};
+
 struct MatchCaseNumber: MatchCase
 {
-	long long number;
+	long long value;
 
-	MatchCaseNumber(Type* type, const Location& location, long long number): MatchCase(type, location), number(number)
+	MatchCaseNumber(Type* type, const Location& location, long long value): MatchCase(type, location), value(value)
 	{
 	}
 };
