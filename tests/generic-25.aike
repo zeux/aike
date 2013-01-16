@@ -1,0 +1,9 @@
+let f (x: 'a): 'a =
+    let g: (() -> 'a) -> (() -> 'a) = f
+    g(fun -> x)()
+
+// ERRORS:
+// (2,39): Type mismatch. Expecting a
+//     (() -> 'a) -> () -> 'a
+// but given a
+//     ('a) -> 'a
