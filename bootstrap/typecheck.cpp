@@ -271,11 +271,11 @@ Expr* resolveBindingAccess(const std::string& name, Location location, Environme
 				for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
 				{
 					if (env.functions.back().externals[i] == binding)
-						return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, i);
+						return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, i, binding);
 				}
 
 				env.functions.back().externals.push_back(binding);
-				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1);
+				return new ExprBindingExternal(_->target->type, location, env.functions.back().context, name, env.functions.back().externals.size() - 1, binding);
 			}
 			else
 			{
@@ -517,6 +517,40 @@ TypeInstance* resolveTypeDeclarationRec(const std::string& name, const std::vect
 	return resolveTypeDeclaration(name, generics, env);
 }
 
+BindingFunction* resolveFunctionDeclaration(SynLetFunc* node, Environment& env)
+{
+	size_t generic_type_count = env.generic_types.size();
+
+	TypeFunction* funty = resolveFunctionType(node->ret_type, node->args, env, /* allow_new_generics= */ true);
+
+	std::vector<std::string> arg_names;
+
+	for (size_t i = 0; i < node->args.size(); ++i)
+		arg_names.push_back(node->args[i].name.name);
+
+	BindingTarget* target = new BindingTarget(node->var.name, funty);
+
+	TypeClosureContext* context_type = new TypeClosureContext();
+	BindingTarget* context_target = new BindingTarget("extern", context_type);
+
+	BindingFunction* binding = new BindingFunction(target, arg_names, context_target);
+
+	env.bindings.back().push_back(Binding(node->var.name, binding));
+
+	env.generic_types.resize(generic_type_count);
+
+	return binding;
+}
+
+BindingFunction* resolveFunctionDeclarationRec(SynLetFunc* node, Environment& env)
+{
+	for (size_t i = 0; i < env.bindings.back().size(); ++i)
+		if (env.bindings.back()[i].name == node->var.name)
+			return dynamic_cast<BindingFunction*>(env.bindings.back()[i].binding);
+
+	return resolveFunctionDeclaration(node, env);
+}
+
 size_t resolveRecursiveDeclarations(const std::vector<SynBase*>& expressions, size_t offset, Environment& env)
 {
 	if (dynamic_cast<SynRecordDefinition*>(expressions[offset]) || dynamic_cast<SynUnionDefinition*>(expressions[offset]))
@@ -543,7 +577,7 @@ size_t resolveRecursiveDeclarations(const std::vector<SynBase*>& expressions, si
 		for (; offset + count < expressions.size(); ++count)
 		{
 			if (SynLetFunc* func_definition = dynamic_cast<SynLetFunc*>(expressions[offset + count]))
-				;
+				resolveFunctionDeclaration(func_definition, env);
 			else
 				break;
 		}
@@ -842,8 +876,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynLetFunc, node))
 	{
+		BindingFunction* binding = resolveFunctionDeclarationRec(_, env);
+
 		std::vector<BindingTarget*> args;
-		std::vector<std::string> arg_names;
 
 		env.functions.push_back(FunctionInfo(env.bindings.size()));
 		env.bindings.push_back(std::vector<Binding>());
@@ -852,23 +887,21 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		TypeFunction* funty = resolveFunctionType(_->ret_type, _->args, env, /* allow_new_generics= */ true);
 
+		// hack :( needed since resolveFunctionType introduced copies of generic args
+		binding->target->type = funty;
+
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
 			BindingTarget* target = new BindingTarget(_->args[i].name.name, funty->args[i]);
 
 			args.push_back(target);
-			arg_names.push_back(_->args[i].name.name);
 			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
 		}
 
-		BindingTarget* target = new BindingTarget(_->var.name, funty);
-
 		// Add info about function context. Context type will be resolved later
-		TypeClosureContext* context_type = new TypeClosureContext();
-		BindingTarget* context_target = new BindingTarget("extern", context_type);
-		env.functions.back().context = new BindingLocal(context_target);
+		TypeClosureContext* context_type = dynamic_cast<TypeClosureContext*>(binding->context_target->type);
 
-		env.bindings.back().push_back(Binding(_->var.name, new BindingLocal(target)));
+		env.functions.back().context = new BindingLocal(binding->context_target);
 
 		Expr* body = resolveExpr(_->body, env);
 
@@ -877,19 +910,24 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		// Resolve function context type
 		for (size_t i = 0; i < env.functions.back().externals.size(); ++i)
 		{
-			if (CASE(BindingLocal, env.functions.back().externals[i]))
+			if (CASE(BindingFunction, env.functions.back().externals[i]))
+			{
+				context_type->member_types.push_back(_->context_target->type);
+				context_type->member_names.push_back(_->target->name + ".context");
+			}
+			else if (CASE(BindingLocal, env.functions.back().externals[i]))
 			{
 				context_type->member_types.push_back(_->target->type);
 				context_type->member_names.push_back(_->target->name);
 			}
+			else
+				; // ???
 		}
 
 		std::vector<BindingBase*> function_externals = env.functions.back().externals;
 
 		env.functions.pop_back();
 		env.bindings.pop_back();
-
-		env.bindings.back().push_back(Binding(_->var.name, function_externals.empty() ? (BindingBase*)new BindingFreeFunction(target, arg_names) : (BindingBase*)new BindingFunction(target, arg_names)));
 
 		// Resolve function external variable capture
 		std::vector<Expr*> externals;
@@ -898,11 +936,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		{
 			if (CASE(BindingLocal, function_externals[i]))
 				externals.push_back(resolveBindingAccess(_->target->name, Location(), env));
+			else
+				; // ???
 		}
 
 		env.generic_types.resize(generic_type_count);
 
-		return new ExprLetFunc(target->type, _->location, target, has_externals ? context_target : 0, args, body, externals);
+		return new ExprLetFunc(funty, _->location, binding->target, has_externals ? binding->context_target : 0, args, body, externals);
 	}
 
 	if (CASE(SynExternFunc, node))

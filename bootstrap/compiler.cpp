@@ -26,7 +26,7 @@ struct Context
 	llvm::DataLayout* layout;
 
 	std::map<BindingTarget*, llvm::Value*> values;
-	std::map<BindingTarget*, std::pair<Expr*, llvm::Value*> > functions;
+	std::map<BindingTarget*, Expr*> functions;
 	std::map<std::pair<Expr*, std::string>, llvm::Function*> function_instances;
 	std::map<llvm::Function*, llvm::Function*> function_thunks;
 	std::map<std::string, llvm::Type*> types;
@@ -128,7 +128,12 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		std::vector<llvm::Type*> members;
 
 		for (size_t i = 0; i < _->member_types.size(); ++i)
-			members.push_back(compileType(context, _->member_types[i], location));
+		{
+			if (dynamic_cast<TypeClosureContext*>(_->member_types[i]))
+				members.push_back(llvm::Type::getInt8PtrTy(*context.context));
+			else
+				members.push_back(compileType(context, _->member_types[i], location));
+		}
 
 		return llvm::PointerType::getUnqual(llvm::StructType::get(*context.context, members));
 	}
@@ -248,7 +253,7 @@ llvm::Function* compileFunctionThunk(Context& context, llvm::Function* target, l
 	return context.function_thunks[target] = thunk_func;
 }
 
-llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, llvm::Function* target, Type* type, llvm::Value* context_ref, const Location& location)
+llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, llvm::Function* target, Type* type, BindingTarget* context_target, const Location& location)
 {
 	llvm::Type* funcptr_type = compileType(context, type, location);
 
@@ -258,8 +263,9 @@ llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, 
 	
 	result = builder.CreateInsertValue(result, thunk, 0);
 
-	if (context_ref)
+	if (context_target)
 	{
+		llvm::Value* context_ref = context.values[context_target];
 		llvm::Value* context_ref_opaque = builder.CreateBitCast(context_ref, llvm::Type::getInt8PtrTy(*context.context));
 
 		result = builder.CreateInsertValue(result, context_ref_opaque, 1);
@@ -321,15 +327,18 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 
 llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
 
-llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, const std::string& mtype)
+llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, const std::string& mtype, std::function<void(llvm::Function*)> ready)
 {
 	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
 	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
 
+	ready(func);
+
 	llvm::Function::arg_iterator argi = func->arg_begin();
 
 	llvm::Value* context_value = 0;
+	llvm::Value* context_target_value = node->context_target ? context.values[node->context_target] : NULL;
 
 	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
 	{
@@ -340,18 +349,19 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 		}
 		else
 		{
-			argi->setName("extern");
+			static int idx = 0;
+			idx++;
+
+			char buf[128];
+			sprintf(buf, "extern_%d", idx);
+
+			argi->setName(buf);
 			context_value = context.values[node->context_target] = argi;
 		}
 	}
 
 	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
 	llvm::IRBuilder<> builder(bb);
-
-	// Create function value for use inside the function
-	llvm::Value* funcptr = compileFunctionValue(context, builder, func, node->type, context_value, node->location);
-
-	context.values[node->target] = funcptr;
 
 	// Compile function body
 	context.function_context_type.push_back(context_value ? context_value->getType() : NULL);
@@ -364,7 +374,7 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 
 	builder.CreateRet(value);
 
-	context.values.erase(node->target);
+	context.values[node->context_target] = context_target_value;
 
 	return func;
 }
@@ -449,11 +459,11 @@ llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFu
 	return func;
 }
 
-llvm::Function* compileFunction(Context& context, Expr* node, const std::string& mtype)
+llvm::Function* compileFunction(Context& context, Expr* node, const std::string& mtype, std::function<void(llvm::Function*)> ready)
 {
 	if (CASE(ExprLetFunc, node))
 	{
-		return compileRegularFunction(context, _, mtype);
+		return compileRegularFunction(context, _, mtype, ready);
 	}
 
 	if (CASE(ExprStructConstructorFunc, node))
@@ -477,7 +487,7 @@ llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* inst
 	// affect the signature of this function but do affect the compilation result
 	// alternatively we could just mangle together all currently defined type variables
 	std::string mtype =
-		(context.function_mangled_type.empty() ? "" : context.function_mangled_type.back() + ".")
+		"" // (context.function_mangled_type.empty() ? "" : context.function_mangled_type.back() + ".")
 		+ typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
 
 	if (context.function_instances.count(std::make_pair(node, mtype)))
@@ -489,12 +499,27 @@ llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* inst
 	instantiateGenericTypes(context, node->type, instance_type, location);
 
 	// compile function body given a non-generic type
-	llvm::Function* func = compileFunction(context, node, mtype);
+	llvm::Function* func = compileFunction(context, node, mtype, [&](llvm::Function* func) { context.function_instances[std::make_pair(node, mtype)] = func; });
 
 	// remove generic type instantiations
 	context.generic_instances.resize(generic_type_count);
 
 	return context.function_instances[std::make_pair(node, mtype)] = func;
+}
+
+llvm::Function* compileBindingFunction(Context& context, BindingFunction* binding, Type* type, const Location& location)
+{
+	if (context.functions.count(binding->target) > 0)
+	{
+		// Compile function instantiation
+		Expr* node = context.functions[binding->target];
+
+		llvm::Function* func = compileFunctionInstance(context, node, type, location);
+
+		return func;
+	}
+
+	errorf(location, "Variable %s has not been computed", binding->target->name.c_str());
 }
 
 llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, BindingBase* binding, Type* type, const Location& location)
@@ -507,14 +532,14 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 		if (context.functions.count(_->target) > 0)
 		{
 			// Compile function instantiation
-			std::pair<Expr*, llvm::Value*> p = context.functions[_->target];
-			Expr* node = p.first;
-			llvm::Value* context_data = p.second;
+			Expr* node = context.functions[_->target];
 
 			llvm::Function* func = compileFunctionInstance(context, node, type, location);
 
-			// Create function value for use outside the function
-			llvm::Value* funcptr = compileFunctionValue(context, builder, func, type, context_data, node->location);
+			// Create function value
+			BindingTarget* context_target = dynamic_cast<ExprLetFunc*>(node) ? dynamic_cast<ExprLetFunc*>(node)->context_target : NULL;
+
+			llvm::Value* funcptr = compileFunctionValue(context, builder, func, type, context_target, node->location);
 
 			return funcptr;
 		}
@@ -1213,6 +1238,16 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			load->setMetadata("invariant.load", llvm::MDNode::get(*context.context, Elts));
 		}
 
+		if (BindingFunction* bindfun = dynamic_cast<BindingFunction*>(_->binding))
+		{
+			// result here is not the function pointer, it's just the context (argh!)
+			llvm::Function* function = compileBindingFunction(context, bindfun, _->type, _->location);
+
+			llvm::Value* funcptr = compileFunctionValue(context, builder, function, _->type, NULL, _->location);
+
+			return builder.CreateInsertValue(funcptr, result, 1);
+		}
+
 		return result;
 	}
 
@@ -1365,24 +1400,50 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLetFunc, node))
 	{
-		llvm::Value* context_data = 0;
-
 		if (!_->externals.empty())
 		{
-			llvm::Type* context_ref_type = compileType(context, _->context_target->type, _->location);
-			llvm::Type* context_type = context_ref_type->getContainedType(0);
+			// anonymous function hack
+			// please make it stop
+			if (_->target->name.empty())
+			{
+				llvm::Type* context_ref_type = compileType(context, _->context_target->type, _->location);
+				llvm::Type* context_type = context_ref_type->getContainedType(0);
 
-			context_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), context_ref_type);
+				llvm::Value* context_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), context_ref_type);
+
+				context.values[_->context_target] = context_data;
+			}
+
+			llvm::Value* context_data = context.values[_->context_target];
 
 			for (size_t i = 0; i < _->externals.size(); i++)
-				builder.CreateStore(compileExpr(context, builder, _->externals[i]), builder.CreateStructGEP(context_data, i));
+			{
+				Expr* external = _->externals[i];
+
+				BindingBase* binding =
+					dynamic_cast<ExprBinding*>(external)
+						? dynamic_cast<ExprBinding*>(external)->binding
+						: dynamic_cast<ExprBindingExternal*>(external)
+							? dynamic_cast<ExprBindingExternal*>(external)->binding
+							: 0;
+
+				BindingFunction* bindfun = dynamic_cast<BindingFunction*>(binding);
+				llvm::Value* external_value = bindfun ? context.values[bindfun->context_target] : compileExpr(context, builder, external);
+
+				if (external_value)
+				{
+					llvm::Value* external_value_cast = bindfun ? builder.CreateBitCast(external_value, llvm::Type::getInt8PtrTy(*context.context)) : external_value;
+
+					builder.CreateStore(external_value_cast, builder.CreateStructGEP(context_data, i));
+				}
+			}
 		}
 
 		if (_->target->name.empty())
 		{
 			// anonymous function, compile right now
 			llvm::Function* func = compileFunctionInstance(context, _, _->type, _->location);
-			llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, context_data, _->location);
+			llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, _->context_target, _->location);
 
 			context.values[_->target] = funcptr;
 			return funcptr;
@@ -1390,7 +1451,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		else
 		{
 			// defer function compilation till use site to support generics
-			context.functions[_->target] = std::make_pair(_, context_data);
+			context.functions[_->target] = _;
 
 			// TODO: this is really wrong :-/
 			return NULL;
@@ -1421,7 +1482,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprStructConstructorFunc, node))
 	{
 		// defer function compilation till use site to support generics
-		context.functions[_->target] = std::make_pair(_, (llvm::Value*)0);
+		context.functions[_->target] = _;
 
 		// TODO: this is really wrong :-/
 		return NULL;
@@ -1430,7 +1491,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprUnionConstructorFunc, node))
 	{
 		// defer function compilation till use site to support generics
-		context.functions[_->target] = std::make_pair(_, (llvm::Value*)0);
+		context.functions[_->target] = _;
 
 		// TODO: this is really wrong :-/
 		return NULL;
@@ -1636,8 +1697,42 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	{
 		llvm::Value *value = 0;
 
-		for (size_t i = 0; i < _->expressions.size(); ++i)
-			value = compileExpr(context, builder, _->expressions[i]);
+		for (size_t i = 0; i < _->expressions.size(); )
+		{
+			if (ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i]))
+			{
+				size_t count = 0;
+
+				for (; i + count < _->expressions.size(); ++count)
+				{
+					if (ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + count]))
+					{
+						if (!func->externals.empty())
+						{
+							llvm::Type* context_ref_type = compileType(context, func->context_target->type, func->location);
+							llvm::Type* context_type = context_ref_type->getContainedType(0);
+
+							llvm::Value* context_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), context_ref_type);
+
+							context.values[func->context_target] = context_data;
+						}
+					}
+					else
+						break;
+				}
+
+				for (size_t j = 0; j < count; ++j)
+					value = compileExpr(context, builder, _->expressions[i + j]);
+
+				i += count;
+			}
+			else
+			{
+				value = compileExpr(context, builder, _->expressions[i]);
+
+				i++;
+			}
+		}
 
 		return value;
 	}

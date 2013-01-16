@@ -1143,7 +1143,14 @@ SynBase* parseBlock(Lexer& lexer)
 		return new SynBlock(start.location, exprs);
 	}
 	else
-		return head;
+	{
+		// block required for types
+		std::vector<SynBase*> exprs;
+
+		exprs.push_back(head);
+
+		return new SynBlock(start.location, exprs);
+	}
 }
 
 SynBase* parse(Lexer& lexer)

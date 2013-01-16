@@ -146,7 +146,10 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 		{
 			if (i != 0) os << ", ";
-			prettyPrint(os, _->member_types[i], context);
+			if (dynamic_cast<TypeClosureContext*>(_->member_types[i]))
+				os << "context[?]";
+			else
+				prettyPrint(os, _->member_types[i], context);
 			os << " " << _->member_names[i];
 		}
 		os << "]";

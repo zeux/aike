@@ -31,13 +31,14 @@ struct BindingLocal: BindingBase
 struct BindingFunction: BindingLocal
 {
 	std::vector<std::string> arg_names;
+	BindingTarget* context_target;
 
-	BindingFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingLocal(target), arg_names(arg_names) {}
+	BindingFunction(BindingTarget* target, const std::vector<std::string>& arg_names, BindingTarget* context_target): BindingLocal(target), arg_names(arg_names), context_target(context_target) {}
 };
 
 struct BindingFreeFunction: BindingFunction
 {
-	BindingFreeFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingFunction(target, arg_names) {}
+	BindingFreeFunction(BindingTarget* target, const std::vector<std::string>& arg_names): BindingFunction(target, arg_names, 0) {}
 };
 
 struct BindingUnionUnitConstructor: BindingFreeFunction
@@ -99,8 +100,9 @@ struct ExprBindingExternal: Expr
 	BindingBase* context;
 	std::string member_name;
 	size_t member_index;
+	BindingBase* binding;
 
-	ExprBindingExternal(Type* type, const Location& location, BindingBase* context, const std::string& member_name, size_t member_index): Expr(type, location), context(context), member_name(member_name), member_index(member_index) {}
+	ExprBindingExternal(Type* type, const Location& location, BindingBase* context, const std::string& member_name, size_t member_index, BindingBase* binding): Expr(type, location), context(context), member_name(member_name), member_index(member_index), binding(binding) {}
 };
 
 struct ExprUnaryOp: Expr
