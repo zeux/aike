@@ -1482,10 +1482,8 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 
 		for (size_t i = 0; i < _->binding_actual.size(); ++i)
 		{
-			mustUnify(_->binding_alternatives[0][i]->type, _->binding_actual[i]->type, _->location);
-
-			for (size_t k = 1; k < _->binding_alternatives.size(); ++k)
-				mustUnify(_->binding_alternatives[k][i]->type, _->binding_alternatives[0][i]->type, _->location);
+			for (size_t k = 0; k < _->binding_alternatives.size(); ++k)
+				mustUnify(_->binding_alternatives[k][i]->type, _->binding_actual[i]->type, _->location);
 		}
 
 		return _->type;
