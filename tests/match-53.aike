@@ -1,0 +1,13 @@
+type Choice2 = First int | Second bool
+
+let f(c) =
+    match c with
+    | First x | Second x -> x
+
+f(First(0))
+
+// ERRORS:
+// (5,24): Type mismatch. Expecting a
+//     int
+// but given a
+//     bool
