@@ -1160,7 +1160,7 @@ Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<TypeGeneric*, Ty
 		if (genremap.count(_))
 			return genremap[_];
 
-		return genremap[_] = new TypeGeneric(_->name);
+		return genremap[_] = new TypeGeneric();
 	}
 
 	if (CASE(TypeArray, t))
@@ -1562,7 +1562,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprBindingExternal, root))
 	{
-		return _->type;
+		return _->type = analyze(_->binding, nongen);
 	}
 
 	if (CASE(ExprUnaryOp, root))

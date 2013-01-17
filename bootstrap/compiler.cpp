@@ -19,6 +19,8 @@
 #include <cassert>
 #include <sstream>
 
+typedef std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > GenericInstances;
+
 struct Context
 {
 	llvm::LLVMContext* context;
@@ -26,15 +28,14 @@ struct Context
 	llvm::DataLayout* layout;
 
 	std::map<BindingTarget*, llvm::Value*> values;
-	std::map<BindingTarget*, Expr*> functions;
+	std::map<BindingTarget*, std::pair<Expr*, GenericInstances> > functions;
 	std::map<std::pair<Expr*, std::string>, llvm::Function*> function_instances;
 	std::map<llvm::Function*, llvm::Function*> function_thunks;
 	std::map<std::string, llvm::Type*> types;
 
 	std::vector<llvm::Type*> function_context_type;
-	std::vector<std::string> function_mangled_type;
 
-	std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > generic_instances;
+	GenericInstances generic_instances;
 };
 
 Type* getTypeInstance(Context& context, Type* type, const Location& location)
@@ -274,33 +275,38 @@ llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, 
 	return result;
 }
 
-void instantiateGenericTypes(Context& context, Type* generic, Type* instance, const Location& location)
+void instantiateGenericTypes(Context& context, GenericInstances& generic_instances, Type* generic, Type* instance, const Location& location)
 {
 	generic = finalType(generic);
 	instance = finalType(instance);
 
 	if (CASE(TypeGeneric, generic))
 	{
-		context.generic_instances.push_back(std::make_pair(generic, std::make_pair(instance, compileType(context, instance, location))));
+		// Eliminate duplicates for nicer signatures & easier debugging
+		for (size_t i = 0; i < generic_instances.size(); ++i)
+			if (generic_instances[i].first == generic)
+				return;
+
+		generic_instances.push_back(std::make_pair(generic, std::make_pair(getTypeInstance(context, instance, location), compileType(context, instance, location))));
 	}
 
 	if (CASE(TypeArray, generic))
 	{
 		TypeArray* inst = dynamic_cast<TypeArray*>(instance);
 
-		instantiateGenericTypes(context, _->contained, inst->contained, location);
+		instantiateGenericTypes(context, generic_instances, _->contained, inst->contained, location);
 	}
 
 	if (CASE(TypeFunction, generic))
 	{
 		TypeFunction* inst = dynamic_cast<TypeFunction*>(instance);
 
-		instantiateGenericTypes(context, _->result, inst->result, location);
+		instantiateGenericTypes(context, generic_instances, _->result, inst->result, location);
 
 		assert(_->args.size() == inst->args.size());
 
 		for (size_t i = 0; i < _->args.size(); ++i)
-			instantiateGenericTypes(context, _->args[i], inst->args[i], location);
+			instantiateGenericTypes(context, generic_instances, _->args[i], inst->args[i], location);
 	}
 
 	if (CASE(TypeInstance, generic))
@@ -311,7 +317,7 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 		assert(_->generics.size() == inst->generics.size());
 
 		for (size_t i = 0; i < _->generics.size(); ++i)
-			instantiateGenericTypes(context, _->generics[i], inst->generics[i], location);
+			instantiateGenericTypes(context, generic_instances, _->generics[i], inst->generics[i], location);
 	}
 
 	if (CASE(TypeTuple, generic))
@@ -321,7 +327,7 @@ void instantiateGenericTypes(Context& context, Type* generic, Type* instance, co
 		assert(_->members.size() == inst->members.size());
 
 		for (size_t i = 0; i < _->members.size(); ++i)
-			instantiateGenericTypes(context, _->members[i], inst->members[i], location);
+			instantiateGenericTypes(context, generic_instances, _->members[i], inst->members[i], location);
 	}
 }
 
@@ -365,11 +371,9 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 
 	// Compile function body
 	context.function_context_type.push_back(context_value ? context_value->getType() : NULL);
-	context.function_mangled_type.push_back(mtype);
 
 	llvm::Value* value = compileExpr(context, builder, node->body);
 
-	context.function_mangled_type.pop_back();
 	context.function_context_type.pop_back();
 
 	builder.CreateRet(value);
@@ -480,29 +484,32 @@ llvm::Function* compileFunction(Context& context, Expr* node, const std::string&
 	return 0;
 }
 
-llvm::Function* compileFunctionInstance(Context& context, Expr* node, Type* instance_type, const Location& location)
+llvm::Function* compileFunctionInstance(Context& context, Expr* node, const GenericInstances& generic_instances, Type* instance_type, const Location& location)
 {
 	// compute mangled instance type name
-	// note that it depends on the full mangled type of the parent function to account for type variables that do not
-	// affect the signature of this function but do affect the compilation result
-	// alternatively we could just mangle together all currently defined type variables
-	std::string mtype =
-		"" // (context.function_mangled_type.empty() ? "" : context.function_mangled_type.back() + ".")
-		+ typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+	std::string mtype = typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+
+	for (size_t i = 0; i < generic_instances.size(); ++i)
+		 mtype += "." + typeNameMangled(generic_instances[i].second.first, [&](TypeGeneric* tg) { assert(!"Unexpected generic type"); return getTypeInstance(context, tg, location); } );
 
 	if (context.function_instances.count(std::make_pair(node, mtype)))
 		return context.function_instances[std::make_pair(node, mtype)];
 
+	GenericInstances old_generic_instances = context.generic_instances;
+
 	// node->type is the generic type, and type is the instance. Instantiate all types into context, following the shape of the type.
-	size_t generic_type_count = context.generic_instances.size();
-	
-	instantiateGenericTypes(context, node->type, instance_type, location);
+	GenericInstances new_generic_instances;
+	instantiateGenericTypes(context, new_generic_instances, node->type, instance_type, location);
+
+	// the type context for the body compilation should consist of all generic instances defined at the declaration point, plus all types instantiated from declaration
+	context.generic_instances = generic_instances;
+	context.generic_instances.insert(context.generic_instances.end(), new_generic_instances.begin(), new_generic_instances.end());
 
 	// compile function body given a non-generic type
 	llvm::Function* func = compileFunction(context, node, mtype, [&](llvm::Function* func) { context.function_instances[std::make_pair(node, mtype)] = func; });
 
-	// remove generic type instantiations
-	context.generic_instances.resize(generic_type_count);
+	// restore old generic type instantiations
+	context.generic_instances = old_generic_instances;
 
 	return context.function_instances[std::make_pair(node, mtype)] = func;
 }
@@ -512,9 +519,9 @@ llvm::Function* compileBindingFunction(Context& context, BindingFunction* bindin
 	if (context.functions.count(binding->target) > 0)
 	{
 		// Compile function instantiation
-		Expr* node = context.functions[binding->target];
+		auto p = context.functions[binding->target];
 
-		llvm::Function* func = compileFunctionInstance(context, node, type, location);
+		llvm::Function* func = compileFunctionInstance(context, p.first, p.second, type, location);
 
 		return func;
 	}
@@ -532,9 +539,10 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 		if (context.functions.count(_->target) > 0)
 		{
 			// Compile function instantiation
-			Expr* node = context.functions[_->target];
+			auto p = context.functions[_->target];
+			Expr* node = p.first;
 
-			llvm::Function* func = compileFunctionInstance(context, node, type, location);
+			llvm::Function* func = compileFunctionInstance(context, node, p.second, type, location);
 
 			// Create function value
 			BindingTarget* context_target = dynamic_cast<ExprLetFunc*>(node) ? dynamic_cast<ExprLetFunc*>(node)->context_target : NULL;
@@ -1459,7 +1467,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (_->target->name.empty())
 		{
 			// anonymous function, compile right now
-			llvm::Function* func = compileFunctionInstance(context, _, _->type, _->location);
+			llvm::Function* func = compileFunctionInstance(context, _, context.generic_instances, _->type, _->location);
 			llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, _->context_target, _->location);
 
 			context.values[_->target] = funcptr;
@@ -1468,7 +1476,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		else
 		{
 			// defer function compilation till use site to support generics
-			context.functions[_->target] = _;
+			context.functions[_->target] = std::make_pair(_, context.generic_instances);
 
 			// TODO: this is really wrong :-/
 			return NULL;
@@ -1499,7 +1507,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprStructConstructorFunc, node))
 	{
 		// defer function compilation till use site to support generics
-		context.functions[_->target] = _;
+		context.functions[_->target] = std::make_pair(_, context.generic_instances);
 
 		// TODO: this is really wrong :-/
 		return NULL;
@@ -1508,7 +1516,7 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	if (CASE(ExprUnionConstructorFunc, node))
 	{
 		// defer function compilation till use site to support generics
-		context.functions[_->target] = _;
+		context.functions[_->target] = std::make_pair(_, context.generic_instances);
 
 		// TODO: this is really wrong :-/
 		return NULL;

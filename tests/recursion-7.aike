@@ -1,0 +1,23 @@
+// SKIP
+type Tree<'T> =
+    | Leaf Data<'T>
+    | Node (Tree<'T>, Tree<'T>)
+
+type Data<'T> =
+    | Value 'T
+    | Subtree Tree<'T>
+
+let reduceData(d, f) =
+    match d with
+    | Value x -> x
+    | Subtree s -> reduce(s, f)
+
+let reduce(r, f) =
+    match r with
+    | Leaf d -> reduceData(d, f)
+    | Node (l, r) -> f(reduce(l, f), reduce(r, f))
+
+reduceData(Value(0), true)
+
+// OUTPUT:
+// 10
