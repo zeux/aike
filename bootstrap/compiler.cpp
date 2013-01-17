@@ -490,7 +490,7 @@ llvm::Function* compileFunctionInstance(Context& context, Expr* node, const Gene
 	std::string mtype = typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
 
 	for (size_t i = 0; i < generic_instances.size(); ++i)
-		 mtype += "." + typeNameMangled(generic_instances[i].second.first, [&](TypeGeneric* tg) { assert(!"Unexpected generic type"); return getTypeInstance(context, tg, location); } );
+		 mtype += "." + typeNameMangled(generic_instances[i].second.first, [&](TypeGeneric* tg) -> Type* { assert(!"Unexpected generic type"); return getTypeInstance(context, tg, location); } );
 
 	if (context.function_instances.count(std::make_pair(node, mtype)))
 		return context.function_instances[std::make_pair(node, mtype)];
