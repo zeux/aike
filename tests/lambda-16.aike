@@ -1,0 +1,12 @@
+let foo1() =
+    let bar() = 1
+    bar()
+
+let foo2() =
+    let bar() = 2
+    bar()
+
+foo1() - foo2()
+
+// OUTPUT:
+// -1
