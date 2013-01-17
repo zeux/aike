@@ -1716,13 +1716,22 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprLetFunc, root))
 	{
-		for (size_t i = 0; i < _->args.size(); ++i)
-			nongen.push_back(_->args[i]->type);
+		Type* tb;
 
-		Type* tb = analyze(_->body, nongen);
+		if (_->target->name.empty())
+		{
+			for (size_t i = 0; i < _->args.size(); ++i)
+				nongen.push_back(_->args[i]->type);
 
-		for (size_t i = 0; i < _->args.size(); ++i)
-			nongen.pop_back();
+			tb = analyze(_->body, nongen);
+
+			for (size_t i = 0; i < _->args.size(); ++i)
+				nongen.pop_back();
+		}
+		else
+		{
+			tb = analyze(_->body, nongen);
+		}
 
 		TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
 
@@ -1824,17 +1833,48 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		if (_->expressions.empty())
 			return new TypeUnit();
 
-		for (size_t i = 0; i + 1 < _->expressions.size(); ++i)
+		for (size_t i = 0; i < _->expressions.size(); )
 		{
-			Type* te = analyze(_->expressions[i], nongen);
-
-			if (dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprStructConstructorFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprUnionConstructorFunc*>(_->expressions[i]) == 0)
+			if (ExprLetFunc* __ = dynamic_cast<ExprLetFunc*>(_->expressions[i]))
 			{
-				mustUnify(te, new TypeUnit(), _->expressions[i]->location);
+				size_t nongen_count = nongen.size();
+
+				size_t count = 0;
+
+				for (; i + count < _->expressions.size(); ++count)
+				{
+					if (ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + count]))
+					{
+						for (size_t j = 0; j < func->args.size(); ++j)
+							nongen.push_back(func->args[j]->type);
+					}
+					else
+						break;
+				}
+
+				for (size_t j = 0; j < count; ++j)
+				{
+					Type* te = analyze(_->expressions[i + j], nongen);
+				}
+
+				nongen.resize(nongen_count);
+
+				i += count;
+			}
+			else
+			{
+				Type* te = analyze(_->expressions[i], nongen);
+
+				if (i + 1 < _->expressions.size() && dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprStructConstructorFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprUnionConstructorFunc*>(_->expressions[i]) == 0)
+				{
+					mustUnify(te, new TypeUnit(), _->expressions[i]->location);
+				}
+
+				i++;
 			}
 		}
 
-		return _->type = analyze(_->expressions.back(), nongen);
+		return _->type = _->expressions.back()->type;
 	}
 
 	assert(!"Unknown expression type");

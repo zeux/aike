@@ -1,4 +1,3 @@
-// SKIP
 type Tree<'T> =
     | Leaf Data<'T>
     | Node (Tree<'T>, Tree<'T>)
@@ -19,5 +18,8 @@ let reduce(r, f) =
 
 reduceData(Value(0), true)
 
-// OUTPUT:
-// 10
+// ERRORS:
+// (19,22): Type mismatch. Expecting a
+//     ('a, 'b) -> int
+// but given a
+//     bool
