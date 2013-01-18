@@ -3,4 +3,4 @@ let foo(x, y) = x / y
 foo(y = 2, z = 8)
 
 // ERRORS:
-// (3,4): Function doesn't accept an argument named 'z'
+// (3,12): Function doesn't accept an argument named 'z'

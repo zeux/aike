@@ -8,10 +8,11 @@
 
 struct BindingTarget
 {
+	Location location;
 	std::string name;
 	Type* type;
 
-	BindingTarget(const std::string& name, Type* type): name(name), type(type)
+	BindingTarget(const Location& location, const std::string& name, Type* type): location(location), name(name), type(type)
 	{
 	}
 };
@@ -329,9 +330,10 @@ struct MatchCaseArray: MatchCase
 struct MatchCaseMembers: MatchCase
 {
 	std::vector<std::string> member_names;
+	std::vector<Location> member_locations;
 	std::vector<MatchCase*> member_values;
 
-	MatchCaseMembers(Type* type, const Location& location, const std::vector<MatchCase*>& member_values, const std::vector<std::string>& member_names): MatchCase(type, location), member_values(member_values), member_names(member_names)
+	MatchCaseMembers(Type* type, const Location& location, const std::vector<MatchCase*>& member_values, const std::vector<std::string>& member_names, const std::vector<Location>& member_locations): MatchCase(type, location), member_values(member_values), member_names(member_names), member_locations(member_locations)
 	{
 	}
 };

@@ -40,7 +40,7 @@ MatchCase* clone(MatchCase* pattern)
 		for (size_t i = 0; i < _->member_values.size(); ++i)
 			member_values.push_back(clone(_->member_values[i]));
 
-		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>());
+		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>(), std::vector<Location>());
 	}
 	if (CASE(MatchCaseUnion, pattern))
 	{
@@ -193,7 +193,7 @@ MatchCase* simplify(MatchCase* pattern)
 		if (matchesAny)
 			return new MatchCaseAny(0, Location(), 0);
 
-		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>());
+		return new MatchCaseMembers(_->type, _->location, member_values, std::vector<std::string>(), std::vector<Location>());
 	}
 	if (CASE(MatchCaseUnion, pattern))
 	{
@@ -302,7 +302,7 @@ MatchCase* simplify(MatchCase* pattern)
 								next_member_values.push_back(curr_members->member_values[m]);
 						}
 
-						MatchCaseMembers *next_members = new MatchCaseMembers(curr_members->type, curr_members->location, next_member_values, std::vector<std::string>());
+						MatchCaseMembers *next_members = new MatchCaseMembers(curr_members->type, curr_members->location, next_member_values, std::vector<std::string>(), std::vector<Location>());
 
 						// This could be a type match or a union tag match
 						if (MatchCaseUnion* curr_tag = dynamic_cast<MatchCaseUnion*>(options[i]))

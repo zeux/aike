@@ -7,4 +7,4 @@ match x with
 | _ -> 0
 
 // ERRORS:
-// (6,21): Different patterns must use the same placeholders
+// (6,30): Different patterns must use the same placeholders

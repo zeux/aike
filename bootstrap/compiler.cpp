@@ -355,13 +355,7 @@ llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, cons
 		}
 		else
 		{
-			static int idx = 0;
-			idx++;
-
-			char buf[128];
-			sprintf(buf, "extern_%d", idx);
-
-			argi->setName(buf);
+			argi->setName("extern");
 			context_value = context.values[node->context_target] = argi;
 		}
 	}

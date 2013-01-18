@@ -327,7 +327,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			types.push_back(elements.back()->type);
 		}
 
-		return new MatchCaseMembers(new TypeTuple(types), _->location, elements, std::vector<std::string>());
+		return new MatchCaseMembers(new TypeTuple(types), _->location, elements, std::vector<std::string>(), std::vector<Location>());
 	}
 
 	if (CASE(SynMatchTypeSimple, match))
@@ -341,7 +341,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 			Type* member_type = getMemberTypeByIndex(inst, union_tag.first, union_tag.second, _->location);
 
-			BindingTarget* target = new BindingTarget(_->alias.name, member_type);
+			BindingTarget* target = new BindingTarget(_->alias.location, _->alias.name, member_type);
 		
 			env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
 
@@ -354,7 +354,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		if (!type)
 			errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
-		BindingTarget* target = new BindingTarget(_->alias.name, type);
+		BindingTarget* target = new BindingTarget(_->alias.location, _->alias.name, type);
 		
 		env.bindings.back().push_back(Binding(_->alias.name, new BindingLocal(target)));
 
@@ -364,12 +364,16 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 	if (CASE(SynMatchTypeComplex, match))
 	{
 		std::vector<std::string> member_names;
+		std::vector<Location> member_locations;
 		std::vector<MatchCase*> member_values;
 
 		for (size_t i = 0; i < _->arg_values.size(); ++i)
 		{
 			if (!_->arg_names.empty())
+			{
 				member_names.push_back(_->arg_names[i].name);
+				member_locations.push_back(_->arg_names[i].location);
+			}
 			member_values.push_back(resolveMatch(_->arg_values[i], env));
 		}
 
@@ -381,7 +385,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 			// First match the tag, then match the contents
 			TypeInstance* inst = instantiatePrototype(new TypePrototype*(union_tag.first), union_tag.first->generics.size());
 
-			return new MatchCaseUnion(inst, _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names));
+			return new MatchCaseUnion(inst, _->location, union_tag.second, new MatchCaseMembers(new TypeGeneric(), _->location, member_values, member_names, member_locations));
 		}
 
 		Type* type = tryResolveType(_->type.name, env);
@@ -389,7 +393,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		if (!type)
 			errorf(_->location, "Unknown type or union tag '%s'", _->type.name.c_str());
 
-		return new MatchCaseMembers(type, _->location, member_values, member_names);
+		return new MatchCaseMembers(type, _->location, member_values, member_names, member_locations);
 	}
 
 	if (CASE(SynMatchPlaceholder, match))
@@ -414,7 +418,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 
 		if (!previous)
 		{
-			BindingTarget* target = new BindingTarget(_->alias.name.name, resolveType(_->alias.type, env, true));
+			BindingTarget* target = new BindingTarget(_->alias.name.location, _->alias.name.name, resolveType(_->alias.type, env, true));
 		
 			env.bindings.back().push_back(Binding(_->alias.name.name, new BindingLocal(target)));
 
@@ -459,7 +463,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 				for (size_t k = 0; k < all_bindings[0].size(); ++k)
 				{
 					if (all_bindings.back()[k]->name != all_bindings[0][k]->name)
-						errorf(_->options[i]->location, "Different patterns must use the same placeholders");
+						errorf(all_bindings.back()[k]->location, "Different patterns must use the same placeholders");
 				}
 			}
 
@@ -471,7 +475,7 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		// Create new bindings for all used placeholders
 		for (size_t i = 0; i < all_bindings[0].size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(all_bindings[0][i]->name, new TypeGeneric());
+			BindingTarget* target = new BindingTarget(all_bindings[0][i]->location, all_bindings[0][i]->name, new TypeGeneric());
 		
 			actual_bindings.push_back(target);
 			env.bindings.back().push_back(Binding(all_bindings[0][i]->name, new BindingLocal(target)));
@@ -528,10 +532,10 @@ BindingFunction* resolveFunctionDeclaration(SynLetFunc* node, Environment& env)
 	for (size_t i = 0; i < node->args.size(); ++i)
 		arg_names.push_back(node->args[i].name.name);
 
-	BindingTarget* target = new BindingTarget(node->var.name, funty);
+	BindingTarget* target = new BindingTarget(node->var.location, node->var.name, funty);
 
 	TypeClosureContext* context_type = new TypeClosureContext();
-	BindingTarget* context_target = new BindingTarget("extern", context_type);
+	BindingTarget* context_target = new BindingTarget(Location(), "extern", context_type);
 
 	BindingFunction* binding = new BindingFunction(target, arg_names, context_target);
 
@@ -643,11 +647,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		std::vector<BindingTarget*> args;
 
 		for (size_t i = 0; i < record_type->member_types.size(); ++i)
-			args.push_back(new BindingTarget(record_type->member_names[i], record_type->member_types[i]));
+			args.push_back(new BindingTarget(Location(), record_type->member_names[i], record_type->member_types[i]));
 
 		TypeFunction* function_type = new TypeFunction(inst_type, record_type->member_types);
 
-		BindingTarget* target = new BindingTarget(_->name.name, function_type);
+		BindingTarget* target = new BindingTarget(_->name.location, _->name.name, function_type);
 
 		env.bindings.back().push_back(Binding(_->name.name, new BindingFreeFunction(target, record_type->member_names)));
 
@@ -720,11 +724,11 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			union_type->member_types.push_back(element_type);
 
 			for (size_t k = 0; k < member_names.size(); ++k)
-				args.push_back(new BindingTarget(member_names[k], member_types[k]));
+				args.push_back(new BindingTarget(Location(), member_names[k], member_types[k]));
 
 			TypeFunction* function_type = new TypeFunction(inst_type, member_types);
 
-			BindingTarget* target = new BindingTarget(_->members[i].name.name, function_type);
+			BindingTarget* target = new BindingTarget(_->members[i].name.location, _->members[i].name.name, function_type);
 
 			env.bindings.back().push_back(Binding(_->members[i].name.name, _->members[i].type ? new BindingFreeFunction(target, member_names) : new BindingUnionUnitConstructor(target, member_names)));
 
@@ -787,13 +791,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 					if (_->arg_names[i].name == binding_function->arg_names[k])
 					{
 						if (args[k])
-							errorf(_->location, "Value for argument '%s' is already defined", binding_function->arg_names[k].c_str());
+							errorf(_->arg_names[i].location, "Value for argument '%s' is already defined", binding_function->arg_names[k].c_str());
 						args[k] = resolveExpr(_->arg_values[i], env);
 						found = true;
 					}
 				}
 				if (!found)
-					errorf(_->location, "Function doesn't accept an argument named '%s'", _->arg_names[i].name.c_str());
+					errorf(_->arg_names[i].location, "Function doesn't accept an argument named '%s'", _->arg_names[i].name.c_str());
 			}
 		}
 		else
@@ -837,7 +841,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynLetVar, node))
 	{
-		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
+		BindingTarget* target = new BindingTarget(_->var.name.location, _->var.name.name, resolveType(_->var.type, env));
 
 		Expr* body = resolveExpr(_->body, env);
 
@@ -860,7 +864,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 			}
 			else
 			{
-				BindingTarget* target = new BindingTarget(_->vars[i].name.name, resolveType(_->vars[i].type, env));
+				BindingTarget* target = new BindingTarget(_->vars[i].name.location, _->vars[i].name.name, resolveType(_->vars[i].type, env));
 
 				env.bindings.back().push_back(Binding(_->vars[i].name.name, new BindingLocal(target)));
 
@@ -892,7 +896,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->args[i].name.name, funty->args[i]);
+			BindingTarget* target = new BindingTarget(_->args[i].name.location, _->args[i].name.name, funty->args[i]);
 
 			args.push_back(target);
 			env.bindings.back().push_back(Binding(_->args[i].name.name, new BindingLocal(target)));
@@ -949,14 +953,14 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Type* funty = resolveFunctionType(_->ret_type, _->args, env);
 
-		BindingTarget* target = new BindingTarget(_->var.name, funty);
+		BindingTarget* target = new BindingTarget(_->var.location, _->var.name, funty);
 
 		std::vector<BindingTarget*> args;
 		std::vector<std::string> arg_names;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 		{
-			BindingTarget* target = new BindingTarget(_->args[i].name.name, resolveType(_->args[i].type, env));
+			BindingTarget* target = new BindingTarget(_->args[i].name.location, _->args[i].name.name, resolveType(_->args[i].type, env));
 
 			args.push_back(target);
 			arg_names.push_back(_->args[i].name.name);
@@ -980,7 +984,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* arr = resolveExpr(_->arr, env);
 
-		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
+		BindingTarget* target = new BindingTarget(_->var.name.location, _->var.name.name, resolveType(_->var.type, env));
 
 		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
@@ -996,7 +1000,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		Expr* start = resolveExpr(_->start, env);
 		Expr* end = resolveExpr(_->end, env);
 
-		BindingTarget* target = new BindingTarget(_->var.name.name, resolveType(_->var.type, env));
+		BindingTarget* target = new BindingTarget(_->var.name.location, _->var.name.name, resolveType(_->var.type, env));
 
 		env.bindings.back().push_back(Binding(_->var.name.name, new BindingLocal(target)));
 
@@ -1402,7 +1406,7 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 					{
 						size_t member_index = getMemberIndexByName(record_type, _->member_names[i], _->location);
 						if (clone_members[member_index])
-							errorf(_->location, "Member '%s' match is already specified", record_type->member_names[member_index]);
+							errorf(_->member_locations[i], "Member '%s' match is already specified", record_type->member_names[member_index].c_str());
 
 						clone_members[member_index] = _->member_values[i];
 					}
@@ -1483,7 +1487,7 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 		for (size_t i = 0; i < _->binding_actual.size(); ++i)
 		{
 			for (size_t k = 0; k < _->binding_alternatives.size(); ++k)
-				mustUnify(_->binding_alternatives[k][i]->type, _->binding_actual[i]->type, _->location);
+				mustUnify(_->binding_alternatives[k][i]->type, _->binding_actual[i]->type, _->binding_alternatives[k][i]->location);
 		}
 
 		return _->type;

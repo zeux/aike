@@ -7,7 +7,7 @@ match x with
 | _ -> 0
 
 // ERRORS:
-// (6,3): Type mismatch. Expecting a
+// (6,29): Type mismatch. Expecting a
 //     int
 // but given a
 //     int[]
