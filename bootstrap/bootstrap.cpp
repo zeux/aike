@@ -225,7 +225,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 
 		llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt8PtrTy(context), llvm::Type::getInt32Ty(context), false), llvm::Function::ExternalLinkage, "malloc", module);
 
-		compile(context, module, root);
+		compile(context, module, new llvm::DataLayout(module), root);
 
 		llvm::ExecutionEngine* EE = llvm::EngineBuilder(module).create();
 

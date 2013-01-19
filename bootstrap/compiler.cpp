@@ -4,36 +4,27 @@
 #include "output.hpp"
 #include "typecheck.hpp"
 #include "match.hpp"
-
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Assembly/Parser.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/IR/Intrinsics.h"
+#include "llvmaike.hpp"
 
 #include <exception>
 #include <cassert>
 #include <sstream>
 
-typedef std::vector<std::pair<Type*, std::pair<Type*, llvm::Type*> > > GenericInstances;
+typedef std::vector<std::pair<Type*, std::pair<Type*, LLVMTypeRef> > > GenericInstances;
 
 struct Context
 {
-	llvm::LLVMContext* context;
-	llvm::Module* module;
-	llvm::DataLayout* layout;
+	LLVMContextRef context;
+	LLVMModuleRef module;
+	LLVMTargetDataRef layout;
 
-	std::map<BindingTarget*, llvm::Value*> values;
+	std::map<BindingTarget*, LLVMValueRef> values;
 	std::map<BindingTarget*, std::pair<Expr*, GenericInstances> > functions;
-	std::map<std::pair<Expr*, std::string>, llvm::Function*> function_instances;
-	std::map<llvm::Function*, llvm::Function*> function_thunks;
-	std::map<std::string, llvm::Type*> types;
+	std::map<std::pair<Expr*, std::string>, LLVMFunctionRef> function_instances;
+	std::map<LLVMFunctionRef, LLVMFunctionRef> function_thunks;
+	std::map<std::string, LLVMTypeRef> types;
 
-	std::vector<llvm::Type*> function_context_type;
+	std::vector<LLVMTypeRef> function_context_type;
 
 	GenericInstances generic_instances;
 };
@@ -54,43 +45,49 @@ Type* getTypeInstance(Context& context, Type* type, const Location& location)
 	return type;
 }
 
-llvm::Type* compileType(Context& context, Type* type, const Location& location);
+LLVMTypeRef compileType(Context& context, Type* type, const Location& location);
 
-llvm::Value* compileEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* type);
+LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type);
 
-llvm::Type* compileTypePrototype(Context& context, TypePrototype* proto, const Location& location, const std::string& mtype)
+LLVMTypeRef compileTypePrototype(Context& context, TypePrototype* proto, const Location& location, const std::string& mtype)
 {
 	if (CASE(TypePrototypeRecord, proto))
 	{
-		std::vector<llvm::Type*> members;
+		std::vector<LLVMTypeRef> members;
 
-		llvm::StructType* struct_type = llvm::StructType::create(*context.context, _->name + ".." + mtype);
+		LLVMStructTypeRef struct_type = LLVMStructCreateNamed(context.context, (_->name + ".." + mtype).c_str());
 
 		context.types[mtype] = struct_type;
 
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 			members.push_back(compileType(context, _->member_types[i], location));
 
-		struct_type->setBody(members);
+		LLVMStructSetBody(struct_type, members.data(), members.size(), false);
 
 		return struct_type;
 	}
 
 	if (CASE(TypePrototypeUnion, proto))
 	{
-		std::vector<llvm::Type*> members;
+		std::vector<LLVMTypeRef> members;
 
-		members.push_back(llvm::Type::getInt32Ty(*context.context)); // Current type ID
-		members.push_back(llvm::Type::getInt8PtrTy(*context.context)); // Pointer to union data
+		LLVMStructTypeRef struct_type = LLVMStructCreateNamed(context.context, (_->name + ".." + mtype).c_str());
 
-		return context.types[mtype] = llvm::StructType::create(*context.context, members, _->name + ".." + mtype);
+		context.types[mtype] = struct_type;
+
+		members.push_back(LLVMInt32TypeInContext(context.context)); // Current type ID
+		members.push_back(LLVMPointerType(LLVMInt8TypeInContext(context.context), 0)); // Pointer to union data
+
+		LLVMStructSetBody(struct_type, members.data(), members.size(), false);
+
+		return struct_type;
 	}
 
 	assert(!"Unknown prototype type");
 	return 0;
 }
 
-llvm::Type* compileType(Context& context, Type* type, const Location& location)
+LLVMTypeRef compileType(Context& context, Type* type, const Location& location)
 {
 	type = finalType(type);
 
@@ -106,66 +103,76 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	if (CASE(TypeUnit, type))
 	{
 		// this might be void in the future
-		return llvm::Type::getInt32Ty(*context.context);
+		return LLVMInt32TypeInContext(context.context);
 	}
 
 	if (CASE(TypeInt, type))
 	{
-		return llvm::Type::getInt32Ty(*context.context);
+		return LLVMInt32TypeInContext(context.context);
 	}
 
 	if (CASE(TypeFloat, type))
 	{
-		return llvm::Type::getFloatTy(*context.context);
+		return LLVMFloatTypeInContext(context.context);
 	}
 
 	if (CASE(TypeBool, type))
 	{
-		return llvm::Type::getInt1Ty(*context.context);
+		return LLVMInt1TypeInContext(context.context);
 	}
 	
 	if (CASE(TypeClosureContext, type))
 	{
-		std::vector<llvm::Type*> members;
+		std::vector<LLVMTypeRef> members;
 
 		for (size_t i = 0; i < _->member_types.size(); ++i)
 		{
 			if (dynamic_cast<TypeClosureContext*>(_->member_types[i]))
-				members.push_back(llvm::Type::getInt8PtrTy(*context.context));
+				members.push_back(LLVMPointerType(LLVMInt8TypeInContext(context.context), 0));
 			else
 				members.push_back(compileType(context, _->member_types[i], location));
 		}
 
-		return llvm::PointerType::getUnqual(llvm::StructType::get(*context.context, members));
+		return LLVMPointerType(LLVMStructTypeInContext(context.context, members.data(), members.size(), false), 0);
 	}
 
 	if (CASE(TypeTuple, type))
 	{
-		std::vector<llvm::Type*> members;
+		std::vector<LLVMTypeRef> members;
 
 		for (size_t i = 0; i < _->members.size(); ++i)
 			members.push_back(compileType(context, _->members[i], location));
 
-		return llvm::StructType::get(*context.context, members);
+		return LLVMStructTypeInContext(context.context, members.data(), members.size(), false);
 	}
 
 	if (CASE(TypeArray, type))
 	{
-		return llvm::StructType::get(llvm::PointerType::getUnqual(compileType(context, _->contained, location)), llvm::Type::getInt32Ty(*context.context), (llvm::Type*)NULL);
+		std::vector<LLVMTypeRef> members;
+
+		members.push_back(LLVMPointerType(compileType(context, _->contained, location), 0));
+		members.push_back(LLVMInt32TypeInContext(context.context));
+
+		return LLVMStructTypeInContext(context.context, members.data(), members.size(), false);
 	}
 
 	if (CASE(TypeFunction, type))
 	{
-		std::vector<llvm::Type*> args;
+		std::vector<LLVMTypeRef> args;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileType(context, _->args[i], location));
 
-		args.push_back(llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context.context)));
+		args.push_back(LLVMPointerType(LLVMInt8TypeInContext(context.context), 0));
 
-		llvm::Type* function_type = llvm::FunctionType::get(compileType(context, _->result, location), args, false);
+		LLVMTypeRef function_type = LLVMFunctionType(compileType(context, _->result, location), args.data(), args.size(), false);
 
-		llvm::StructType* holder_type = llvm::StructType::get(llvm::PointerType::getUnqual(function_type), llvm::Type::getInt8PtrTy(*context.context), (llvm::Type*)NULL);
+		std::vector<LLVMTypeRef> members;
+
+		members.push_back(LLVMPointerType(function_type, 0));
+		members.push_back(LLVMPointerType(LLVMInt8TypeInContext(context.context), 0));
+
+		LLVMStructTypeRef holder_type = LLVMStructTypeInContext(context.context, members.data(), members.size(), false);
 
 		return holder_type;
 	}
@@ -186,7 +193,7 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 		for (size_t i = 0; i < _->generics.size(); ++i)
 			context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(_->generics[i], compileType(context, _->generics[i], location))));
 
-		llvm::Type* result = compileTypePrototype(context, *_->prototype, location, mtype);
+		LLVMTypeRef result = compileTypePrototype(context, *_->prototype, location, mtype);
 
 		context.generic_instances.resize(generic_type_count);
 
@@ -196,13 +203,13 @@ llvm::Type* compileType(Context& context, Type* type, const Location& location)
 	errorf(location, "Unrecognized type");
 }
 
-llvm::FunctionType* compileFunctionType(Context& context, Type* type, const Location& location, Type* context_type)
+LLVMFunctionTypeRef compileFunctionType(Context& context, Type* type, const Location& location, Type* context_type)
 {
 	type = finalType(type);
 
 	if (CASE(TypeFunction, type))
 	{
-		std::vector<llvm::Type*> args;
+		std::vector<LLVMTypeRef> args;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileType(context, _->args[i], location));
@@ -210,66 +217,71 @@ llvm::FunctionType* compileFunctionType(Context& context, Type* type, const Loca
 		if (context_type)
 			args.push_back(compileType(context, context_type, location));
 
-		return llvm::FunctionType::get(compileType(context, _->result, location), args, false);
+		return LLVMFunctionType(compileType(context, _->result, location), args.data(), args.size(), false);
 	}
 
 	errorf(location, "Unrecognized type");
 }
 
-llvm::Function* compileFunctionThunk(Context& context, llvm::Function* target, llvm::Type* funcptr_type)
+LLVMFunctionRef compileFunctionThunk(Context& context, LLVMFunctionRef target, LLVMTypeRef funcptr_type)
 {
-	llvm::FunctionType* thunk_type = llvm::cast<llvm::FunctionType>(funcptr_type->getContainedType(0)->getContainedType(0));
+	LLVMFunctionTypeRef thunk_type = (LLVMFunctionTypeRef)(LLVMGetElementType(LLVMGetContainedType(funcptr_type, 0)));
 
 	if (context.function_thunks.count(target) > 0)
 	{
-		llvm::Function* result = context.function_thunks[target];
-		assert(result->getFunctionType() == thunk_type);
+		LLVMFunctionRef result = context.function_thunks[target];
+		//assert(LLVMTypeOf(result) == thunk_type);
 		return result;
 	}
 
-	llvm::Function* thunk_func = llvm::Function::Create(thunk_type, llvm::Function::InternalLinkage, target->getName() + "..thunk", context.module);
-	assert(thunk_func->arg_size() == target->arg_size() || thunk_func->arg_size() == target->arg_size() + 1);
+	std::string name = LLVMGetValueName(target);
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", thunk_func);
-	llvm::IRBuilder<> builder(bb);
+	LLVMFunctionRef thunk_func = LLVMAddFunction(context.module, (name + "..thunk").c_str(), thunk_type);
+	LLVMSetLinkage(thunk_func, LLVMInternalLinkage);
 
-	std::vector<llvm::Value*> args;
+	assert(LLVMCountParams(thunk_func) == LLVMCountParams(target) || LLVMCountParams(thunk_func) == LLVMCountParams(target) + 1);
+
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, thunk_func, "entry");
+	LLVMBuilderRef builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(builder, bb);
+
+	std::vector<LLVMValueRef> args;
 
 	// add all target arguments
-	assert(thunk_func->arg_size() >= target->arg_size());
+	assert(LLVMCountParams(thunk_func) >= LLVMCountParams(target));
 
-	llvm::Function::arg_iterator argi = thunk_func->arg_begin();
+	LLVMValueRef argi = LLVMGetFirstParam(thunk_func);
 
-	for (size_t i = 0; i < target->arg_size(); ++i, ++argi)
+	for (size_t i = 0; i < LLVMCountParams(thunk_func); ++i, argi = LLVMGetNextParam(argi))
 		args.push_back(argi);
 
 	// cast context argument to correct type
-	if (thunk_func->arg_size() == target->arg_size())
+	if (LLVMCountParams(thunk_func) == LLVMCountParams(target))
 	{
-		args.back() = builder.CreatePointerCast(args.back(), target->getArgumentList().back().getType());
+		args.back() = LLVMBuildPointerCast(builder, args.back(), LLVMTypeOf(LLVMGetLastParam(target)), "");
 	}
 
-	builder.CreateRet(builder.CreateCall(target, args));
+	LLVMBuildRet(builder, LLVMBuildCall(builder, target, args.data(), LLVMCountParams(thunk_func) == LLVMCountParams(target) ? args.size() : args.size() - 1, ""));
 
 	return context.function_thunks[target] = thunk_func;
 }
 
-llvm::Value* compileFunctionValue(Context& context, llvm::IRBuilder<>& builder, llvm::Function* target, Type* type, BindingTarget* context_target, const Location& location)
+LLVMValueRef compileFunctionValue(Context& context, LLVMBuilderRef builder, LLVMFunctionRef target, Type* type, BindingTarget* context_target, const Location& location)
 {
-	llvm::Type* funcptr_type = compileType(context, type, location);
+	LLVMTypeRef funcptr_type = compileType(context, type, location);
 
-	llvm::Function* thunk = compileFunctionThunk(context, target, funcptr_type);
+	LLVMFunctionRef thunk = compileFunctionThunk(context, target, funcptr_type);
 
-	llvm::Value* result = llvm::ConstantAggregateZero::get(funcptr_type);
+	LLVMValueRef result = LLVMConstNull(funcptr_type);
 	
-	result = builder.CreateInsertValue(result, thunk, 0);
+	result = LLVMBuildInsertValue(builder, result, thunk, 0, "");
 
 	if (context_target)
 	{
-		llvm::Value* context_ref = context.values[context_target];
-		llvm::Value* context_ref_opaque = builder.CreateBitCast(context_ref, llvm::Type::getInt8PtrTy(*context.context));
+		LLVMValueRef context_ref = context.values[context_target];
+		LLVMValueRef context_ref_opaque = LLVMBuildBitCast(builder, context_ref, LLVMPointerType(LLVMInt8TypeInContext(context.context), 0), "");
 
-		result = builder.CreateInsertValue(result, context_ref_opaque, 1);
+		result = LLVMBuildInsertValue(builder, result, context_ref_opaque, 1, "");
 	}
 
 	return result;
@@ -331,133 +343,140 @@ void instantiateGenericTypes(Context& context, GenericInstances& generic_instanc
 	}
 }
 
-llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
+LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node);
 
-llvm::Function* compileRegularFunction(Context& context, ExprLetFunc* node, const std::string& mtype, std::function<void(llvm::Function*)> ready)
+LLVMFunctionRef compileRegularFunction(Context& context, ExprLetFunc* node, const std::string& mtype, std::function<void(LLVMFunctionRef)> ready)
 {
-	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
+	LLVMFunctionTypeRef function_type = compileFunctionType(context, node->type, node->location, node->context_target ? node->context_target->type : 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
+	LLVMFunctionRef func = LLVMAddFunction(context.module, (node->target->name + ".." + mtype).c_str(), function_type);
+	LLVMSetLinkage(func, LLVMInternalLinkage);
 
 	ready(func);
 
-	llvm::Function::arg_iterator argi = func->arg_begin();
+	LLVMValueRef argi = LLVMGetFirstParam(func);
 
-	llvm::Value* context_value = 0;
-	llvm::Value* context_target_value = node->context_target ? context.values[node->context_target] : NULL;
+	LLVMValueRef context_value = 0;
+	LLVMValueRef context_target_value = node->context_target ? context.values[node->context_target] : NULL;
 
-	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 	{
 		if (i < node->args.size())
 		{
-			argi->setName(node->args[i]->name);
+			LLVMSetValueName(argi, node->args[i]->name.c_str());
 			context.values[node->args[i]] = argi;
 		}
 		else
 		{
-			argi->setName("extern");
+			LLVMSetValueName(argi, "extern");
 			context_value = context.values[node->context_target] = argi;
 		}
 	}
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-	llvm::IRBuilder<> builder(bb);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, func, "entry");
+	LLVMBuilderRef builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(builder, bb);
 
 	// Compile function body
-	context.function_context_type.push_back(context_value ? context_value->getType() : NULL);
+	context.function_context_type.push_back(context_value ? LLVMTypeOf(context_value) : NULL);
 
-	llvm::Value* value = compileExpr(context, builder, node->body);
+	LLVMValueRef value = compileExpr(context, builder, node->body);
 
 	context.function_context_type.pop_back();
 
-	builder.CreateRet(value);
+	LLVMBuildRet(builder, value);
 
 	context.values[node->context_target] = context_target_value;
 
 	return func;
 }
 
-llvm::Function* compileStructConstructor(Context& context, ExprStructConstructorFunc* node, const std::string& mtype)
+LLVMFunctionRef compileStructConstructor(Context& context, ExprStructConstructorFunc* node, const std::string& mtype)
 {
-	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
+	LLVMFunctionTypeRef function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
+	LLVMFunctionRef func = LLVMAddFunction(context.module, (node->target->name + ".." + mtype).c_str(), function_type);
+	LLVMSetLinkage(func, LLVMInternalLinkage);
 
-	llvm::Function::arg_iterator argi = func->arg_begin();
+	LLVMValueRef argi = LLVMGetFirstParam(func);
 
-	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 	{
 		if (i < node->args.size())
-			argi->setName(node->args[i]->name);
+			LLVMSetValueName(argi, node->args[i]->name.c_str());
 	}
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-	llvm::IRBuilder<> builder(bb);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, func, "entry");
+	LLVMBuilderRef builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(builder, bb);
 
-	llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+	LLVMValueRef aggr = LLVMConstNull(LLVMGetReturnType(function_type));
 
-	argi = func->arg_begin();
+	argi = LLVMGetFirstParam(func);
 
-	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
-		aggr = builder.CreateInsertValue(aggr, argi, i);
+	for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
+		aggr = LLVMBuildInsertValue(builder, aggr, argi, i, "");
 
-	builder.CreateRet(aggr);
+	LLVMBuildRet(builder, aggr);
 
 	return func;
 }
 
-llvm::Function* compileUnionConstructor(Context& context, ExprUnionConstructorFunc* node, const std::string& mtype)
+LLVMFunctionRef compileUnionConstructor(Context& context, ExprUnionConstructorFunc* node, const std::string& mtype)
 {
-	llvm::FunctionType* function_type = compileFunctionType(context, node->type, node->location, 0);
+	LLVMFunctionTypeRef function_type = compileFunctionType(context, node->type, node->location, 0);
 
-	llvm::Function* func = llvm::Function::Create(function_type, llvm::GlobalValue::InternalLinkage, node->target->name + ".." + mtype, context.module);
+	LLVMFunctionRef func = LLVMAddFunction(context.module, (node->target->name + ".." + mtype).c_str(), function_type);
+	LLVMSetLinkage(func, LLVMInternalLinkage);
 
-	llvm::Function::arg_iterator argi = func->arg_begin();
+	LLVMValueRef argi = LLVMGetFirstParam(func);
 
-	for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+	for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 	{
 		if (i < node->args.size())
-			argi->setName(node->args[i]->name);
+			LLVMSetValueName(argi, node->args[i]->name.c_str());
 	}
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", func);
-	llvm::IRBuilder<> builder(bb);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, func, "entry");
+	LLVMBuilderRef builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(builder, bb);
 
-	llvm::Value* aggr = llvm::ConstantAggregateZero::get(function_type->getReturnType());
+	LLVMValueRef aggr = LLVMConstNull(LLVMGetReturnType(function_type));
 
 	// Save type ID
-	aggr = builder.CreateInsertValue(aggr, builder.getInt32(node->member_id), 0);
+	aggr = LLVMBuildInsertValue(builder, aggr, LLVMConstInt(LLVMInt32TypeInContext(context.context), node->member_id, false), 0, "");
 
 	// Create union storage
-	llvm::Type* member_type = compileType(context, node->member_type, node->location);
-	llvm::Type* member_ref_type = llvm::PointerType::getUnqual(member_type);
+	LLVMTypeRef member_type = compileType(context, node->member_type, node->location);
+	LLVMTypeRef member_ref_type = LLVMPointerType(member_type, 0);
 
-	argi = func->arg_begin();
+	argi = LLVMGetFirstParam(func);
 
 	if (!node->args.empty())
 	{
-		llvm::Value* data = builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(member_type))));
-		llvm::Value* typed_data = builder.CreateBitCast(data, member_ref_type);
+		LLVMValueRef arg =  LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, member_type)), false);
+		LLVMValueRef data = LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, "malloc"), &arg, 1, "");
+		LLVMValueRef typed_data = LLVMBuildBitCast(builder, data, member_ref_type, "");
 
 		if (node->args.size() > 1)
 		{
-			for (size_t i = 0; i < node->args.size(); ++i, ++argi)
-				builder.CreateStore(argi, builder.CreateStructGEP(typed_data, i));
+			for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
+				LLVMBuildStore(builder, argi, LLVMBuildStructGEP(builder, typed_data, i, ""));
 		}
 		else
 		{
-			builder.CreateStore(argi, typed_data);
+			LLVMBuildStore(builder, argi, typed_data);
 		}
 
-		aggr = builder.CreateInsertValue(aggr, data, 1);
+		aggr = LLVMBuildInsertValue(builder, aggr, data, 1, "");
 	}
 
-	builder.CreateRet(aggr);
+	LLVMBuildRet(builder, aggr);
 
 	return func;
 }
 
-llvm::Function* compileFunction(Context& context, Expr* node, const std::string& mtype, std::function<void(llvm::Function*)> ready)
+LLVMFunctionRef compileFunction(Context& context, Expr* node, const std::string& mtype, std::function<void(LLVMFunctionRef)> ready)
 {
 	if (CASE(ExprLetFunc, node))
 	{
@@ -478,7 +497,7 @@ llvm::Function* compileFunction(Context& context, Expr* node, const std::string&
 	return 0;
 }
 
-llvm::Function* compileFunctionInstance(Context& context, Expr* node, const GenericInstances& generic_instances, Type* instance_type, const Location& location)
+LLVMFunctionRef compileFunctionInstance(Context& context, Expr* node, const GenericInstances& generic_instances, Type* instance_type, const Location& location)
 {
 	// compute mangled instance type name
 	std::string mtype = typeNameMangled(instance_type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
@@ -500,7 +519,7 @@ llvm::Function* compileFunctionInstance(Context& context, Expr* node, const Gene
 	context.generic_instances.insert(context.generic_instances.end(), new_generic_instances.begin(), new_generic_instances.end());
 
 	// compile function body given a non-generic type
-	llvm::Function* func = compileFunction(context, node, mtype, [&](llvm::Function* func) { context.function_instances[std::make_pair(node, mtype)] = func; });
+	LLVMFunctionRef func = compileFunction(context, node, mtype, [&](LLVMFunctionRef func) { context.function_instances[std::make_pair(node, mtype)] = func; });
 
 	// restore old generic type instantiations
 	context.generic_instances = old_generic_instances;
@@ -508,14 +527,14 @@ llvm::Function* compileFunctionInstance(Context& context, Expr* node, const Gene
 	return context.function_instances[std::make_pair(node, mtype)] = func;
 }
 
-llvm::Function* compileBindingFunction(Context& context, BindingFunction* binding, Type* type, const Location& location)
+LLVMFunctionRef compileBindingFunction(Context& context, BindingFunction* binding, Type* type, const Location& location)
 {
 	if (context.functions.count(binding->target) > 0)
 	{
 		// Compile function instantiation
 		auto p = context.functions[binding->target];
 
-		llvm::Function* func = compileFunctionInstance(context, p.first, p.second, type, location);
+		LLVMFunctionRef func = compileFunctionInstance(context, p.first, p.second, type, location);
 
 		return func;
 	}
@@ -523,7 +542,7 @@ llvm::Function* compileBindingFunction(Context& context, BindingFunction* bindin
 	errorf(location, "Variable %s has not been computed", binding->target->name.c_str());
 }
 
-llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, BindingBase* binding, Type* type, const Location& location)
+LLVMValueRef compileBinding(Context& context, LLVMBuilderRef builder, BindingBase* binding, Type* type, const Location& location)
 {
 	if (CASE(BindingFunction, binding))
 	{
@@ -536,12 +555,12 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 			auto p = context.functions[_->target];
 			Expr* node = p.first;
 
-			llvm::Function* func = compileFunctionInstance(context, node, p.second, type, location);
+			LLVMFunctionRef func = compileFunctionInstance(context, node, p.second, type, location);
 
 			// Create function value
 			BindingTarget* context_target = dynamic_cast<ExprLetFunc*>(node) ? dynamic_cast<ExprLetFunc*>(node)->context_target : NULL;
 
-			llvm::Value* funcptr = compileFunctionValue(context, builder, func, type, context_target, node->location);
+			LLVMValueRef funcptr = compileFunctionValue(context, builder, func, type, context_target, node->location);
 
 			return funcptr;
 		}
@@ -560,22 +579,24 @@ llvm::Value* compileBinding(Context& context, llvm::IRBuilder<>& builder, Bindin
 	errorf(location, "Variable binding has not been resolved");
 }
 
-llvm::Value* findFunctionArgument(llvm::Function* func, const std::string& name)
+LLVMValueRef findFunctionArgument(LLVMFunctionRef func, const std::string& name)
 {
-	for (llvm::Function::arg_iterator argi = func->arg_begin(); argi != func->arg_end(); ++argi)
-		if (argi->getName() == name)
+	for (LLVMValueRef argi = LLVMGetFirstParam(func); argi; argi = LLVMGetNextParam(argi))
+	{
+		if (LLVMGetValueName(argi) == name)
 			return argi;
+	}
 
 	return NULL;
 }
 
-llvm::Type* parseInlineLLVMType(Context& context, const std::string& name, llvm::Function* func, const Location& location)
+LLVMTypeRef parseInlineLLVMType(Context& context, const std::string& name, LLVMFunctionRef func, const Location& location)
 {
 	if (name[0] == '%')
 	{
-		if (llvm::Value* arg = findFunctionArgument(func, name.substr(1)))
+		if (LLVMValueRef arg = findFunctionArgument(func, name.substr(1)))
 		{
-			return arg->getType();
+			return LLVMTypeOf(arg);
 		}
 
 		errorf(location, "Incorrect type expression %s: unknown variable", name.c_str());
@@ -597,16 +618,15 @@ llvm::Type* parseInlineLLVMType(Context& context, const std::string& name, llvm:
 	errorf(location, "Incorrect type expression %s: expected %% or '", name.c_str());
 }
 
-std::string compileInlineLLVM(Context& context, const std::string& name, const std::string& body, llvm::Function* func, const Location& location)
+std::string compileInlineLLVM(Context& context, const std::string& name, const std::string& body, LLVMFunctionRef func, const Location& location)
 {
 	std::ostringstream declare;
-	std::ostringstream oss;
-	llvm::raw_os_ostream os(oss);
+	std::ostringstream os;
 
-	os << "define internal " << *func->getReturnType() << " @" << name << "(";
+	os << "define internal " << LLVMAikeGetTypeName(context.context, LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " @" << name << "(";
 
-	for (llvm::Function::arg_iterator argi = func->arg_begin(); argi != func->arg_end(); ++argi)
-		os << (argi != func->arg_begin() ? ", " : "") << *argi->getType() << " %" << argi->getName().str();
+	for (LLVMValueRef argi = LLVMGetFirstParam(func); argi; argi = LLVMGetNextParam(argi))
+		os << (argi != LLVMGetFirstParam(func) ? ", " : "") << LLVMAikeGetTypeName(context.context, LLVMTypeOf(argi)) << " %" << LLVMGetValueName(argi);
 
 	os << ") alwaysinline {\n";
 
@@ -630,7 +650,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 
 			i = end + 1;
 
-			os << *parseInlineLLVMType(context, var, func, location);
+			os << LLVMAikeGetTypeName(context.context, parseInlineLLVMType(context, var, func, location));
 		}
 		else if (body[i] == 's' && body.compare(i, 7, "sizeof(") == 0)
 		{
@@ -643,7 +663,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 
 			i = end + 1;
 
-			os << context.layout->getTypeAllocSize(parseInlineLLVMType(context, var, func, location));
+			os << LLVMABISizeOfType(context.layout, parseInlineLLVMType(context, var, func, location));
 		}
 		else if (body[i] == 'd' && body.compare(i, 8, "declare ") == 0)
 		{
@@ -662,15 +682,15 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 		}
 	}
 
-	os << "\nret " << *func->getReturnType() << " %out }";
+	os << "\nret " << LLVMAikeGetTypeName(context.context, LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " %out }";
 	os.flush();
-
-	return declare.str() + oss.str();
+	
+	return declare.str() + os.str();
 }
 
-llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node);
+LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node);
 
-void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_, llvm::Value* value, llvm::Value* target, Expr* rhs, llvm::BasicBlock* on_fail, llvm::BasicBlock* on_success)
+void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LLVMValueRef value, LLVMValueRef target, Expr* rhs, LLVMBasicBlockRef on_fail, LLVMBasicBlockRef on_success)
 {
 	if (CASE(MatchCaseAny, case_))
 	{
@@ -678,60 +698,60 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 			context.values[_->alias] = value;
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseBoolean, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* cond = builder.CreateICmpEQ(value, builder.getInt1(_->value));
+		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt1TypeInContext(context.context), _->value, false), "");
 
-		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
-		builder.CreateCondBr(cond, success, on_fail);
+		LLVMBuildCondBr(builder, cond, success, on_fail);
 
-		builder.SetInsertPoint(success);
+		LLVMPositionBuilderAtEnd(builder, success);
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseNumber, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* cond = builder.CreateICmpEQ(value, builder.getInt32(uint32_t(_->value)));
+		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->value), false), "");
 
-		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
-		builder.CreateCondBr(cond, success, on_fail);
+		LLVMBuildCondBr(builder, cond, success, on_fail);
 
-		builder.SetInsertPoint(success);
+		LLVMPositionBuilderAtEnd(builder, success);
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseValue, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* cond = compileEqualityOperator(_->location, context, builder, compileBinding(context, builder, _->value, finalType(_->type), _->location), value, finalType(_->type));
+		LLVMValueRef cond = compileEqualityOperator(_->location, context, builder, compileBinding(context, builder, _->value, finalType(_->type), _->location), value, finalType(_->type));
 
-		llvm::BasicBlock* success = llvm::BasicBlock::Create(*context.context, "success", function);
+		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
-		builder.CreateCondBr(cond, success, on_fail);
+		LLVMBuildCondBr(builder, cond, success, on_fail);
 
-		builder.SetInsertPoint(success);
+		LLVMPositionBuilderAtEnd(builder, success);
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseArray, case_))
 	{
@@ -739,40 +759,41 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		if (!arr_type)
 			errorf(_->location, "array type is unknown");
 
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* size = builder.CreateExtractValue(value, 1);
+		LLVMValueRef size = LLVMBuildExtractValue(builder, value, 1, "");
 
-		llvm::Value* cond = builder.CreateICmpEQ(size, builder.getInt32(uint32_t(_->elements.size())));
+		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, size, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size()), false), "");
 
-		llvm::BasicBlock* success_size = llvm::BasicBlock::Create(*context.context, "success_size", function);
-		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+		LLVMBasicBlockRef success_size = LLVMAppendBasicBlockInContext(context.context, function, "success_size");
+		LLVMBasicBlockRef success_all = LLVMAppendBasicBlockInContext(context.context, function, "success_all");
 
-		builder.CreateCondBr(cond, success_size, on_fail);
-		builder.SetInsertPoint(success_size);
+		LLVMBuildCondBr(builder, cond, success_size, on_fail);
+		LLVMPositionBuilderAtEnd(builder, success_size);
 
 		for (size_t i = 0; i < _->elements.size(); ++i)
 		{
-			llvm::Value* element = builder.CreateLoad(builder.CreateGEP(builder.CreateExtractValue(value, 0), builder.getInt32(uint32_t(i))), false);
+			LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(i), false);
+			LLVMValueRef element = LLVMBuildLoad(builder, LLVMBuildGEP(builder, LLVMBuildExtractValue(builder, value, 0, ""), &index, 1, ""), "");
 
-			llvm::BasicBlock* next_check = i != _->elements.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+			LLVMBasicBlockRef next_check = i != _->elements.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : success_all;
 
 			compileMatch(context, builder, _->elements[i], element, 0, 0, on_fail, next_check);
 
-			function->getBasicBlockList().push_back(next_check);
-			builder.SetInsertPoint(next_check);
+			LLVMMoveBasicBlockAfter(next_check, LLVMGetLastBasicBlock(function));
+			LLVMPositionBuilderAtEnd(builder, next_check);
 		}
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseMembers, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+		LLVMBasicBlockRef success_all = LLVMAppendBasicBlockInContext(context.context, function, "success_all");
 
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
 		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype) : 0;
@@ -781,33 +802,33 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		{
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
-				llvm::BasicBlock* next_check = i != _->member_values.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+				LLVMBasicBlockRef next_check = i != _->member_values.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : success_all;
 
 				size_t id = ~0u;
 
 				if (!_->member_names.empty())
 					id = getMemberIndexByName(record_type, _->member_names[i], _->location);
 
-				llvm::Value* element = builder.CreateExtractValue(value, id == ~0u ? i : id);
+				LLVMValueRef element = LLVMBuildExtractValue(builder, value, id == ~0u ? i : id, "");
 
 				compileMatch(context, builder, _->member_values[i], element, 0, 0, on_fail, next_check);
 
-				function->getBasicBlockList().push_back(next_check);
-				builder.SetInsertPoint(next_check);
+				LLVMMoveBasicBlockAfter(next_check, LLVMGetLastBasicBlock(function));
+				LLVMPositionBuilderAtEnd(builder, next_check);
 			}
 		}
 		else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
 		{
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
-				llvm::BasicBlock* next_check = i != _->member_values.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : success_all;
+				LLVMBasicBlockRef next_check = i != _->member_values.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : success_all;
 
-				llvm::Value* element = builder.CreateExtractValue(value, i);
+				LLVMValueRef element = LLVMBuildExtractValue(builder, value, i, "");
 
 				compileMatch(context, builder, _->member_values[i], element, 0, 0, on_fail, next_check);
 
-				function->getBasicBlockList().push_back(next_check);
-				builder.SetInsertPoint(next_check);
+				LLVMMoveBasicBlockAfter(next_check, LLVMGetLastBasicBlock(function));
+				LLVMPositionBuilderAtEnd(builder, next_check);
 			}
 		}
 		else
@@ -825,14 +846,14 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 
 			compileMatch(context, builder, _->member_values[0], value, 0, 0, on_fail, success_all);
 
-			function->getBasicBlockList().push_back(success_all);
-			builder.SetInsertPoint(success_all);
+			LLVMMoveBasicBlockAfter(success_all, LLVMGetLastBasicBlock(function));
+			LLVMPositionBuilderAtEnd(builder, success_all);
 		}
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseUnion, case_))
 	{
@@ -842,98 +863,106 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 		if (!union_type)
 			errorf(_->location, "union type is unknown");
 
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* type_id = builder.CreateExtractValue(value, 0);
-		llvm::Value* type_ptr = builder.CreateExtractValue(value, 1);
+		LLVMValueRef type_id = LLVMBuildExtractValue(builder, value, 0, "");
+		LLVMValueRef type_ptr = LLVMBuildExtractValue(builder, value, 1, "");
 
-		llvm::Value* cond = builder.CreateICmpEQ(type_id, builder.getInt32(uint32_t(_->tag)));
+		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, type_id, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->tag), false), "");
 
-		llvm::BasicBlock* success_tag = llvm::BasicBlock::Create(*context.context, "success_tag", function);
-		llvm::BasicBlock* success_all = llvm::BasicBlock::Create(*context.context, "success_all");
+		LLVMBasicBlockRef success_tag = LLVMAppendBasicBlockInContext(context.context, function, "success_tag");
+		LLVMBasicBlockRef success_all = LLVMAppendBasicBlockInContext(context.context, function, "success_all");
 
-		builder.CreateCondBr(cond, success_tag, on_fail);
-		builder.SetInsertPoint(success_tag);
+		LLVMBuildCondBr(builder, cond, success_tag, on_fail);
+		LLVMPositionBuilderAtEnd(builder, success_tag);
 
 		Type* type = getMemberTypeByIndex(inst_type, union_type, _->tag, _->location);
 
-		llvm::Value* element = builder.CreateLoad(builder.CreateBitCast(type_ptr, llvm::PointerType::getUnqual(compileType(context, type, _->location))));
+		LLVMValueRef element = LLVMBuildLoad(builder, LLVMBuildBitCast(builder, type_ptr, LLVMPointerType(compileType(context, type, _->location), 0), ""), "");
 
 		compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
 
-		function->getBasicBlockList().push_back(success_all);
-		builder.SetInsertPoint(success_all);
+		LLVMMoveBasicBlockAfter(success_all, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, success_all);
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseOr, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::BasicBlock* success_any = llvm::BasicBlock::Create(*context.context, "success_any");
+		LLVMBasicBlockRef success_any = LLVMAppendBasicBlockInContext(context.context, function, "success_any");
 
-		std::vector<llvm::BasicBlock*> incoming;
+		std::vector<LLVMBasicBlockRef> incoming;
 
 		for (size_t i = 0; i < _->options.size(); ++i)
 		{
-			llvm::BasicBlock* next_check = i != _->options.size() - 1 ? llvm::BasicBlock::Create(*context.context, "next_check") : on_fail;
+			LLVMBasicBlockRef next_check = i != _->options.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : on_fail;
 
 			compileMatch(context, builder, _->options[i], value, 0, 0, next_check, success_any);
 
-			incoming.push_back(&function->getBasicBlockList().back());
+			incoming.push_back(LLVMGetInsertBlock(builder));
 
 			if (next_check != on_fail)
 			{
-				function->getBasicBlockList().push_back(next_check);
-				builder.SetInsertPoint(next_check);
+				LLVMMoveBasicBlockAfter(next_check, LLVMGetLastBasicBlock(function));
+				LLVMPositionBuilderAtEnd(builder, next_check);
 			}
 		}
 
-		function->getBasicBlockList().push_back(success_any);
-		builder.SetInsertPoint(success_any);
+		LLVMMoveBasicBlockAfter(success_any, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, success_any);
 
 		// Merge all variants for binding into actual binding used in the expression
 		for (size_t i = 0; i < _->binding_actual.size(); ++i)
 		{
-			llvm::PHINode* pn = builder.CreatePHI(compileType(context, _->binding_actual[i]->type, Location()), _->binding_alternatives.size());
+			LLVMPHIRef pn = LLVMBuildPhi(builder, compileType(context, _->binding_actual[i]->type, Location()), "");
+
+			std::vector<LLVMValueRef> incoming_values;
+			std::vector<LLVMBasicBlockRef> incoming_blocks;
 
 			for (size_t k = 0; k < _->binding_alternatives.size(); ++k)
-				pn->addIncoming(compileBinding(context, builder, new BindingLocal(_->binding_alternatives[k][i]), _->binding_alternatives[k][i]->type, Location()), incoming[k]);
+			{
+				incoming_values.push_back(compileBinding(context, builder, new BindingLocal(_->binding_alternatives[k][i]), _->binding_alternatives[k][i]->type, Location()));
+				incoming_blocks.push_back(incoming[k]);
+			}
+
+			LLVMAddIncoming(pn, incoming_values.data(), incoming_blocks.data(), incoming_values.size());
 
 			context.values[_->binding_actual[i]] = pn;
 		}
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else if (CASE(MatchCaseIf, case_))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::BasicBlock* success_pattern = llvm::BasicBlock::Create(*context.context, "success_pattern");
-		llvm::BasicBlock* success_cond = llvm::BasicBlock::Create(*context.context, "success_cond");
+		LLVMBasicBlockRef success_pattern = LLVMAppendBasicBlockInContext(context.context, function, "success_pattern");
+		LLVMBasicBlockRef success_cond = LLVMAppendBasicBlockInContext(context.context, function, "success_cond");
 
 		compileMatch(context, builder, _->match, value, 0, 0, on_fail, success_pattern);
 
-		function->getBasicBlockList().push_back(success_pattern);
-		builder.SetInsertPoint(success_pattern);
+		LLVMMoveBasicBlockAfter(success_pattern, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, success_pattern);
 
-		llvm::Value* condition = compileExpr(context, builder, _->condition);
+		LLVMValueRef condition = compileExpr(context, builder, _->condition);
 
-		builder.CreateCondBr(condition, success_cond, on_fail);
+		LLVMBuildCondBr(builder, condition, success_cond, on_fail);
 
-		function->getBasicBlockList().push_back(success_cond);
-		builder.SetInsertPoint(success_cond);
+		LLVMMoveBasicBlockAfter(success_cond, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, success_cond);
 
 		if (target)
-			builder.CreateStore(compileExpr(context, builder, rhs), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
 
-		builder.CreateBr(on_success);
+		LLVMBuildBr(builder, on_success);
 	}
 	else
 	{
@@ -941,215 +970,255 @@ void compileMatch(Context& context, llvm::IRBuilder<>& builder, MatchCase* case_
 	}
 }
 
-llvm::Value* compileStructEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, std::vector<Type*> types)
+LLVMValueRef compileStructEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* parent, std::vector<Type*> types)
 {
 	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
-	if (llvm::Function *function = context.module->getFunction(function_name))
-		return builder.CreateCall2(function, left, right);
+	if (LLVMFunctionRef function = LLVMGetNamedFunction(context.module, function_name.c_str()))
+		return LLVMBuildCall2(builder, function, left, right);
 
-	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
-	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
+	std::vector<LLVMTypeRef> args(2, compileType(context, parent, location));
+	LLVMFunctionTypeRef function_type = LLVMFunctionType(LLVMInt1TypeInContext(context.context), args.data(), args.size(), false);
 
-	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
+	LLVMFunctionRef function = LLVMAddFunction(context.module, function_name.c_str(), function_type);
+	LLVMSetLinkage(function, LLVMInternalLinkage);
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
-	llvm::IRBuilder<> function_builder(bb);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, function, "entry");
+	LLVMBuilderRef function_builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(function_builder, bb);
 
-	llvm::Function::arg_iterator argi = function->arg_begin();
-	llvm::Value* left_internal = argi;
+	LLVMValueRef argi = LLVMGetFirstParam(function);
+	LLVMValueRef left_internal = argi;
 
-	argi++;
-	llvm::Value* right_internal = argi;
+	argi = LLVMGetNextParam(argi);
+	LLVMValueRef right_internal = argi;
 
-	llvm::BasicBlock* compare_last = function_builder.GetInsertBlock();
-	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
+	LLVMBasicBlockRef compare_last = LLVMGetInsertBlock(function_builder);
+	LLVMBasicBlockRef compare_end = LLVMAppendBasicBlockInContext(context.context, function, "compare_end");
 
-	std::vector<llvm::BasicBlock*> fail_block;
+	std::vector<LLVMBasicBlockRef> fail_block;
 
 	for (size_t i = 0; i < types.size(); ++i)
 	{
-		llvm::BasicBlock* compare_next = llvm::BasicBlock::Create(*context.context, "compare_next");
+		LLVMBasicBlockRef compare_next = LLVMAppendBasicBlockInContext(context.context, function, "compare_next");
 
-		function_builder.CreateCondBr(compileEqualityOperator(location, context, function_builder, function_builder.CreateExtractValue(left_internal, i), function_builder.CreateExtractValue(right_internal, i), types[i]), compare_next, compare_end);
+		LLVMBuildCondBr(function_builder, compileEqualityOperator(location, context, function_builder, LLVMBuildExtractValue(function_builder, left_internal, i, ""), LLVMBuildExtractValue(function_builder, right_internal, i, ""), types[i]), compare_next, compare_end);
 				
-		fail_block.push_back(function_builder.GetInsertBlock());
+		fail_block.push_back(LLVMGetInsertBlock(function_builder));
 		compare_last = compare_next;
-		function->getBasicBlockList().push_back(compare_next);
-		function_builder.SetInsertPoint(compare_next);
+
+		LLVMMoveBasicBlockAfter(compare_next, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(function_builder, compare_next);
 	}
 
-	function_builder.CreateBr(compare_end);
+	LLVMBuildBr(function_builder, compare_end);
 
 	// Result computation node
-	function->getBasicBlockList().push_back(compare_end);
-	function_builder.SetInsertPoint(compare_end);
+	LLVMMoveBasicBlockAfter(compare_end, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(function_builder, compare_end);
 
-	llvm::PHINode* result = function_builder.CreatePHI(function_builder.getInt1Ty(), 1 + fail_block.size());
+	LLVMPHIRef result = LLVMBuildPhi(function_builder, LLVMInt1TypeInContext(context.context), "");
+
+	std::vector<LLVMValueRef> incoming_values;
+	std::vector<LLVMBasicBlockRef> incoming_blocks;
 
 	// Comparison is only successful if we came here from the last node
-	result->addIncoming(function_builder.getInt1(true), compare_last);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), true, false));
+	incoming_blocks.push_back(compare_last);
 	// If we came from any other block, it was from a member comparison failure
 	for (size_t i = 0; i < fail_block.size(); ++i)
-		result->addIncoming(function_builder.getInt1(false), fail_block[i]);
+	{
+		incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), false, false));
+		incoming_blocks.push_back(fail_block[i]);
+	}
 
-	function_builder.CreateRet(result);
+	LLVMAddIncoming(result, incoming_values.data(), incoming_blocks.data(), incoming_values.size());
 
-	return builder.CreateCall2(function, left, right);
+	LLVMBuildRet(function_builder, result);
+
+	return LLVMBuildCall2(builder, function, left, right);
 }
 
-llvm::Value* compileUnionEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* parent, TypePrototypeUnion* proto)
+LLVMValueRef compileUnionEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* parent, TypePrototypeUnion* proto)
 {
 	std::string function_name = typeNameMangled(parent, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } ) + "..equal";
 
-	if (llvm::Function *function = context.module->getFunction(function_name))
-		return builder.CreateCall2(function, left, right);
+	if (LLVMFunctionRef function = LLVMGetNamedFunction(context.module, function_name.c_str()))
+		return LLVMBuildCall2(builder, function, left, right);
 
-	std::vector<llvm::Type*> args(2, compileType(context, parent, location));
-	llvm::FunctionType* function_type = llvm::FunctionType::get(builder.getInt1Ty(), args, false);
+	std::vector<LLVMTypeRef> args(2, compileType(context, parent, location));
+	LLVMFunctionTypeRef function_type = LLVMFunctionType(LLVMInt1TypeInContext(context.context), args.data(), args.size(), false);
 
-	llvm::Function* function = llvm::Function::Create(function_type, llvm::Function::InternalLinkage, function_name, context.module);
+	LLVMFunctionRef function = LLVMAddFunction(context.module, function_name.c_str(), function_type);
+	LLVMSetLinkage(function, LLVMInternalLinkage);
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(*context.context, "entry", function);
-	llvm::IRBuilder<> function_builder(bb);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(context.context, function, "entry");
+	LLVMBuilderRef function_builder = LLVMCreateBuilderInContext(context.context);
+	LLVMPositionBuilderAtEnd(function_builder, bb);
 
-	llvm::Function::arg_iterator argi = function->arg_begin();
+	LLVMValueRef argi = LLVMGetFirstParam(function);
 
-	llvm::Value* left_tag = function_builder.CreateExtractValue(argi, 0);
-	llvm::Value* left_ptr = function_builder.CreateExtractValue(argi, 1);
+	LLVMValueRef left_tag = LLVMBuildExtractValue(function_builder, argi, 0, "");
+	LLVMValueRef left_ptr = LLVMBuildExtractValue(function_builder, argi, 1, "");
 
-	argi++;
+	argi = LLVMGetNextParam(argi);
 
-	llvm::Value* right_tag = function_builder.CreateExtractValue(argi, 0);
-	llvm::Value* right_ptr = function_builder.CreateExtractValue(argi, 1);
+	LLVMValueRef right_tag = LLVMBuildExtractValue(function_builder, argi, 0, "");
+	LLVMValueRef right_ptr = LLVMBuildExtractValue(function_builder, argi, 1, "");
 
-	llvm::BasicBlock* compare_start = function_builder.GetInsertBlock();
-	llvm::BasicBlock* compare_data = llvm::BasicBlock::Create(*context.context, "compare_data");
-	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
+	LLVMBasicBlockRef compare_start = LLVMGetInsertBlock(function_builder);
+	LLVMBasicBlockRef compare_data = LLVMAppendBasicBlockInContext(context.context, function, "compare_data");
+	LLVMBasicBlockRef compare_end = LLVMAppendBasicBlockInContext(context.context, function, "compare_end");
 
 	// Check tag equality
-	function_builder.CreateCondBr(function_builder.CreateICmpEQ(left_tag, right_tag), compare_data, compare_end);
+	LLVMBuildCondBr(function_builder, LLVMBuildICmp(function_builder, LLVMIntEQ, left_tag, right_tag, ""), compare_data, compare_end);
 
 	// Switch by union tag
-	function->getBasicBlockList().push_back(compare_data);
-	function_builder.SetInsertPoint(compare_data);
+	LLVMMoveBasicBlockAfter(compare_data, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(function_builder, compare_data);
 
-	llvm::SwitchInst *swichInst = function_builder.CreateSwitch(left_tag, compare_end, proto->member_types.size());
+	LLVMValueRef swichInst = LLVMBuildSwitch(function_builder, left_tag, compare_end, proto->member_types.size());
 
-	std::vector<llvm::Value*> case_results;
-	std::vector<llvm::BasicBlock*> case_blocks;
+	std::vector<LLVMValueRef> case_results;
+	std::vector<LLVMBasicBlockRef> case_blocks;
 
 	for (size_t i = 0; i < proto->member_types.size(); ++i)
 	{
-		llvm::BasicBlock* compare_tag = llvm::BasicBlock::Create(*context.context, "compare_tag", function);
-		function_builder.SetInsertPoint(compare_tag);
+		LLVMBasicBlockRef compare_tag = LLVMAppendBasicBlockInContext(context.context, function, "compare_tag");
+		LLVMPositionBuilderAtEnd(function_builder, compare_tag);
 
-		llvm::Value* left_elem = function_builder.CreateLoad(function_builder.CreateBitCast(left_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
-		llvm::Value* right_elem = function_builder.CreateLoad(function_builder.CreateBitCast(right_ptr, llvm::PointerType::getUnqual(compileType(context, proto->member_types[i], location))));
+		LLVMValueRef left_elem = LLVMBuildLoad(function_builder, LLVMBuildBitCast(function_builder, left_ptr, LLVMPointerType(compileType(context, proto->member_types[i], location), 0), ""), "");
+		LLVMValueRef right_elem = LLVMBuildLoad(function_builder, LLVMBuildBitCast(function_builder, right_ptr, LLVMPointerType(compileType(context, proto->member_types[i], location), 0), ""), "");
 
 		case_results.push_back(compileEqualityOperator(location, context, function_builder, left_elem, right_elem, finalType(proto->member_types[i])));
-		function_builder.CreateBr(compare_end);
+		LLVMBuildBr(function_builder, compare_end);
 		
-		case_blocks.push_back(function_builder.GetInsertBlock());
+		case_blocks.push_back(LLVMGetInsertBlock(function_builder));
 
-		swichInst->addCase(function_builder.getInt32(i), compare_tag);
+		LLVMAddCase(swichInst, LLVMConstInt(LLVMInt32TypeInContext(context.context), i, false), compare_tag);
 	}
 
 	// Result computation node
-	function->getBasicBlockList().push_back(compare_end);
-	function_builder.SetInsertPoint(compare_end);
+	LLVMMoveBasicBlockAfter(compare_end, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(function_builder, compare_end);
 
-	llvm::PHINode* result = function_builder.CreatePHI(function_builder.getInt1Ty(), 2 + proto->member_types.size());
+	LLVMPHIRef result = LLVMBuildPhi(function_builder, LLVMInt1TypeInContext(context.context), "");
+
+	std::vector<LLVMValueRef> incoming_values;
+	std::vector<LLVMBasicBlockRef> incoming_blocks;
 
 	// Tags are not equal
-	result->addIncoming(function_builder.getInt1(false), compare_start);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), false, false));
+	incoming_blocks.push_back(compare_start);
 	// Tag is invalid
-	result->addIncoming(function_builder.getInt1(false), compare_data);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), false, false));
+	incoming_blocks.push_back(compare_data);
 	// For other cases, take the result of the other comparisons
 	for (size_t i = 0; i < proto->member_types.size(); ++i)
-		result->addIncoming(case_results[i], case_blocks[i]);
+	{
+		incoming_values.push_back(case_results[i]);
+		incoming_blocks.push_back(case_blocks[i]);
+	}
 
-	function_builder.CreateRet(result);
+	LLVMAddIncoming(result, incoming_values.data(), incoming_blocks.data(), incoming_values.size());
 
-	return builder.CreateCall2(function, left, right);
+	LLVMBuildRet(function_builder, result);
+
+	return LLVMBuildCall2(builder, function, left, right);
 }
 
-llvm::Value* compileArrayEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, TypeArray* type)
+LLVMValueRef compileArrayEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, TypeArray* type)
 {
-	llvm::Function* function = builder.GetInsertBlock()->getParent();
+	LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-	llvm::Value* left_arr = builder.CreateExtractValue(left, 0);
-	llvm::Value* left_size = builder.CreateExtractValue(left, 1);
+	LLVMValueRef left_arr = LLVMBuildExtractValue(builder, left, 0, "");
+	LLVMValueRef left_size = LLVMBuildExtractValue(builder, left, 1, "");
 
-	llvm::Value* right_arr = builder.CreateExtractValue(right, 0);
-	llvm::Value* right_size = builder.CreateExtractValue(right, 1);
+	LLVMValueRef right_arr = LLVMBuildExtractValue(builder, right, 0, "");
+	LLVMValueRef right_size = LLVMBuildExtractValue(builder, right, 1, "");
 
-	llvm::BasicBlock* compare_size = builder.GetInsertBlock();
-	llvm::BasicBlock* compare_content = llvm::BasicBlock::Create(*context.context, "compare_content");
-	llvm::BasicBlock* compare_end = llvm::BasicBlock::Create(*context.context, "compare_end");
-	llvm::BasicBlock* compare_elem = llvm::BasicBlock::Create(*context.context, "compare_elem");
-	llvm::BasicBlock* compare_content_end = llvm::BasicBlock::Create(*context.context, "compare_content_end");
+	LLVMBasicBlockRef compare_size = LLVMGetInsertBlock(builder);
+	LLVMBasicBlockRef compare_content = LLVMAppendBasicBlockInContext(context.context, function, "compare_content");
+	LLVMBasicBlockRef compare_end = LLVMAppendBasicBlockInContext(context.context, function, "compare_end");
+	LLVMBasicBlockRef compare_elem = LLVMAppendBasicBlockInContext(context.context, function, "compare_elem");
+	LLVMBasicBlockRef compare_content_end = LLVMAppendBasicBlockInContext(context.context, function, "compare_content_end");
 
 	// TODO: compare array pointers to determine equality immediately
 
-	builder.CreateCondBr(builder.CreateICmpEQ(left_size, right_size), compare_content, compare_end);
+	LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntEQ, left_size, right_size, ""), compare_content, compare_end);
 
 	// Content computation node
-	function->getBasicBlockList().push_back(compare_content);
-	builder.SetInsertPoint(compare_content);
+	LLVMMoveBasicBlockAfter(compare_content, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(builder, compare_content);
 
-	llvm::PHINode* index = builder.CreatePHI(builder.getInt32Ty(), 2);
-	index->addIncoming(builder.getInt32(0), compare_size);
+	LLVMPHIRef index = LLVMBuildPhi(builder, LLVMInt32TypeInContext(context.context), "");
 
-	builder.CreateCondBr(builder.CreateICmpULT(index, left_size), compare_elem, compare_end);
+	std::vector<LLVMValueRef> incoming_values_local;
+	std::vector<LLVMBasicBlockRef> incoming_blocks_local;
+
+	incoming_values_local.push_back(LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false));
+	incoming_blocks_local.push_back(compare_size);
+
+	LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntULT, index, left_size, ""), compare_elem, compare_end);
 
 	// Element computation node
-	function->getBasicBlockList().push_back(compare_elem);
-	builder.SetInsertPoint(compare_elem);
+	LLVMMoveBasicBlockAfter(compare_elem, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(builder, compare_elem);
 
-	llvm::Value* left_elem = builder.CreateLoad(builder.CreateGEP(left_arr, index));
-	llvm::Value* right_elem = builder.CreateLoad(builder.CreateGEP(right_arr, index));
+	LLVMValueRef left_elem = LLVMBuildLoad(builder, LLVMBuildGEP(builder, left_arr, &index, 1, ""), "");
+	LLVMValueRef right_elem = LLVMBuildLoad(builder, LLVMBuildGEP(builder, right_arr, &index, 1, ""), "");
 
-	builder.CreateCondBr(compileEqualityOperator(location, context, builder, left_elem, right_elem, type->contained), compare_content_end, compare_end);
+	LLVMBuildCondBr(builder, compileEqualityOperator(location, context, builder, left_elem, right_elem, type->contained), compare_content_end, compare_end);
 
 	// Index increment node
-	function->getBasicBlockList().push_back(compare_content_end);
-	builder.SetInsertPoint(compare_content_end);
+	LLVMMoveBasicBlockAfter(compare_content_end, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(builder, compare_content_end);
 
-	llvm::Value *next_index = builder.CreateAdd(index, builder.getInt32(1), "", true, true);
-	index->addIncoming(next_index, compare_content_end);
+	LLVMValueRef next_index = LLVMBuildNSWAdd(builder, index, LLVMConstInt(LLVMInt32TypeInContext(context.context), 1, false), "");
+	incoming_values_local.push_back(next_index);
+	incoming_blocks_local.push_back(compare_content_end);
 
-	builder.CreateBr(compare_content);
+	LLVMAddIncoming(index, incoming_values_local.data(), incoming_blocks_local.data(), incoming_values_local.size());
+
+	LLVMBuildBr(builder, compare_content);
 
 	// Result computation node
-	function->getBasicBlockList().push_back(compare_end);
-	builder.SetInsertPoint(compare_end);
+	LLVMMoveBasicBlockAfter(compare_end, LLVMGetLastBasicBlock(function));
+	LLVMPositionBuilderAtEnd(builder, compare_end);
 
-	llvm::PHINode* result = builder.CreatePHI(builder.getInt1Ty(), 3);
+	LLVMPHIRef result = LLVMBuildPhi(builder, LLVMInt1TypeInContext(context.context), "");
+
+	std::vector<LLVMValueRef> incoming_values;
+	std::vector<LLVMBasicBlockRef> incoming_blocks;
 
 	// If we got here after we checked for equality of all array elements and succedeed, that means arrays are equal
-	result->addIncoming(builder.getInt1(true), compare_content);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), true, false));
+	incoming_blocks.push_back(compare_content);
 	// If we got here from the block where the size comparison happened and failed, that means arrays were not equal
-	result->addIncoming(builder.getInt1(false), compare_size);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), false, false));
+	incoming_blocks.push_back(compare_size);
 	// If we got here from the block where the array elements are compared and failed, that means arrays were not equal
-	result->addIncoming(builder.getInt1(false), compare_elem);
+	incoming_values.push_back(LLVMConstInt(LLVMInt1TypeInContext(context.context), false, false));
+	incoming_blocks.push_back(compare_elem);
+
+	LLVMAddIncoming(result, incoming_values.data(), incoming_blocks.data(), incoming_values.size());
 
 	return result;
 }
 
-llvm::Value* compileEqualityOperator(const Location& location, Context& context, llvm::IRBuilder<>& builder, llvm::Value* left, llvm::Value* right, Type* type)
+LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type)
 {
 	if (CASE(TypeUnit, type))
-		return builder.getInt1(true);
+		return LLVMConstInt(LLVMInt1TypeInContext(context.context), true, false);
 
 	if (CASE(TypeInt, type))
-		return builder.CreateICmpEQ(left, right);
+		return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
 
 	if (CASE(TypeFloat, type))
-		return builder.CreateFCmpOEQ(left, right);
+		return LLVMBuildFCmp(builder, LLVMRealOEQ, left, right, "");
 
 	if (CASE(TypeBool, type))
-		return builder.CreateICmpEQ(left, right);
+		return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
 
 	if (CASE(TypeArray, type))
 		return compileArrayEqualityOperator(location, context, builder, left, right, _);
@@ -1178,24 +1247,24 @@ llvm::Value* compileEqualityOperator(const Location& location, Context& context,
 	return 0;
 }
 
-llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* node)
+LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 {
 	assert(node);
 
 	if (CASE(ExprUnit, node))
 	{
 		// since we only have int type right now, unit should be int :)
-		return builder.getInt32(0);
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false);
 	}
 
 	if (CASE(ExprNumberLiteral, node))
 	{
-		return builder.getInt32(uint32_t(_->value));
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->value), false);
 	}
 
 	if (CASE(ExprBooleanLiteral, node))
 	{
-		return builder.getInt1(_->value);
+		return LLVMConstInt(LLVMInt1TypeInContext(context.context), _->value, false);
 	}
 
 	if (CASE(ExprArrayLiteral, node))
@@ -1203,24 +1272,25 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (!dynamic_cast<TypeArray*>(finalType(_->type)))
 			errorf(_->location, "array type is unknown");
 
-		llvm::Type* array_type = compileType(context, _->type, _->location);
+		LLVMTypeRef array_type = compileType(context, _->type, _->location);
 
-		llvm::Type* element_type = array_type->getContainedType(0)->getContainedType(0);
+		LLVMTypeRef element_type = LLVMGetElementType(LLVMGetContainedType(array_type, 0));
+		
+		LLVMValueRef arr = LLVMConstNull(array_type);
 
-		llvm::Value* arr = llvm::ConstantAggregateZero::get(array_type);
+		LLVMValueRef data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size() * LLVMABISizeOfType(context.layout, element_type)), false)), LLVMGetContainedType(array_type, 0), "");
 
-		llvm::Value* data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(_->elements.size() * context.layout->getTypeAllocSize(element_type)))), array_type->getContainedType(0));
-
-		arr = builder.CreateInsertValue(arr, data, 0);
+		arr = LLVMBuildInsertValue(builder, arr, data, 0, "");
 
 		for (size_t i = 0; i < _->elements.size(); i++)
 		{
-			llvm::Value* target = builder.CreateGEP(data, builder.getInt32(uint32_t(i)));
+			LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(i), false);
+			LLVMValueRef target = LLVMBuildGEP(builder, data, &index, 1, "");
 
-			builder.CreateStore(compileExpr(context, builder, _->elements[i]), target);
+			LLVMBuildStore(builder, compileExpr(context, builder, _->elements[i]), target);
 		}
 
-		return builder.CreateInsertValue(arr, builder.getInt32(uint32_t(_->elements.size())), 1);
+		return LLVMBuildInsertValue(builder, arr, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size()), false), 1, "");
 	}
 
 	if (CASE(ExprTupleLiteral, node))
@@ -1228,12 +1298,12 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (!dynamic_cast<TypeTuple*>(finalType(_->type)))
 			errorf(_->location, "tuple type is unknown");
 
-		llvm::Type* tuple_type = compileType(context, _->type, _->location);
+		LLVMTypeRef tuple_type = compileType(context, _->type, _->location);
 
-		llvm::Value* tuple = llvm::ConstantAggregateZero::get(tuple_type);
+		LLVMValueRef tuple = LLVMConstNull(tuple_type);
 
 		for (size_t i = 0; i < _->elements.size(); i++)
-			tuple = builder.CreateInsertValue(tuple, compileExpr(context, builder, _->elements[i]), uint32_t(i));
+			tuple = LLVMBuildInsertValue(builder, tuple, compileExpr(context, builder, _->elements[i]), uint32_t(i), "");
 
 		return tuple;
 	}
@@ -1245,26 +1315,23 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprBindingExternal, node))
 	{
-		llvm::Value *value = compileBinding(context, builder, _->context, _->type, _->location);
+		LLVMValueRef value = compileBinding(context, builder, _->context, _->type, _->location);
 
-		value = builder.CreatePointerCast(value, context.function_context_type.back());
+		value = LLVMBuildPointerCast(builder, value, context.function_context_type.back(), "");
 
-		llvm::Value *result = builder.CreateLoad(builder.CreateStructGEP(value, _->member_index));
+		LLVMValueRef result = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, _->member_index, ""), "");
 		
-		if (llvm::LoadInst *load = llvm::dyn_cast_or_null<llvm::LoadInst>(result))
-		{
-			llvm::SmallVector<llvm::Value *, 1> Elts;
-			load->setMetadata("invariant.load", llvm::MDNode::get(*context.context, Elts));
-		}
+		std::string meta_name = "invariant.load";
+		LLVMSetMetadata(result, LLVMGetMDKindIDInContext(context.context, meta_name.c_str(), meta_name.length()), LLVMMDNodeInContext(context.context, 0, 0));
 
 		if (BindingFunction* bindfun = dynamic_cast<BindingFunction*>(_->binding))
 		{
 			// result here is not the function pointer, it's just the context (argh!)
-			llvm::Function* function = compileBindingFunction(context, bindfun, _->type, _->location);
+			LLVMFunctionRef function = compileBindingFunction(context, bindfun, _->type, _->location);
 
-			llvm::Value* funcptr = compileFunctionValue(context, builder, function, _->type, NULL, _->location);
+			LLVMValueRef funcptr = compileFunctionValue(context, builder, function, _->type, NULL, _->location);
 
-			return builder.CreateInsertValue(funcptr, result, 1);
+			return LLVMBuildInsertValue(builder, funcptr, result, 1, "");
 		}
 
 		return result;
@@ -1272,126 +1339,125 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprUnaryOp, node))
 	{
-		llvm::Value* ev = compileExpr(context, builder, _->expr);
+		LLVMValueRef ev = compileExpr(context, builder, _->expr);
 
 		switch (_->op)
 		{
 		case SynUnaryOpPlus: return ev;
-		case SynUnaryOpMinus: return builder.CreateNeg(ev);
-		case SynUnaryOpNot: return builder.CreateNot(ev);
+		case SynUnaryOpMinus: return LLVMBuildNeg(builder, ev, "");
+		case SynUnaryOpNot: return LLVMBuildNot(builder, ev, "");
 		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
 
 	if (CASE(ExprBinaryOp, node))
 	{
-		llvm::Value* lv = compileExpr(context, builder, _->left);
-		llvm::Value* rv = compileExpr(context, builder, _->right);
+		LLVMValueRef lv = compileExpr(context, builder, _->left);
+		LLVMValueRef rv = compileExpr(context, builder, _->right);
 
 		switch (_->op)
 		{
-		case SynBinaryOpAdd: return builder.CreateAdd(lv, rv);
-		case SynBinaryOpSubtract: return builder.CreateSub(lv, rv);
-		case SynBinaryOpMultiply: return builder.CreateMul(lv, rv);
-		case SynBinaryOpDivide: return builder.CreateSDiv(lv, rv);
-		case SynBinaryOpLess: return builder.CreateICmpSLT(lv, rv);
-		case SynBinaryOpLessEqual: return builder.CreateICmpSLE(lv, rv);
-		case SynBinaryOpGreater: return builder.CreateICmpSGT(lv, rv);
-		case SynBinaryOpGreaterEqual: return builder.CreateICmpSGE(lv, rv);
+		case SynBinaryOpAdd: return LLVMBuildAdd(builder, lv, rv, "");
+		case SynBinaryOpSubtract: return LLVMBuildSub(builder, lv, rv, "");
+		case SynBinaryOpMultiply: return LLVMBuildMul(builder, lv, rv, "");
+		case SynBinaryOpDivide: return LLVMBuildSDiv(builder, lv, rv, "");
+		case SynBinaryOpLess: return LLVMBuildICmp(builder, LLVMIntSLT, lv, rv, "");
+		case SynBinaryOpLessEqual: return LLVMBuildICmp(builder, LLVMIntSLE, lv, rv, "");
+		case SynBinaryOpGreater: return LLVMBuildICmp(builder, LLVMIntSGT, lv, rv, "");
+		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, lv, rv, "");
 		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type));
-		case SynBinaryOpNotEqual: return builder.CreateNot(compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type)));
+		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type)), "");
 		default: assert(!"Unknown binary operation"); return 0;
 		}
 	}
 
 	if (CASE(ExprCall, node))
 	{
-		llvm::Value* holder = compileExpr(context, builder, _->expr);
+		LLVMValueRef holder = compileExpr(context, builder, _->expr);
 
-		std::vector<llvm::Value*> args;
+		std::vector<LLVMValueRef> args;
 
 		for (size_t i = 0; i < _->args.size(); ++i)
 			args.push_back(compileExpr(context, builder, _->args[i]));
 
-		args.push_back(builder.CreateExtractValue(holder, 1));
+		args.push_back(LLVMBuildExtractValue(builder, holder, 1, ""));
 
-		return builder.CreateCall(builder.CreateExtractValue(holder, 0), args);
+		return LLVMBuildCall(builder, LLVMBuildExtractValue(builder, holder, 0, ""), args.data(), args.size(), "");
 	}
 
 	if (CASE(ExprArrayIndex, node))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* arr = compileExpr(context, builder, _->arr);
-		llvm::Value* index = compileExpr(context, builder, _->index);
+		LLVMValueRef arr = compileExpr(context, builder, _->arr);
+		LLVMValueRef index = compileExpr(context, builder, _->index);
 
-		llvm::Value* data = builder.CreateExtractValue(arr, 0);
-		llvm::Value* size = builder.CreateExtractValue(arr, 1);
+		LLVMValueRef data = LLVMBuildExtractValue(builder, arr, 0, "");
+		LLVMValueRef size = LLVMBuildExtractValue(builder, arr, 1, "");
 
-		llvm::BasicBlock* trap_basic_block = llvm::BasicBlock::Create(*context.context, "trap");
-		llvm::BasicBlock* after_basic_block = llvm::BasicBlock::Create(*context.context, "after");
+		LLVMBasicBlockRef trap_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "trap");
+		LLVMBasicBlockRef after_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "after");
 
-		builder.CreateCondBr(builder.CreateICmpULT(index, size), after_basic_block, trap_basic_block);
+		LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntULT, index, size, ""), after_basic_block, trap_basic_block);
 
-		function->getBasicBlockList().push_back(trap_basic_block);
-		builder.SetInsertPoint(trap_basic_block);
+		LLVMMoveBasicBlockAfter(trap_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, trap_basic_block);
 
-		builder.CreateCall(llvm::Intrinsic::getDeclaration(context.module, llvm::Intrinsic::trap));
-		builder.CreateUnreachable();
+		LLVMBuildCall(builder, LLVMGetOrInsertFunction(context.module, "llvm.trap", LLVMFunctionType(LLVMVoidTypeInContext(context.context), 0, 0, false)), 0, 0, "");
+		LLVMBuildUnreachable(builder);
 
-		function->getBasicBlockList().push_back(after_basic_block);
-		builder.SetInsertPoint(after_basic_block);
+		LLVMMoveBasicBlockAfter(after_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, after_basic_block);
 
-		return builder.CreateLoad(builder.CreateGEP(data, index), false);
+		return LLVMBuildLoad(builder, LLVMBuildGEP(builder, data, &index, 1, ""), "");
 	}
 
 	if (CASE(ExprArraySlice, node))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* arr = compileExpr(context, builder, _->arr);
+		LLVMValueRef arr = compileExpr(context, builder, _->arr);
 
-		llvm::Value* arr_data = builder.CreateExtractValue(arr, 0);
-		llvm::Value* arr_size = builder.CreateExtractValue(arr, 1);
+		LLVMValueRef arr_data = LLVMBuildExtractValue(builder, arr, 0, "");
+		LLVMValueRef arr_size = LLVMBuildExtractValue(builder, arr, 1, "");
 
-		llvm::Value* index_start = compileExpr(context, builder, _->index_start);
-		llvm::Value* index_end = _->index_end ? builder.CreateAdd(compileExpr(context, builder, _->index_end), builder.getInt32(1)) : arr_size;
+		LLVMValueRef index_start = compileExpr(context, builder, _->index_start);
+		LLVMValueRef index_end = _->index_end ? LLVMBuildAdd(builder, compileExpr(context, builder, _->index_end), LLVMConstInt(LLVMInt32TypeInContext(context.context), 1, false), "") : arr_size;
 
-		llvm::Type* array_type = compileType(context, _->type, _->location);
-		llvm::Type* element_type = array_type->getContainedType(0)->getContainedType(0);
+		LLVMTypeRef array_type = compileType(context, _->type, _->location);
+		LLVMTypeRef element_type = LLVMGetElementType(LLVMGetContainedType(array_type, 0));
 
-		llvm::Value* length = builder.CreateSub(index_end, index_start);
-		llvm::Value* byte_length = builder.CreateMul(length, builder.getInt32(context.layout->getTypeAllocSize(element_type)));
+		LLVMValueRef length = LLVMBuildSub(builder, index_end, index_start, "");
+		LLVMValueRef byte_length = LLVMBuildMul(builder, length, LLVMConstInt(LLVMInt32TypeInContext(context.context), LLVMABISizeOfType(context.layout, element_type), false), "");
 
-		llvm::Value* arr_slice_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), byte_length), array_type->getContainedType(0));
+		LLVMValueRef arr_slice_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), byte_length), LLVMGetContainedType(array_type, 0), "");
+		LLVMBuildMemCpy(builder, context.context, context.module, arr_slice_data, LLVMBuildGEP(builder, arr_data, &index_start, 1, ""), byte_length, 0, false);
 
-		builder.CreateMemCpy(arr_slice_data, builder.CreateGEP(arr_data, index_start), byte_length, 8);
-
-		llvm::Value* arr_slice = llvm::ConstantAggregateZero::get(array_type);
-		arr_slice = builder.CreateInsertValue(arr_slice, arr_slice_data, 0);
-		arr_slice = builder.CreateInsertValue(arr_slice, length, 1);
+		LLVMValueRef arr_slice = LLVMConstNull(array_type);
+		arr_slice = LLVMBuildInsertValue(builder, arr_slice, arr_slice_data, 0, "");
+		arr_slice = LLVMBuildInsertValue(builder, arr_slice, length, 1, "");
 
 		return arr_slice;
 	}
 
 	if (CASE(ExprMemberAccess, node))
 	{
-		llvm::Value *aggr = compileExpr(context, builder, _->aggr);
+		LLVMValueRef aggr = compileExpr(context, builder, _->aggr);
 
 		TypeInstance* inst_type = dynamic_cast<TypeInstance*>(getTypeInstance(context, _->aggr->type, _->aggr->location));
 		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype) : 0;
 
 		if (record_type)
-			return builder.CreateExtractValue(aggr, getMemberIndexByName(record_type, _->member_name, _->location));
+			return LLVMBuildExtractValue(builder, aggr, getMemberIndexByName(record_type, _->member_name, _->location), "");
 
 		errorf(_->location, "Expected a record type");
 	}
 
 	if (CASE(ExprLetVar, node))
 	{
-		llvm::Value* value = compileExpr(context, builder, _->body);
+		LLVMValueRef value = compileExpr(context, builder, _->body);
 
-		value->setName(_->target->name);
+		LLVMSetValueName(value, _->target->name.c_str());
 
 		context.values[_->target] = value;
 
@@ -1400,21 +1466,21 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLetVars, node))
 	{
-		llvm::Value* value = compileExpr(context, builder, _->body);
+		LLVMValueRef value = compileExpr(context, builder, _->body);
 
 		for (size_t i = 0; i < _->targets.size(); ++i)
 		{
 			if (!_->targets[i])
 				continue;
 
-			llvm::Value *element = builder.CreateExtractValue(value, i);
+			LLVMValueRef element = LLVMBuildExtractValue(builder, value, i, "");
 
-			element->setName(_->targets[i]->name);
+			LLVMSetValueName(element, _->targets[i]->name.c_str());
 
 			context.values[_->targets[i]] = element;
 		}
 
-		return builder.getInt32(0);
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false);
 	}
 
 	if (CASE(ExprLetFunc, node))
@@ -1425,15 +1491,15 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 			// please make it stop
 			if (_->target->name.empty())
 			{
-				llvm::Type* context_ref_type = compileType(context, _->context_target->type, _->location);
-				llvm::Type* context_type = context_ref_type->getContainedType(0);
+				LLVMTypeRef context_ref_type = compileType(context, _->context_target->type, _->location);
+				LLVMTypeRef context_type = LLVMGetElementType(context_ref_type);
 
-				llvm::Value* context_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), context_ref_type);
+				LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, context_type)), false)), context_ref_type, "");
 
 				context.values[_->context_target] = context_data;
 			}
 
-			llvm::Value* context_data = context.values[_->context_target];
+			LLVMValueRef context_data = context.values[_->context_target];
 
 			for (size_t i = 0; i < _->externals.size(); i++)
 			{
@@ -1447,13 +1513,13 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 							: 0;
 
 				BindingFunction* bindfun = dynamic_cast<BindingFunction*>(binding);
-				llvm::Value* external_value = bindfun ? context.values[bindfun->context_target] : compileExpr(context, builder, external);
+				LLVMValueRef external_value = bindfun ? context.values[bindfun->context_target] : compileExpr(context, builder, external);
 
 				if (external_value)
 				{
-					llvm::Value* external_value_cast = bindfun ? builder.CreateBitCast(external_value, llvm::Type::getInt8PtrTy(*context.context)) : external_value;
+					LLVMValueRef external_value_cast = bindfun ? LLVMBuildBitCast(builder, external_value, LLVMPointerType(LLVMInt8TypeInContext(context.context), 0), "") : external_value;
 
-					builder.CreateStore(external_value_cast, builder.CreateStructGEP(context_data, i));
+					LLVMBuildStore(builder, external_value_cast, LLVMBuildStructGEP(builder, context_data, i, ""));
 				}
 			}
 		}
@@ -1461,8 +1527,8 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (_->target->name.empty())
 		{
 			// anonymous function, compile right now
-			llvm::Function* func = compileFunctionInstance(context, _, context.generic_instances, _->type, _->location);
-			llvm::Value* funcptr = compileFunctionValue(context, builder, func, _->type, _->context_target, _->location);
+			LLVMFunctionRef func = compileFunctionInstance(context, _, context.generic_instances, _->type, _->location);
+			LLVMValueRef funcptr = compileFunctionValue(context, builder, func, _->type, _->context_target, _->location);
 
 			context.values[_->target] = funcptr;
 			return funcptr;
@@ -1479,19 +1545,19 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprExternFunc, node))
 	{
-		llvm::FunctionType* function_type = compileFunctionType(context, _->type, _->location, 0);
+		LLVMFunctionTypeRef function_type = compileFunctionType(context, _->type, _->location, 0);
 
-		llvm::Function* func = llvm::cast<llvm::Function>(context.module->getOrInsertFunction(_->target->name, function_type));
+		LLVMFunctionRef func = LLVMGetOrInsertFunction(context.module, _->target->name.c_str(), function_type);
 
-		llvm::Function::arg_iterator argi = func->arg_begin();
+		LLVMValueRef argi = LLVMGetFirstParam(func);
 
-		for (size_t i = 0; i < func->arg_size(); ++i, ++argi)
+		for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 		{
 			if (i < _->args.size())
-				argi->setName(_->args[i]->name);
+				LLVMSetValueName(argi, _->args[i]->name.c_str());
 		}
 
-		llvm::Value* value = compileFunctionValue(context, builder, func, _->type, NULL, _->location);
+		LLVMValueRef value = compileFunctionValue(context, builder, func, _->type, NULL, _->location);
 
 		context.values[_->target] = value;
 
@@ -1518,133 +1584,132 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 
 	if (CASE(ExprLLVM, node))
 	{
-		llvm::Function* func = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef func = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		std::string name = func->getName().str() + "..autogen";
+		std::string name = std::string(LLVMGetValueName(func)) + "..autogen";
 		std::string body = compileInlineLLVM(context, name, _->body, func, _->location);
 
-		llvm::SMDiagnostic err;
-		if (!llvm::ParseAssemblyString(body.c_str(), context.module, err, *context.context))
-			errorf(_->location, "Failed to parse llvm inline code: %s at '%s'", err.getMessage().str().c_str(), err.getLineContents().str().c_str());
+		LLVMAikeParseAssemblyString(_->location, body.c_str(), context.context, context.module);
 
-		std::vector<llvm::Value*> arguments;
-		for (llvm::Function::arg_iterator argi = func->arg_begin(), arge = func->arg_end(); argi != arge; ++argi)
+		std::vector<LLVMValueRef> arguments;
+		for (LLVMValueRef argi = LLVMGetFirstParam(func); argi; argi = LLVMGetNextParam(argi))
 			arguments.push_back(argi);
 
-		return builder.CreateCall(context.module->getFunction(name.c_str()), arguments);
+		return LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, name.c_str()), arguments.data(), arguments.size(), "");
 	}
 
 	if (CASE(ExprIfThenElse, node))
 	{
-		llvm::Function* func = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef func = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* cond = compileExpr(context, builder, _->cond);
+		LLVMValueRef cond = compileExpr(context, builder, _->cond);
 
-		llvm::BasicBlock* thenbb = llvm::BasicBlock::Create(*context.context, "then", func);
-		llvm::BasicBlock* elsebb = llvm::BasicBlock::Create(*context.context, "else");
-		llvm::BasicBlock* ifendbb = llvm::BasicBlock::Create(*context.context, "ifend");
+		LLVMBasicBlockRef thenbb = LLVMAppendBasicBlockInContext(context.context, func, "then");
+		LLVMBasicBlockRef elsebb = LLVMAppendBasicBlockInContext(context.context, func, "else");
+		LLVMBasicBlockRef ifendbb = LLVMAppendBasicBlockInContext(context.context, func, "ifend");
 
-		builder.CreateCondBr(cond, thenbb, elsebb);
+		LLVMBuildCondBr(builder, cond, thenbb, elsebb);
 
-		builder.SetInsertPoint(thenbb);
-		llvm::Value* thenbody = compileExpr(context, builder, _->thenbody);
-		builder.CreateBr(ifendbb);
-		thenbb = builder.GetInsertBlock();
+		LLVMPositionBuilderAtEnd(builder, thenbb);
+		LLVMValueRef thenbody = compileExpr(context, builder, _->thenbody);
+		LLVMBuildBr(builder, ifendbb);
+		thenbb = LLVMGetInsertBlock(builder);
 
-		func->getBasicBlockList().push_back(elsebb);
+		LLVMMoveBasicBlockAfter(elsebb, LLVMGetLastBasicBlock(func));
 
-		builder.SetInsertPoint(elsebb);
-		llvm::Value* elsebody = compileExpr(context, builder, _->elsebody);
-		builder.CreateBr(ifendbb);
-		elsebb = builder.GetInsertBlock();
+		LLVMPositionBuilderAtEnd(builder, elsebb);
+		LLVMValueRef elsebody = compileExpr(context, builder, _->elsebody);
+		LLVMBuildBr(builder, ifendbb);
+		elsebb = LLVMGetInsertBlock(builder);
 
-		func->getBasicBlockList().push_back(ifendbb);
-		builder.SetInsertPoint(ifendbb);
-		llvm::PHINode* pn = builder.CreatePHI(compileType(context, _->type, _->location), 2);
+		LLVMMoveBasicBlockAfter(ifendbb, LLVMGetLastBasicBlock(func));
+		LLVMPositionBuilderAtEnd(builder, ifendbb);
+		LLVMPHIRef pn = LLVMBuildPhi(builder, compileType(context, _->type, _->location), "");
 
-		pn->addIncoming(thenbody, thenbb);
-		pn->addIncoming(elsebody, elsebb);
+		LLVMAddIncoming(pn, &thenbody, &thenbb, 1);
+		LLVMAddIncoming(pn, &elsebody, &elsebb, 1);
 
 		return pn;
 	}
 
 	if (CASE(ExprForInDo, node))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* arr = compileExpr(context, builder, _->arr);
+		LLVMValueRef arr = compileExpr(context, builder, _->arr);
 
-		llvm::Value* data = builder.CreateExtractValue(arr, 0);
-		llvm::Value* size = builder.CreateExtractValue(arr, 1);
+		LLVMValueRef data = LLVMBuildExtractValue(builder, arr, 0, "");
+		LLVMValueRef size = LLVMBuildExtractValue(builder, arr, 1, "");
 
-		llvm::Value* index = builder.CreateAlloca(builder.getInt32Ty());
-		builder.CreateStore(builder.getInt32(0), index);
+		LLVMValueRef index = LLVMBuildAlloca(builder, LLVMInt32TypeInContext(context.context), "");
+		LLVMBuildStore(builder, LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false), index);
 
-		llvm::BasicBlock* step_basic_block = llvm::BasicBlock::Create(*context.context, "for_step", function);
-		llvm::BasicBlock* body_basic_block = llvm::BasicBlock::Create(*context.context, "for_body");
-		llvm::BasicBlock* end_basic_block = llvm::BasicBlock::Create(*context.context, "for_end");
+		LLVMBasicBlockRef step_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_step");
+		LLVMBasicBlockRef body_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_body");
+		LLVMBasicBlockRef end_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_end");
 
-		builder.CreateBr(step_basic_block);
+		LLVMBuildBr(builder, step_basic_block);
 
-		builder.SetInsertPoint(step_basic_block);
+		LLVMPositionBuilderAtEnd(builder, step_basic_block);
 
-		builder.CreateCondBr(builder.CreateICmpULT(builder.CreateLoad(index), size), body_basic_block, end_basic_block);
+		LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntULT, LLVMBuildLoad(builder, index, ""), size, ""), body_basic_block, end_basic_block);
 
-		function->getBasicBlockList().push_back(body_basic_block);
-		builder.SetInsertPoint(body_basic_block);
+		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, body_basic_block);
 
-		context.values[_->target] = builder.CreateLoad(builder.CreateGEP(data, builder.CreateLoad(index)));
+		LLVMValueRef value = LLVMBuildLoad(builder, index, "");
+		context.values[_->target] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, data, &value, 1, ""), "");
 
 		compileExpr(context, builder, _->body);
 
-		builder.CreateStore(builder.CreateAdd(builder.CreateLoad(index), builder.getInt32(1)), index, false);
+		LLVMBuildStore(builder, LLVMBuildAdd(builder, LLVMBuildLoad(builder, index, ""), LLVMConstInt(LLVMInt32TypeInContext(context.context), 1, false), ""), index);
 
-		builder.CreateBr(step_basic_block);
+		LLVMBuildBr(builder, step_basic_block);
 
-		function->getBasicBlockList().push_back(end_basic_block);
-		builder.SetInsertPoint(end_basic_block);
+		LLVMMoveBasicBlockAfter(end_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, end_basic_block);
 
-		return builder.getInt32(0); // Same as ExprUnit
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false); // Same as ExprUnit
 	}
 
 	if (CASE(ExprForInRangeDo, node))
 	{
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* start = compileExpr(context, builder, _->start);
-		llvm::Value* end = compileExpr(context, builder, _->end);
+		LLVMValueRef start = compileExpr(context, builder, _->start);
+		LLVMValueRef end = compileExpr(context, builder, _->end);
 
-		llvm::BasicBlock* before = builder.GetInsertBlock();
-		llvm::BasicBlock* step_basic_block = llvm::BasicBlock::Create(*context.context, "for_step");
-		llvm::BasicBlock* body_basic_block = llvm::BasicBlock::Create(*context.context, "for_body");
-		llvm::BasicBlock* end_basic_block = llvm::BasicBlock::Create(*context.context, "for_end");
+		LLVMBasicBlockRef before = LLVMGetInsertBlock(builder);
+		LLVMBasicBlockRef step_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_step");
+		LLVMBasicBlockRef body_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_body");
+		LLVMBasicBlockRef end_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "for_end");
 
-		builder.CreateBr(step_basic_block);
+		LLVMBuildBr(builder, step_basic_block);
 
-		function->getBasicBlockList().push_back(step_basic_block);
-		builder.SetInsertPoint(step_basic_block);
+		LLVMMoveBasicBlockAfter(step_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, step_basic_block);
 
-		llvm::PHINode* index = builder.CreatePHI(builder.getInt32Ty(), 2);
-		index->addIncoming(start, before);
+		LLVMPHIRef index = LLVMBuildPhi(builder, LLVMInt32TypeInContext(context.context), "");
+		LLVMAddIncoming(index, &start, &before, 1);
 
-		builder.CreateCondBr(builder.CreateICmpSLE(index, end), body_basic_block, end_basic_block);
+		LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntSLE, index, end, ""), body_basic_block, end_basic_block);
 
-		function->getBasicBlockList().push_back(body_basic_block);
-		builder.SetInsertPoint(body_basic_block);
+		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, body_basic_block);
 
 		context.values[_->target] = index;
 
 		compileExpr(context, builder, _->body);
 
-		llvm::Value *next_index = builder.CreateAdd(index, builder.getInt32(1), "", true, true);
-		index->addIncoming(next_index, body_basic_block);
+		LLVMValueRef next_index = LLVMBuildNSWAdd(builder, index, LLVMConstInt(LLVMInt32TypeInContext(context.context), 1, false), "");
+		LLVMAddIncoming(index, &next_index, &body_basic_block, 1);
 
-		builder.CreateBr(step_basic_block);
+		LLVMBuildBr(builder, step_basic_block);
 
-		function->getBasicBlockList().push_back(end_basic_block);
-		builder.SetInsertPoint(end_basic_block);
+		LLVMMoveBasicBlockAfter(end_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, end_basic_block);
 
-		return builder.getInt32(0); // Same as ExprUnit
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false); // Same as ExprUnit
 	}
 
 	if (CASE(ExprMatchWith, node))
@@ -1683,38 +1748,38 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 		if (!match(options, new MatchCaseAny(0, Location(), 0)))
 			errorf(_->location, "The match doesn't cover all cases");
 
-		llvm::Function* function = builder.GetInsertBlock()->getParent();
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		llvm::Value* variable = compileExpr(context, builder, _->variable);
+		LLVMValueRef variable = compileExpr(context, builder, _->variable);
 
 		// Expression result
-		llvm::Value* value = builder.CreateAlloca(compileType(context, _->type, _->location));
+		LLVMValueRef value = LLVMBuildAlloca(builder, compileType(context, _->type, _->location), "");
 
 		// Create a block for all cases
-		std::vector<llvm::BasicBlock*> case_blocks;
-		llvm::BasicBlock* finish_block = llvm::BasicBlock::Create(*context.context, "finish");
+		std::vector<LLVMBasicBlockRef> case_blocks;
+		LLVMBasicBlockRef finish_block = LLVMAppendBasicBlockInContext(context.context, function, "finish");
 
 		for (size_t i = 0; i < _->cases.size(); ++i)
-			case_blocks.push_back(llvm::BasicBlock::Create(*context.context, "check_" + std::to_string((long long)i)));
+			case_blocks.push_back(LLVMAppendBasicBlockInContext(context.context, function, ("check_" + std::to_string((long long)i)).c_str()));
 
-		builder.CreateBr(case_blocks[0]);
+		LLVMBuildBr(builder, case_blocks[0]);
 
 		for (size_t i = 0; i < _->cases.size(); ++i)
 		{
-			function->getBasicBlockList().push_back(case_blocks[i]);
-			builder.SetInsertPoint(case_blocks[i]);
+			LLVMMoveBasicBlockAfter(case_blocks[i], LLVMGetLastBasicBlock(function));
+			LLVMPositionBuilderAtEnd(builder, case_blocks[i]);
 			compileMatch(context, builder, _->cases[i], variable, value, _->expressions[i], i == _->cases.size() - 1 ? finish_block : case_blocks[i + 1], finish_block);
 		}
 
-		function->getBasicBlockList().push_back(finish_block);
-		builder.SetInsertPoint(finish_block);
+		LLVMMoveBasicBlockAfter(finish_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, finish_block);
 
-		return builder.CreateLoad(value);
+		return LLVMBuildLoad(builder, value, "");
 	}
 
 	if (CASE(ExprBlock, node))
 	{
-		llvm::Value *value = 0;
+		LLVMValueRef value = 0;
 
 		for (size_t i = 0; i < _->expressions.size(); )
 		{
@@ -1728,10 +1793,10 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 					{
 						if (!func->externals.empty())
 						{
-							llvm::Type* context_ref_type = compileType(context, func->context_target->type, func->location);
-							llvm::Type* context_type = context_ref_type->getContainedType(0);
+							LLVMTypeRef context_ref_type = compileType(context, func->context_target->type, func->location);
+							LLVMTypeRef context_type = LLVMGetElementType(context_ref_type);
 
-							llvm::Value* context_data = builder.CreateBitCast(builder.CreateCall(context.module->getFunction("malloc"), builder.getInt32(uint32_t(context.layout->getTypeAllocSize(context_type)))), context_ref_type);
+							LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, context_type)), false)), context_ref_type, "");
 
 							context.values[func->context_target] = context_data;
 						}
@@ -1760,22 +1825,21 @@ llvm::Value* compileExpr(Context& context, llvm::IRBuilder<>& builder, Expr* nod
 	return 0;
 }
 
-void compile(llvm::LLVMContext& context, llvm::Module* module, Expr* root)
+void compile(llvm::LLVMContext& context, llvm::Module* module, llvm::DataLayout* layout, Expr* root)
 {
 	Context ctx;
-	ctx.context = &context;
-	ctx.module = module;
-	ctx.layout = new llvm::DataLayout(module);
+	ctx.context = (LLVMContextRef)&context;
+	ctx.module = (LLVMModuleRef)module;
+	ctx.layout = (LLVMTargetDataRef)layout;
 
-	llvm::Function* entryf =
-		llvm::cast<llvm::Function>(module->getOrInsertFunction("entrypoint", llvm::Type::getInt32Ty(context),
-		(Type *)0));
+	LLVMFunctionRef entryf = LLVMAddFunction(ctx.module, "entrypoint", LLVMFunctionType(LLVMInt32TypeInContext(ctx.context), 0, 0, false));
 
-	llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "entry", entryf);
+	LLVMBasicBlockRef bb = LLVMAppendBasicBlockInContext(ctx.context, entryf, "entry");
 
-	llvm::IRBuilder<> builder(bb);
+	LLVMBuilderRef builder = LLVMCreateBuilderInContext(ctx.context);
+	LLVMPositionBuilderAtEnd(builder, bb);
 
-	llvm::Value* result = compileExpr(ctx, builder, root);
+	LLVMValueRef result = compileExpr(ctx, builder, root);
 
-	builder.CreateRet(result);
+	LLVMBuildRet(builder, result);
 }
