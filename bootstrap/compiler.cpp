@@ -16,7 +16,7 @@ struct Context
 {
 	LLVMContextRef context;
 	LLVMModuleRef module;
-	LLVMTargetDataRef layout;
+	LLVMTargetDataRef targetData;
 
 	std::map<BindingTarget*, LLVMValueRef> values;
 	std::map<BindingTarget*, std::pair<Expr*, GenericInstances> > functions;
@@ -454,7 +454,7 @@ LLVMFunctionRef compileUnionConstructor(Context& context, ExprUnionConstructorFu
 
 	if (!node->args.empty())
 	{
-		LLVMValueRef arg =  LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, member_type)), false);
+		LLVMValueRef arg =  LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.targetData, member_type)), false);
 		LLVMValueRef data = LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, "malloc"), &arg, 1, "");
 		LLVMValueRef typed_data = LLVMBuildBitCast(builder, data, member_ref_type, "");
 
@@ -663,7 +663,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 
 			i = end + 1;
 
-			os << LLVMABISizeOfType(context.layout, parseInlineLLVMType(context, var, func, location));
+			os << LLVMABISizeOfType(context.targetData, parseInlineLLVMType(context, var, func, location));
 		}
 		else if (body[i] == 'd' && body.compare(i, 8, "declare ") == 0)
 		{
@@ -1278,7 +1278,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		
 		LLVMValueRef arr = LLVMConstNull(array_type);
 
-		LLVMValueRef data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size() * LLVMABISizeOfType(context.layout, element_type)), false)), LLVMGetContainedType(array_type, 0), "");
+		LLVMValueRef data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size() * LLVMABISizeOfType(context.targetData, element_type)), false)), LLVMGetContainedType(array_type, 0), "");
 
 		arr = LLVMBuildInsertValue(builder, arr, data, 0, "");
 
@@ -1428,7 +1428,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		LLVMTypeRef element_type = LLVMGetElementType(LLVMGetContainedType(array_type, 0));
 
 		LLVMValueRef length = LLVMBuildSub(builder, index_end, index_start, "");
-		LLVMValueRef byte_length = LLVMBuildMul(builder, length, LLVMConstInt(LLVMInt32TypeInContext(context.context), LLVMABISizeOfType(context.layout, element_type), false), "");
+		LLVMValueRef byte_length = LLVMBuildMul(builder, length, LLVMConstInt(LLVMInt32TypeInContext(context.context), LLVMABISizeOfType(context.targetData, element_type), false), "");
 
 		LLVMValueRef arr_slice_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), byte_length), LLVMGetContainedType(array_type, 0), "");
 		LLVMBuildMemCpy(builder, context.context, context.module, arr_slice_data, LLVMBuildGEP(builder, arr_data, &index_start, 1, ""), byte_length, 0, false);
@@ -1494,7 +1494,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 				LLVMTypeRef context_ref_type = compileType(context, _->context_target->type, _->location);
 				LLVMTypeRef context_type = LLVMGetElementType(context_ref_type);
 
-				LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, context_type)), false)), context_ref_type, "");
+				LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.targetData, context_type)), false)), context_ref_type, "");
 
 				context.values[_->context_target] = context_data;
 			}
@@ -1799,7 +1799,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 							LLVMTypeRef context_ref_type = compileType(context, func->context_target->type, func->location);
 							LLVMTypeRef context_type = LLVMGetElementType(context_ref_type);
 
-							LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.layout, context_type)), false)), context_ref_type, "");
+							LLVMValueRef context_data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(LLVMABISizeOfType(context.targetData, context_type)), false)), context_ref_type, "");
 
 							context.values[func->context_target] = context_data;
 						}
@@ -1828,12 +1828,12 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 	return 0;
 }
 
-void compile(llvm::LLVMContext& context, llvm::Module* module, llvm::DataLayout* layout, Expr* root)
+void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData, Expr* root)
 {
 	Context ctx;
-	ctx.context = (LLVMContextRef)&context;
-	ctx.module = (LLVMModuleRef)module;
-	ctx.layout = (LLVMTargetDataRef)layout;
+	ctx.context = context;
+	ctx.module = module;
+	ctx.targetData = targetData;
 
 	LLVMFunctionRef entryf = LLVMAddFunction(ctx.module, "entrypoint", LLVMFunctionType(LLVMInt32TypeInContext(ctx.context), 0, 0, false));
 

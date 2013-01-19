@@ -1,12 +1,7 @@
 #pragma once
 
-namespace llvm
-{
-	class Module;
-	class LLVMContext;
-	class DataLayout;
-}
+#include "llvmaike.hpp"
 
 struct Expr;
 
-void compile(llvm::LLVMContext& context, llvm::Module* module, llvm::DataLayout* layout, Expr* root);
+void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData, Expr* root);
