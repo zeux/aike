@@ -3,8 +3,6 @@
 #include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
 
-struct Location;
-
 typedef LLVMValueRef LLVMFunctionRef;
 typedef LLVMValueRef LLVMPHIRef;
 typedef LLVMTypeRef LLVMStructTypeRef;
@@ -19,5 +17,5 @@ LLVMFunctionRef LLVMGetOrInsertFunction(LLVMModuleRef module, const char* name, 
 
 LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLVMModuleRef module, LLVMValueRef Dst, LLVMValueRef Src, LLVMValueRef Size, unsigned Align, bool isVolatile);
 
-void LLVMAikeParseAssemblyString(const Location& location, const char* text, LLVMContextRef context, LLVMModuleRef module);
+const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module);
 const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type);

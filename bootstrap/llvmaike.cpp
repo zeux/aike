@@ -1,7 +1,5 @@
 #include "llvmaike.hpp"
 
-#include "output.hpp"
-
 #include <vector>
 
 #include "llvm/Assembly/Parser.h"
@@ -48,11 +46,17 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 	return LLVMBuildCall(builder, function, Ops, 5, "");
 }
 
-void LLVMAikeParseAssemblyString(const Location& location, const char* text, LLVMContextRef context, LLVMModuleRef module)
+const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module)
 {
 	llvm::SMDiagnostic err;
+
 	if (!llvm::ParseAssemblyString(text, (llvm::Module*)module, err, *(llvm::LLVMContext*)context))
-		errorf(location, "Failed to parse llvm inline code: %s at '%s'", err.getMessage().str().c_str(), err.getLineContents().str().c_str());
+	{
+		std::string error = err.getMessage().str() + " at '" + err.getLineContents().str() + "'";
+		return strdup(error.c_str());
+	}
+
+	return 0;
 }
 
 std::string LLVMAikeGetTypeNameHelper(LLVMContextRef context, LLVMTypeRef type)
@@ -117,8 +121,7 @@ std::string LLVMAikeGetTypeNameHelper(LLVMContextRef context, LLVMTypeRef type)
 
 const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type)
 {
-	auto name = LLVMAikeGetTypeNameHelper(context, type);
-	auto copy = new char[name.length() + 1];
-	strcpy(copy, name.data());
-	return copy;
+	std::string result = LLVMAikeGetTypeNameHelper(context, type);
+
+	return strdup(result.c_str());
 }

@@ -1589,7 +1589,10 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		std::string name = std::string(LLVMGetValueName(func)) + "..autogen";
 		std::string body = compileInlineLLVM(context, name, _->body, func, _->location);
 
-		LLVMAikeParseAssemblyString(_->location, body.c_str(), context.context, context.module);
+		const char* error = LLVMAikeParseAssemblyString(body.c_str(), context.context, context.module);
+
+		if (error)
+			errorf(_->location, "Failed to parse llvm inline code: %s", error);
 
 		std::vector<LLVMValueRef> arguments;
 		for (LLVMValueRef argi = LLVMGetFirstParam(func); argi; argi = LLVMGetNextParam(argi))
