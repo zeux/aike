@@ -1,0 +1,14 @@
+type Option<'T> = Some 'T | None
+type Choice2<'T> = First Option<'T> | Second Option<'T>
+
+let any(c, def) =
+    match c with
+    | First (Some x) -> x
+    | First (None) -> def
+    | Second (Some x) -> x
+    | Second (None) -> def
+
+any(First(Some(5)), 6)
+
+// OUTPUT:
+// 5
