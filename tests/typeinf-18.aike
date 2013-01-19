@@ -9,8 +9,5 @@ let bar() =
 
 bar()
 
-// ERRORS:
-// (7,17): Type mismatch. Expecting a
-//     int
-// but given a
-//     bool
+// OUTPUT:
+// 1

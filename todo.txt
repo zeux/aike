@@ -1,7 +1,5 @@
 A list of stuff to do for aike.
 
-- mutually recursive type definitions
-- mutually recursive function definitions
 - mutually recursive value definitions in some cases? (introduces potential for uninitialized variable access :-/)
 
 - better errors for type inference: blocks - error on last expression
@@ -10,7 +8,6 @@ A list of stuff to do for aike.
 type expr =
       Int int
     | Var int
-
 
 let x = 5 in x
 

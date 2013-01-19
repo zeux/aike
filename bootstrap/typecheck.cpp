@@ -1083,6 +1083,17 @@ Expr* resolve(SynBase* root)
 	return resolveExpr(root, env);
 }
 
+bool references(ExprLetFunc* lhs, ExprLetFunc* rhs)
+{
+	for (size_t i = 0; i < lhs->externals.size(); ++i)
+		if (ExprBinding* binding = dynamic_cast<ExprBinding*>(lhs->externals[i]))
+			if (BindingFunction* bindfun = dynamic_cast<BindingFunction*>(binding->binding))
+				if (bindfun->target == rhs->target)
+					return true;
+
+	return false;
+}
+
 Type* prune(Type* t)
 {
 	if (CASE(TypeGeneric, t))
@@ -1720,22 +1731,14 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprLetFunc, root))
 	{
-		Type* tb;
+		size_t nongen_count = nongen.size();
 
-		if (_->target->name.empty())
-		{
-			for (size_t i = 0; i < _->args.size(); ++i)
-				nongen.push_back(_->args[i]->type);
+		for (size_t i = 0; i < _->args.size(); ++i)
+			nongen.push_back(_->args[i]->type);
 
-			tb = analyze(_->body, nongen);
+		Type* tb = analyze(_->body, nongen);
 
-			for (size_t i = 0; i < _->args.size(); ++i)
-				nongen.pop_back();
-		}
-		else
-		{
-			tb = analyze(_->body, nongen);
-		}
+		nongen.resize(nongen_count);
 
 		TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
 
@@ -1841,27 +1844,40 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		{
 			if (ExprLetFunc* __ = dynamic_cast<ExprLetFunc*>(_->expressions[i]))
 			{
-				size_t nongen_count = nongen.size();
-
 				size_t count = 0;
 
 				for (; i + count < _->expressions.size(); ++count)
 				{
 					if (ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + count]))
-					{
-						for (size_t j = 0; j < func->args.size(); ++j)
-							nongen.push_back(func->args[j]->type);
-					}
+						;
 					else
 						break;
 				}
 
 				for (size_t j = 0; j < count; ++j)
 				{
-					Type* te = analyze(_->expressions[i + j], nongen);
-				}
+					size_t nongen_count = nongen.size();
 
-				nongen.resize(nongen_count);
+					ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + j]);
+
+					// fix types for the arguments of functions that are in the same scope and follow after this expressions
+					// this allows generalization for backward references (i.e. no recursion), but should properly infer types
+					// for mutually recursive definitions
+					for (size_t k = j + 1; k < count; ++k)
+					{
+						ExprLetFunc* nextfunc = dynamic_cast<ExprLetFunc*>(_->expressions[i + k]);
+
+						if (references(func, nextfunc))
+						{
+							for (size_t ai = 0; ai < nextfunc->args.size(); ++ai)
+								nongen.push_back(nextfunc->args[ai]->type);
+						}
+					}
+
+					Type* te = analyze(_->expressions[i + j], nongen);
+
+					nongen.resize(nongen_count);
+				}
 
 				i += count;
 			}

@@ -1,0 +1,21 @@
+let foo(x) =
+    if true then true
+    else if bar(1) then true
+    else if bar(true) then false
+    else false
+
+let bar(x) =
+    if true then true
+    else if foo(1) then true
+    else if foo(true) then false
+    else false
+
+if bar(1) then 1
+else if bar(true) then 0
+else -1
+
+// ERRORS:
+// (4,17): Type mismatch. Expecting a
+//     int
+// but given a
+//     bool
