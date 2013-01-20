@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <ctime>
+#include <iterator>
 
 #include "lexer.hpp"
 #include "parser.hpp"
