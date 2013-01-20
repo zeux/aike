@@ -230,7 +230,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		llvm::ExecutionEngine* EE = llvm::EngineBuilder(module).create();
 
 		if (optimizationLevel > 0)
-			optimize(context, module, *EE->getDataLayout());
+			optimize((LLVMContextRef)&context, (LLVMModuleRef)module, (LLVMTargetDataRef)EE->getDataLayout());
 
 		if (debugFlags & DebugCode)
 		{

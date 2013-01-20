@@ -1,10 +1,5 @@
 #pragma once
 
-namespace llvm
-{
-	class Module;
-	class LLVMContext;
-	class DataLayout;
-}
+#include "llvmaike.hpp"
 
-void optimize(llvm::LLVMContext& context, llvm::Module* module, const llvm::DataLayout& layout);
+void optimize(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData);

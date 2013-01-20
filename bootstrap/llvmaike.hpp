@@ -2,6 +2,8 @@
 
 #include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
+#include "llvm-c/Transforms/Scalar.h"
+#include "llvm-c/Transforms/IPO.h"
 
 typedef LLVMValueRef LLVMFunctionRef;
 typedef LLVMValueRef LLVMPHIRef;

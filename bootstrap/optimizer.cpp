@@ -1,46 +1,39 @@
 #include "optimizer.hpp"
 
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/PassManager.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/Analysis/Passes.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/IPO.h"
+#include "llvmaike.hpp"
 
-using namespace llvm;
-
-void optimize(LLVMContext& context, Module* module, const DataLayout& layout)
+void optimize(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData)
 {
-	FunctionPassManager fpm(module);
+	LLVMPassManagerRef fpm = LLVMCreateFunctionPassManagerForModule(module);
 
-	fpm.add(new DataLayout(layout));
-	fpm.add(createBasicAliasAnalysisPass());
-	fpm.add(createPromoteMemoryToRegisterPass());
-	fpm.add(createInstructionCombiningPass());
-	fpm.add(createReassociatePass());
-	fpm.add(createGVNPass());
-	fpm.add(createCFGSimplificationPass());
-	fpm.add(createConstantPropagationPass());
-	fpm.add(createTailCallEliminationPass());
-	fpm.add(createLICMPass());
+	LLVMAddTargetData(targetData, fpm);
 
-	PassManager pm;
-	pm.add(createFunctionInliningPass());
-	pm.add(createFunctionAttrsPass());
-	pm.add(createIPConstantPropagationPass());
-	pm.add(createDeadArgEliminationPass());
+	LLVMAddBasicAliasAnalysisPass(fpm);
+	LLVMAddPromoteMemoryToRegisterPass(fpm);
+	LLVMAddInstructionCombiningPass(fpm);
+	LLVMAddReassociatePass(fpm);
+	LLVMAddGVNPass(fpm);
+	LLVMAddCFGSimplificationPass(fpm);
+	LLVMAddConstantPropagationPass(fpm);
+	LLVMAddTailCallEliminationPass(fpm);
+	LLVMAddLICMPass(fpm);
 
-	fpm.doInitialization();
+	LLVMPassManagerRef pm = LLVMCreatePassManager();
 
-	for (Module::iterator fit = module->begin(); fit != module->end(); ++fit)
-		fpm.run(*fit);
+	LLVMAddFunctionInliningPass(pm);
+	LLVMAddFunctionAttrsPass(pm);
+	LLVMAddIPConstantPropagationPass(pm);
+	LLVMAddDeadArgEliminationPass(pm);
+	
+	LLVMInitializeFunctionPassManager(fpm);
 
-	pm.run(*module);
+	for (LLVMFunctionRef fi = LLVMGetFirstFunction(module); fi; fi = LLVMGetNextFunction(fi))
+		LLVMRunFunctionPassManager(fpm, fi);
 
-	for (Module::iterator fit = module->begin(); fit != module->end(); ++fit)
-		fpm.run(*fit);
+	LLVMRunPassManager(pm, module);
 
-	fpm.doFinalization();
+	for (LLVMFunctionRef fi = LLVMGetFirstFunction(module); fi; fi = LLVMGetNextFunction(fi))
+		LLVMRunFunctionPassManager(fpm, fi);
+
+	LLVMFinalizeFunctionPassManager(fpm);
 }
