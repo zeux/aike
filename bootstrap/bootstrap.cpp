@@ -1,28 +1,10 @@
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/ExecutionEngine/Interpreter.h"
-#include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/TypeBuilder.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/PassManager.h"
-#include "llvm/Target/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvmaike.hpp"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <ctime>
-
-#include <Windows.h>
 
 #include "lexer.hpp"
 #include "parser.hpp"
@@ -31,6 +13,9 @@
 #include "optimizer.hpp"
 #include "dump.hpp"
 #include "output.hpp"
+
+#define NOMINMAX
+#include <Windows.h>
 
 enum DebugFlags
 {
@@ -121,76 +106,34 @@ std::string extractCommentBlock(const std::string& data, const std::string& name
 	return result;
 }
 
-const llvm::Target* getTarget(const std::string& triple)
-{
-	std::string error;
-	const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple, error);
-
-	if (!target)
-	{
-		std::cout << error << std::endl;
-		assert(false);
-	}
-
-	return target;
-}
-
-llvm::CodeGenOpt::Level getCodeGenOptLevel(unsigned int optimizationLevel)
+LLVMCodeGenOptLevel getCodeGenOptLevel(unsigned int optimizationLevel)
 {
 	switch (optimizationLevel)
 	{
-	case 0: return llvm::CodeGenOpt::None;
-	case 1: return llvm::CodeGenOpt::Less;
-	case 2: return llvm::CodeGenOpt::Default;
-	case 3: return llvm::CodeGenOpt::Aggressive;
-	default: return llvm::CodeGenOpt::Aggressive;
+	case 0: return LLVMCodeGenLevelNone;
+	case 1: return LLVMCodeGenLevelLess;
+	case 2: return LLVMCodeGenLevelDefault;
+	case 3: return LLVMCodeGenLevelAggressive;
+	default: return LLVMCodeGenLevelAggressive;
 	}
 }
 
-std::string getHostFeatures()
+void compileModuleToObject(LLVMModuleRef module, const std::string& path, unsigned int optimizationLevel)
 {
-	llvm::StringMap<bool> features;
-	std::string result;
+	const char* triple = LLVMAikeGetHostTriple();
+	const char* cpu = LLVMAikeGetHostCPU();
+	const char* features = "";
 
-	if (llvm::sys::getHostCPUFeatures(features))
-	{
-		for (llvm::StringMap<bool>::const_iterator it = features.begin(); it != features.end(); ++it)
-		{
-			if (result.empty()) result += ',';
-			result += it->second ? '+' : '-';
-			result += it->first();
-		}
-	}
+	LLVMTargetRef target = LLVMGetNextTarget(LLVMGetFirstTarget());
 
-	return result;
-}
+	LLVMCodeGenOptLevel codeGenOptLevel = getCodeGenOptLevel(optimizationLevel);
 
-void compileModuleToObject(llvm::Module* module, const std::string& path, unsigned int optimizationLevel)
-{
-	std::string triple = llvm::sys::getDefaultTargetTriple();
-	std::string cpu = llvm::sys::getHostCPUName();
-	std::string features = getHostFeatures();
+	LLVMTargetMachineRef tm = LLVMCreateTargetMachine(target, const_cast<char*>(triple), const_cast<char*>(cpu), const_cast<char*>(features), codeGenOptLevel, LLVMRelocDefault, LLVMCodeModelDefault);
 
-	const llvm::Target* target = getTarget(triple);
+	char* error;
 
-	llvm::TargetOptions options;
-	llvm::CodeGenOpt::Level codeGenOptLevel = getCodeGenOptLevel(optimizationLevel);
-
-	llvm::TargetMachine* tm = target->createTargetMachine(triple, cpu, features, options, llvm::Reloc::Default, llvm::CodeModel::Default, codeGenOptLevel);
-
-	llvm::PassManager pm;
-
-	pm.add(new llvm::TargetLibraryInfo(llvm::Triple(triple)));
-	tm->addAnalysisPasses(pm);
-	pm.add(new llvm::DataLayout(*tm->getDataLayout()));
-
-	std::ofstream out(path, std::ios::out | std::ios::binary);
-	llvm::raw_os_ostream os(out);
-	llvm::formatted_raw_ostream fos(os);
-
-	tm->addPassesToEmitFile(pm, fos, llvm::TargetMachine::CGFT_ObjectFile);
-
-	pm.run(*module);
+	if (LLVMTargetMachineEmitToFile(tm, module, const_cast<char*>(path.c_str()), LLVMObjectFile, &error))
+		throw std::runtime_error(error);
 }
 
 bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
@@ -219,23 +162,27 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		if (debugFlags & DebugTypedAST)
 			dump(std::cout, root);
 
-		llvm::LLVMContext context;
+		LLVMContextRef context = LLVMContextCreate();
+		LLVMModuleRef module = LLVMModuleCreateWithNameInContext("test", context);
 
-		llvm::Module* module = new llvm::Module("test", context);
+		LLVMTypeRef malloc_args[] = {LLVMInt32TypeInContext(context)};
+		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
+		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
 
-		llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt8PtrTy(context), llvm::Type::getInt32Ty(context), false), llvm::Function::ExternalLinkage, "malloc", module);
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root);
 
-		compile((LLVMContextRef)&context, (LLVMModuleRef)module, (LLVMTargetDataRef)new llvm::DataLayout(module), root);
+		LLVMExecutionEngineRef ee;
+		char* error;
 
-		llvm::ExecutionEngine* EE = llvm::EngineBuilder(module).create();
+		if (LLVMCreateExecutionEngineForModule(&ee, module, &error))
+			throw std::runtime_error(error);
 
 		if (optimizationLevel > 0)
-			optimize((LLVMContextRef)&context, (LLVMModuleRef)module, (LLVMTargetDataRef)EE->getDataLayout());
+			optimize(context, module, LLVMGetExecutionEngineTargetData(ee));
 
 		if (debugFlags & DebugCode)
 		{
-			llvm::outs() << *module;
-			llvm::outs().flush();
+			LLVMDumpModule(module);
 		}
 
 		if (debugFlags & DebugObject)
@@ -243,12 +190,9 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 			compileModuleToObject(module, "../output.obj", optimizationLevel);
 		}
 
-		std::vector<llvm::GenericValue> noargs;
-		llvm::GenericValue gv = EE->runFunction(module->getFunction("entrypoint"), noargs);
+		LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
 
-		output << gv.IntVal.getSExtValue() << "\n";
-
-		delete EE;
+		output << (int)LLVMGenericValueToInt(gv, true) << "\n";
 	}
 	catch (const ErrorAtLocation& e)
 	{
@@ -364,8 +308,7 @@ std::string parseTestName(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-	llvm::InitializeNativeTarget();
-	llvm::InitializeNativeTargetAsmPrinter();
+	LLVMAikeInit();
 
 	SetCurrentDirectoryA("../tests");
 
@@ -398,6 +341,4 @@ int main(int argc, char** argv)
 	{
 		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
-
-	llvm::llvm_shutdown();
 }

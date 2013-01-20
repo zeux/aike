@@ -4,6 +4,8 @@
 
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/Host.h"
 
 LLVMTypeRef LLVMGetContainedType(LLVMTypeRef type, size_t index)
 {
@@ -14,15 +16,16 @@ LLVMTypeRef LLVMGetContainedType(LLVMTypeRef type, size_t index)
 
 LLVMValueRef LLVMBuildCall1(LLVMBuilderRef builder, LLVMFunctionRef function, LLVMValueRef arg)
 {
-	return LLVMBuildCall(builder, function, &arg, 1, "");
+	LLVMValueRef args[] = {arg};
+
+	return LLVMBuildCall(builder, function, args, 1, "");
 }
 
 LLVMValueRef LLVMBuildCall2(LLVMBuilderRef builder, LLVMFunctionRef function, LLVMValueRef a, LLVMValueRef b)
 {
-	std::vector<LLVMValueRef> args;
-	args.push_back(a);
-	args.push_back(b);
-	return LLVMBuildCall(builder, function, args.data(), args.size(), "");
+	LLVMValueRef args[] = {a, b};
+
+	return LLVMBuildCall(builder, function, args, 2, "");
 }
 
 LLVMFunctionRef LLVMGetOrInsertFunction(LLVMModuleRef module, const char* name, LLVMFunctionTypeRef type)
@@ -124,4 +127,28 @@ const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type)
 	std::string result = LLVMAikeGetTypeNameHelper(context, type);
 
 	return strdup(result.c_str());
+}
+
+const char* LLVMAikeGetHostTriple()
+{
+	std::string result = llvm::sys::getDefaultTargetTriple();
+
+	return strdup(result.c_str());
+}
+
+const char* LLVMAikeGetHostCPU()
+{
+ 	std::string result = llvm::sys::getHostCPUName();
+
+	return strdup(result.c_str());
+}
+
+void LLVMAikeInit()
+{
+	LLVMLinkInJIT();
+	LLVMLinkInInterpreter();
+
+	LLVMInitializeNativeTarget();
+
+	llvm::InitializeNativeTargetAsmPrinter();
 }

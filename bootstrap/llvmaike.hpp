@@ -1,9 +1,20 @@
 #pragma once
 
+#ifdef _MSC_VER
+#	pragma warning(push)
+#	pragma warning(disable: 4146 4244 4800)
+#endif
+
 #include "llvm-c/Core.h"
+#include "llvm-c/ExecutionEngine.h"
 #include "llvm-c/Target.h"
+#include "llvm-c/TargetMachine.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm-c/Transforms/IPO.h"
+
+#ifdef _MSC_VER
+#	pragma warning(pop)
+#endif
 
 typedef LLVMValueRef LLVMFunctionRef;
 typedef LLVMValueRef LLVMPHIRef;
@@ -21,3 +32,8 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 
 const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module);
 const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type);
+
+const char* LLVMAikeGetHostTriple();
+const char* LLVMAikeGetHostCPU();
+
+void LLVMAikeInit();
