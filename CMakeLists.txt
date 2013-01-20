@@ -16,7 +16,12 @@ add_definitions( ${LLVM_DEFINITIONS} )
 # Include various LLVM components
 llvm_map_components_to_libraries(REQ_LLVM_LIBRARIES jit interpreter native scalaropts ipo vectorize asmparser)
 
-# Bootstrap project
-add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/compiler.cpp bootstrap/dump.cpp bootstrap/lexer.cpp bootstrap/match.cpp bootstrap/optimizer.cpp bootstrap/output.cpp bootstrap/parser.cpp bootstrap/type.cpp bootstrap/typecheck.cpp bootstrap/llvmaike.cpp bootstrap/compiler.hpp bootstrap/dump.hpp bootstrap/lexer.hpp bootstrap/match.hpp bootstrap/location.hpp bootstrap/optimizer.hpp bootstrap/output.hpp bootstrap/parser.hpp bootstrap/type.hpp bootstrap/typecheck.hpp bootstrap/llvmaike.hpp)
-target_link_libraries(bootstrap ${REQ_LLVM_LIBRARIES})
+# llvmaike project
+add_library(llvmaike SHARED llvmaike/llvmaike.cpp llvmaike/llvmaike.hpp llvmaike/llvmaike.def)
+target_link_libraries(llvmaike ${REQ_LLVM_LIBRARIES})
+set_target_properties(llvmaike PROPERTIES LINK_INTERFACE_LIBRARIES "")
+include_directories(llvmaike)
 
+# Bootstrap project
+add_executable(bootstrap bootstrap/bootstrap.cpp bootstrap/compiler.cpp bootstrap/dump.cpp bootstrap/lexer.cpp bootstrap/match.cpp bootstrap/optimizer.cpp bootstrap/output.cpp bootstrap/parser.cpp bootstrap/type.cpp bootstrap/typecheck.cpp bootstrap/compiler.hpp bootstrap/dump.hpp bootstrap/lexer.hpp bootstrap/match.hpp bootstrap/location.hpp bootstrap/optimizer.hpp bootstrap/output.hpp bootstrap/parser.hpp bootstrap/type.hpp bootstrap/typecheck.hpp)
+target_link_libraries(bootstrap llvmaike)

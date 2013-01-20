@@ -16,6 +16,10 @@
 #	pragma warning(pop)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef LLVMValueRef LLVMFunctionRef;
 typedef LLVMValueRef LLVMPHIRef;
 typedef LLVMTypeRef LLVMStructTypeRef;
@@ -37,3 +41,7 @@ const char* LLVMAikeGetHostTriple();
 const char* LLVMAikeGetHostCPU();
 
 void LLVMAikeInit();
+
+#ifdef __cplusplus
+}
+#endif
