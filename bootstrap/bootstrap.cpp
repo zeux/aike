@@ -435,10 +435,13 @@ int main(int argc, char** argv)
 		SetCurrentDirectoryA("../compiler");
 
 		std::vector<std::string> sources;
-		sources.push_back("ref.aike");
-		sources.push_back("option.aike");
-		sources.push_back("array.aike");
-		sources.push_back("main.aike");
+
+		std::ifstream src("sources");
+
+		std::string line;
+		while (std::getline(src, line))
+			if (!line.empty())
+				sources.push_back(line);
 
 		runCompiler(sources, debugFlags, optimizationLevel);
 	}
