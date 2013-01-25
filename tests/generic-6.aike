@@ -1,6 +1,6 @@
-type ref<'T> = { contents: 'T }
+type refcell<'T> = { contents: 'T }
 
-ref(1).contents
+refcell(1).contents
 
 // OUTPUT:
 // 1

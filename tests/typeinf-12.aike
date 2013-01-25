@@ -1,13 +1,13 @@
-type ref<'T> = { contents: 'T }
-type refpair<'T1, 'T2> = { first: ref<'T1>; second: ref<'T2> }
+type refcell<'T> = { contents: 'T }
+type refpair<'T1, 'T2> = { first: refcell<'T1>; second: refcell<'T2> }
 
 let car(x) =
-    match x with refpair(first = x: ref<'a>) -> x.contents
+    match x with refpair(first = x: refcell<'a>) -> x.contents
 
 let cdr(x) =
-    match x with refpair(second = x: ref<'a>) -> x.contents
+    match x with refpair(second = x: refcell<'a>) -> x.contents
 
-let y = refpair(ref(1), ref(true))
+let y = refpair(refcell(1), refcell(true))
 
 if cdr(y) then car(y) else 2
 

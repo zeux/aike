@@ -1,8 +1,8 @@
-type ref<'T> = { contents: 'T }
+type refcell<'T> = { contents: 'T }
 
-let value(x: ref<'a>) = x.contents
+let value(x: refcell<'a>) = x.contents
 
-value(ref(1))
+value(refcell(1))
 
 // OUTPUT:
 // 1
