@@ -1746,6 +1746,33 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false); // Same as ExprUnit
 	}
 
+	if (CASE(ExprWhileDo, node))
+	{
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+
+		LLVMBasicBlockRef condition_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "while_condition");
+		LLVMBasicBlockRef body_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "while_body");
+		LLVMBasicBlockRef end_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "while_end");
+
+		LLVMBuildBr(builder, condition_basic_block);
+
+		LLVMPositionBuilderAtEnd(builder, condition_basic_block);
+
+		LLVMBuildCondBr(builder, compileExpr(context, builder, _->condition), body_basic_block, end_basic_block);
+
+		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, body_basic_block);
+
+		compileExpr(context, builder, _->body);
+
+		LLVMBuildBr(builder, condition_basic_block);
+
+		LLVMMoveBasicBlockAfter(end_basic_block, LLVMGetLastBasicBlock(function));
+		LLVMPositionBuilderAtEnd(builder, end_basic_block);
+
+		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false); // Same as ExprUnit
+	}
+
 	if (CASE(ExprMatchWith, node))
 	{
 		// Check that case list will handle any value and that there are no unreachable cases

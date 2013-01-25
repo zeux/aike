@@ -1033,6 +1033,14 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprForInRangeDo(new TypeUnit(), _->location, target, start, end, body);
 	}
 
+	if (CASE(SynWhileDo, node))
+	{
+		Expr* condition = resolveExpr(_->condition, env);
+		Expr* body = resolveExpr(_->body, env);
+
+		return new ExprWhileDo(new TypeUnit(), _->location, condition, body);
+	}
+
 	if (CASE(SynMatchWith, node))
 	{
 		Expr* variable = resolveExpr(_->variable, env);
@@ -1854,6 +1862,17 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		mustUnify(tbody, new TypeUnit(), _->body->location);
 
 		return _->type = new TypeUnit();
+	}
+
+	if (CASE(ExprWhileDo, root))
+	{
+		Type* tcondition = analyze(_->condition, nongen);
+		Type* tbody = analyze(_->body, nongen);
+
+		mustUnify(tcondition, new TypeBool(), _->location);
+		mustUnify(tbody, new TypeUnit(), _->location);
+
+		return _->type;
 	}
 
 	if (CASE(ExprMatchWith, root))

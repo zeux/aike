@@ -337,6 +337,16 @@ struct SynForInRangeDo: SynBase
 	}
 };
 
+struct SynWhileDo: SynBase
+{
+	SynBase* condition;
+	SynBase* body;
+
+	SynWhileDo(const Location& location, SynBase* condition, SynBase* body): SynBase(location), condition(condition), body(body)
+	{
+	}
+};
+
 struct SynMatch: SynBase
 {
 	SynMatch(const Location& location): SynBase(location) {}

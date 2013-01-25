@@ -365,6 +365,14 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << "do\n";
 		dump(os, _->body, indent + 1);
 	}
+	else if (CASE(SynWhileDo, root))
+	{
+		os << "while\n";
+		dump(os, _->condition, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, _->body, indent + 1);
+	}
 	else if (CASE(SynMatchNumber, root))
 	{
 		os << _->value;
@@ -820,6 +828,14 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		indentout(os, indent);
 		os << "to\n";
 		dump(os, context, _->end, indent + 1);
+		indentout(os, indent);
+		os << "do\n";
+		dump(os, context, _->body, indent + 1);
+	}
+	else if (CASE(ExprWhileDo, root))
+	{
+		os << "while\n";
+		dump(os, context, _->condition, indent + 1);
 		indentout(os, indent);
 		os << "do\n";
 		dump(os, context, _->body, indent + 1);

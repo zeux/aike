@@ -636,6 +636,20 @@ SynBase* parseForInDo(Lexer& lexer)
 	return new SynForInDo(location, var, arr, parseBlock(lexer));
 }
 
+SynBase* parseWhileDo(Lexer& lexer)
+{
+	Location location = lexer.current.location;
+	assert(iskeyword(lexer, "while"));
+	movenext(lexer);
+
+	SynBase* condition = parseExpr(lexer);
+
+	if (!iskeyword(lexer, "do")) errorf(lexer.current.location, "Expected 'do' after condition");
+	movenext(lexer);
+
+	return new SynWhileDo(location, condition, parseBlock(lexer));
+}
+
 SynMatch* parseMatchPattern(Lexer& lexer)
 {
 	// Check literal value matches
@@ -950,6 +964,9 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "for"))
 		return parseForInDo(lexer);
+
+	if (iskeyword(lexer, "while"))
+		return parseWhileDo(lexer);
 
 	if (iskeyword(lexer, "match"))
 		return parseMatchWith(lexer);

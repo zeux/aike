@@ -280,6 +280,16 @@ struct ExprForInRangeDo: Expr
 	}
 };
 
+struct ExprWhileDo: Expr
+{
+	Expr* condition;
+	Expr* body;
+
+	ExprWhileDo(Type* type, const Location& location, Expr* condition, Expr* body): Expr(type, location), condition(condition), body(body)
+	{
+	}
+};
+
 struct MatchCase
 {
 	Type* type;
