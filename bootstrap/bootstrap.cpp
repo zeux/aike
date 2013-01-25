@@ -43,22 +43,26 @@ void print(int value)
 
 void dumpError(std::ostream& os, const std::string& path, const Location& location, const std::string& error, bool outputErrorLocation)
 {
-	os << path << "(" << (location.line + 1) << "," << (location.column + 1) << "): " << error << "\n";
+	if (outputErrorLocation && location.file.path)
+		os << location.file.path;
 
-	if (location.lineStart && outputErrorLocation)
+	os << "(" << location.line << "," << location.column << "): " << error << "\n";
+
+	if (location.file.contents && outputErrorLocation)
 	{
-		const char *lineEnd = strchr(location.lineStart, '\n');
+		const char* lineStart = location.file.contents + location.lineOffset;
+		const char* lineEnd = strchr(lineStart, '\n');
 
 		os << "\n";
 
 		if (lineEnd)
-			os << std::string(location.lineStart, lineEnd);
+			os << std::string(lineStart, lineEnd);
 		else
-			os << location.lineStart;
+			os << lineStart;
 
 		os << "\n";
 
-		for (size_t i = 0; i < location.column; i++)
+		for (size_t i = 1; i < location.column; i++)
 			os << ' ';
 
 		for (size_t i = 0; i < location.length; i++)
@@ -141,7 +145,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 {
 	gOutput = &output;
 
-	Lexer lexer = { data, 0 };
+	Lexer lexer = { SourceFile(path.c_str(), data.c_str(), data.size()) };
 	movenext(lexer);
 
 	bool result = true;
@@ -223,7 +227,7 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 
 	std::ostringstream output, errors;
 
-	bool result = runCode("", data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
+	bool result = runCode(path, data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
 
 	if (output.str() != expectedOutput || errors.str() != expectedErrors || result != expectedErrors.empty())
 	{
@@ -255,7 +259,7 @@ void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlag
 		{
 			std::string data = readFile(sources[i]);
 
-			Lexer lexer = { data, 0 };
+			Lexer lexer = { SourceFile(strdup(sources[i].c_str()), strdup(data.c_str()), data.size()) };
 			movenext(lexer);
 
 			synRoots.push_back(parse(lexer));

@@ -71,7 +71,8 @@ struct Lexeme
 
 struct Lexer
 {
-	std::string data;
+	SourceFile file;
+
 	size_t position;
 	size_t line_start_pos;
 

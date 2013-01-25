@@ -4,21 +4,21 @@
 
 #include "output.hpp"
 
-inline char peekch(const Lexer& lexer)
+inline char peekch(const Lexer& lexer, size_t offset = 0)
 {
-	return lexer.position < lexer.data.size() ? lexer.data[lexer.position] : 0;
+	return lexer.position + offset < lexer.file.length ? lexer.file.contents[lexer.position + offset] : 0;
 }
 
-inline char peekch(const Lexer& lexer, size_t offset)
+inline Location getlocation(const Lexer& lexer, size_t length)
 {
-	return lexer.position + offset < lexer.data.size() ? lexer.data[lexer.position + offset] : 0;
+	return Location(lexer.file, lexer.line_start_pos, lexer.line + 1, lexer.position - lexer.line_start_pos + 1, length);
 }
 
 inline void consume(Lexer& lexer)
 {
 	if (peekch(lexer) == '\t')
 	{
-		lexer.current.location = Location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, lexer.position - lexer.line_start_pos, 1);
+		lexer.current.location = getlocation(lexer, 1);
 		errorf(lexer.current.location, "Source file must not contain tabs");
 	}
 	else if (peekch(lexer) == '\n')
@@ -27,7 +27,7 @@ inline void consume(Lexer& lexer)
 		lexer.line++;
 	}
 
-	assert(lexer.position < lexer.data.size());
+	assert(lexer.position < lexer.file.length);
 	lexer.position++;
 }
 
@@ -229,12 +229,12 @@ void movenext(Lexer& lexer)
 		}
 	}
 
-	Location location(lexer.line_start_pos < lexer.data.size() ? &lexer.data[lexer.line_start_pos] : 0, lexer.line, lexer.position - lexer.line_start_pos, 0);
-	size_t position = lexer.position;
+	Location location = getlocation(lexer, 0);
 
+	size_t position = lexer.position;
 	lexer.current = readnext(lexer);
 
-	lexer.current.location = Location(location.lineStart, location.line, location.column, lexer.position - position);
+	lexer.current.location = Location(location.file, location.lineOffset, location.line, location.column, lexer.position - position);
 }
 
 Lexer capturestate(const Lexer& lexer)
