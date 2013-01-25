@@ -157,6 +157,8 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << _->value << "\n";
 	else if (CASE(SynBooleanLiteral, root))
 		os << (_->value ? "true" : "false") << "\n";
+	else if (CASE(SynCharacterLiteral, root))
+		os << "\'" << _->value << "\'\n";
 	else if (CASE(SynArrayLiteral, root))
 	{
 		os << "[\n";
@@ -628,6 +630,8 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		os << _->value << "\n";
 	else if (CASE(ExprBooleanLiteral, root))
 		os << (_->value ? "true" : "false") << "\n";
+	else if (CASE(ExprCharacterLiteral, root))
+		os << "\'" << _->value << "\'\n";
 	else if (CASE(ExprArrayLiteral, root))
 	{
 		os << "[\n";
