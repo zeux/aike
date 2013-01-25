@@ -35,7 +35,7 @@ LLVMFunctionRef LLVMGetOrInsertFunction(LLVMModuleRef module, const char* name, 
 LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLVMModuleRef module, LLVMValueRef Dst, LLVMValueRef Src, LLVMValueRef Size, unsigned Align, bool isVolatile);
 
 const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module);
-const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type);
+const char* LLVMAikeGetTypeName(LLVMTypeRef type);
 
 const char* LLVMAikeGetHostTriple();
 const char* LLVMAikeGetHostCPU();

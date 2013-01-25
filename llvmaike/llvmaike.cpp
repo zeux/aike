@@ -103,7 +103,7 @@ std::string LLVMAikeGetTypeNameHelper(LLVMContextRef context, LLVMTypeRef type)
 	case LLVMStructTypeKind:
 		if (const char *name = LLVMGetStructName(type))
 		{
-			return name;
+			return "%" + std::string(name);
 		}else{
 			std::string comp_name = "{ ";
 
@@ -122,9 +122,9 @@ std::string LLVMAikeGetTypeNameHelper(LLVMContextRef context, LLVMTypeRef type)
 	return "unknown";
 }
 
-const char* LLVMAikeGetTypeName(LLVMContextRef context, LLVMTypeRef type)
+const char* LLVMAikeGetTypeName(LLVMTypeRef type)
 {
-	std::string result = LLVMAikeGetTypeNameHelper(context, type);
+	std::string result = LLVMAikeGetTypeNameHelper(LLVMGetTypeContext(type), type);
 
 	return strdup(result.c_str());
 }

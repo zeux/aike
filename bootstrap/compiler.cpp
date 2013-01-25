@@ -623,10 +623,10 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 	std::ostringstream declare;
 	std::ostringstream os;
 
-	os << "define internal " << LLVMAikeGetTypeName(context.context, LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " @" << name << "(";
+	os << "define internal " << LLVMAikeGetTypeName(LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " @" << name << "(";
 
 	for (LLVMValueRef argi = LLVMGetFirstParam(func); argi; argi = LLVMGetNextParam(argi))
-		os << (argi != LLVMGetFirstParam(func) ? ", " : "") << LLVMAikeGetTypeName(context.context, LLVMTypeOf(argi)) << " %" << LLVMGetValueName(argi);
+		os << (argi != LLVMGetFirstParam(func) ? ", " : "") << LLVMAikeGetTypeName(LLVMTypeOf(argi)) << " %" << LLVMGetValueName(argi);
 
 	os << ") alwaysinline {\n";
 
@@ -650,7 +650,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 
 			i = end + 1;
 
-			os << LLVMAikeGetTypeName(context.context, parseInlineLLVMType(context, var, func, location));
+			os << LLVMAikeGetTypeName(parseInlineLLVMType(context, var, func, location));
 		}
 		else if (body[i] == 's' && body.compare(i, 7, "sizeof(") == 0)
 		{
@@ -682,7 +682,7 @@ std::string compileInlineLLVM(Context& context, const std::string& name, const s
 		}
 	}
 
-	os << "\nret " << LLVMAikeGetTypeName(context.context, LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " %out }";
+	os << "\nret " << LLVMAikeGetTypeName(LLVMGetReturnType(LLVMGetElementType(LLVMTypeOf(func)))) << " %out }";
 	os.flush();
 	
 	return declare.str() + os.str();
