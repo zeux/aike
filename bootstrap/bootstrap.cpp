@@ -243,6 +243,94 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 	return true;
 }
 
+void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlags, unsigned int optimizationLevel)
+{
+	gOutput = &std::cout;
+
+	try
+	{
+		std::vector<SynBase*> synRoots;
+
+		for (size_t i = 0; i < sources.size(); ++i)
+		{
+			std::string data = readFile(sources[i]);
+
+			Lexer lexer = { data, 0 };
+			movenext(lexer);
+
+			synRoots.push_back(parse(lexer));
+		}
+
+		SynBase* synRoot = synRoots.back();
+
+		for (size_t i = synRoots.size() - 1; i > 0; --i)
+		{
+			SynBase* prevRoot = synRoots[i - 1];
+
+			std::vector<SynBase*> exprs = dynamic_cast<SynBlock*>(prevRoot)->expressions;
+			exprs.push_back(synRoot);
+
+			synRoot = new SynBlock(prevRoot->location, exprs);
+		}
+
+		if (debugFlags & DebugParse)
+			dump(std::cout, synRoot);
+
+		Expr* root = resolve(synRoot);
+
+		if (debugFlags & DebugAST)
+			dump(std::cout, root);
+
+		Type* rootType = typecheck(root);
+
+		if (debugFlags & DebugTypedAST)
+			dump(std::cout, root);
+
+		LLVMContextRef context = LLVMContextCreate();
+		LLVMModuleRef module = LLVMModuleCreateWithNameInContext("test", context);
+
+		LLVMTypeRef malloc_args[] = {LLVMInt32TypeInContext(context)};
+		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
+		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
+
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root);
+
+		LLVMExecutionEngineRef ee;
+		char* error;
+
+		if (LLVMCreateExecutionEngineForModule(&ee, module, &error))
+			throw std::runtime_error(error);
+
+		if (optimizationLevel > 0)
+			optimize(context, module, LLVMGetExecutionEngineTargetData(ee));
+
+		if (debugFlags & DebugCode)
+		{
+			LLVMDumpModule(module);
+		}
+
+		if (debugFlags & DebugObject)
+		{
+			compileModuleToObject(module, "../output.obj", optimizationLevel);
+		}
+
+		LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
+
+		std::cout << (int)LLVMGenericValueToInt(gv, true) << "\n";
+	}
+	catch (const ErrorAtLocation& e)
+	{
+		dumpError(std::cerr, "", e.location, e.error, true);
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Unknown exception: " << e.what() << "\n";
+	}
+
+	gOutput = NULL;
+}
+
+
 void findFilesRecursive(std::vector<std::string>& result, const std::string& path, const std::string& prefix)
 {
 	WIN32_FIND_DATAA data;
@@ -301,7 +389,7 @@ unsigned int parseOptimizationLevel(int argc, char** argv)
 std::string parseTestName(int argc, char** argv)
 {
 	for (size_t i = 1; i < size_t(argc); ++i)
-		if (argv[i][0] != '-')
+		if (argv[i][0] != '-' || argv[i][1] == 0)
 			return argv[i];
 
 	return "";
@@ -311,14 +399,14 @@ int main(int argc, char** argv)
 {
 	LLVMAikeInit();
 
-	SetCurrentDirectoryA("../tests");
-
 	unsigned int debugFlags = parseDebugFlags(argc, argv);
 	unsigned int optimizationLevel = parseOptimizationLevel(argc, argv);
 	std::string testName = parseTestName(argc, argv);
 
 	if (testName.empty())
 	{
+		SetCurrentDirectoryA("../tests");
+
 		std::vector<std::string> files;
 		findFilesRecursive(files, ".", "");
 
@@ -338,8 +426,20 @@ int main(int argc, char** argv)
 		else
 			std::cout << "FAILURE: " << (total - passed) << " out of " << total << " tests failed.\n";
 	}
+	else if (testName == "-")
+	{
+		SetCurrentDirectoryA("../compiler");
+
+		std::vector<std::string> sources;
+		sources.push_back("ref.aike");
+		sources.push_back("main.aike");
+
+		runCompiler(sources, debugFlags, optimizationLevel);
+	}
 	else
 	{
+		SetCurrentDirectoryA("../tests");
+
 		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 }
