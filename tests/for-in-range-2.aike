@@ -1,7 +1,7 @@
-extern print(i:int):unit
+extern printint(i:int):unit
 
 for i in -1..1 do
-    print(i)
+    printint(i)
 
 10
 

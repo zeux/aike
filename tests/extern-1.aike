@@ -1,4 +1,4 @@
-extern print(value: int): unit
+extern printint(value: int): unit
 
 0
 

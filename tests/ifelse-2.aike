@@ -1,28 +1,28 @@
-extern print(i:int):unit
+extern printint(i:int):unit
 
 if true then
-    print(1)
+    printint(1)
 
 if true then
-    print(2)
+    printint(2)
 else
-    print(3)
+    printint(3)
 
 if true then
-    print(4)
+    printint(4)
 else
     ()
 
 if false then
-    print(5)
+    printint(5)
 
 if false then
-    print(6)
+    printint(6)
 else
-    print(7)
+    printint(7)
 
 if false then
-    print(8)
+    printint(8)
 else
     ()
 

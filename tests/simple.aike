@@ -1,4 +1,4 @@
-extern print(x: int): unit
+extern printint(x: int): unit
 
 let add(x: int, y: int): int =
     llvm "add i32 %x, %y"
@@ -7,7 +7,7 @@ let div2(n: int): int =
     if n == 0 then
         42
     else
-        print(n)
+        printint(n)
         n / 2
 
 let main() =

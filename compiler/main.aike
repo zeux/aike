@@ -1,3 +1,6 @@
-concat("foo", "bar")#length
-+
+extern print(value: char[]): unit
+
+print("Hello, " #concat("world") #concat("!
+"))
+
 0

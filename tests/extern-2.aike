@@ -1,4 +1,4 @@
-extern print(x)
+extern printint(x)
 
 // ERRORS:
-// (1,14): Extern function 'print': type declaration missing for argument 'x'
+// (1,17): Extern function 'printint': type declaration missing for argument 'x'

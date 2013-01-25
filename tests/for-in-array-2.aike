@@ -1,10 +1,10 @@
-extern print(i:int):unit
+extern printint(i:int):unit
 
 let x: (int[])[] = [[2, 3], [4, 5]]
 
 for i in x do
     for j in i do
-        print(j)
+        printint(j)
 0
 
 // OUTPUT:

@@ -35,10 +35,22 @@ enum DebugFlags
 
 std::ostream* gOutput;
 
+template <typename T> struct AikeArray
+{
+	T* data;
+	int length;
+};
+
 AIKE_EXTERN
-void print(int value)
+void printint(int value)
 {
 	*gOutput << value << "\n";
+}
+
+AIKE_EXTERN
+void print(AikeArray<char> value)
+{
+	gOutput->write(value.data, value.length);
 }
 
 void dumpError(std::ostream& os, const std::string& path, const Location& location, const std::string& error, bool outputErrorLocation)

@@ -1,4 +1,4 @@
-extern print(i:int):unit
+extern printint(i:int):unit
 
 let test() =
     let a = []
@@ -8,7 +8,7 @@ let test() =
     a
 
 for i in test() do
-    print(i)
+    printint(i)
 0
 
 // OUTPUT:
