@@ -18,6 +18,10 @@ MatchCase* clone(MatchCase* pattern)
 	{
 		return new MatchCaseNumber(_->type, _->location, _->value);
 	}
+	if (CASE(MatchCaseCharacter, pattern))
+	{
+		return new MatchCaseCharacter(_->type, _->location, _->value);
+	}
 	if (CASE(MatchCaseValue, pattern))
 	{
 		return new MatchCaseValue(_->type, _->location, _->value);
@@ -78,6 +82,14 @@ bool match(MatchCase* pattern, MatchCase* rhs)
 	{
 		auto pattern_ = _;
 		if (CASE(MatchCaseNumber, rhs))
+			return pattern_->value == _->value;
+
+		return false;
+	}
+	if (CASE(MatchCaseCharacter, pattern))
+	{
+		auto pattern_ = _;
+		if (CASE(MatchCaseCharacter, rhs))
 			return pattern_->value == _->value;
 
 		return false;
@@ -157,6 +169,10 @@ MatchCase* simplify(MatchCase* pattern)
 		return _;
 	}
 	if (CASE(MatchCaseNumber, pattern))
+	{
+		return _;
+	}
+	if (CASE(MatchCaseCharacter, pattern))
 	{
 		return _;
 	}

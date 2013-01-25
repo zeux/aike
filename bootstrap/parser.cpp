@@ -118,7 +118,7 @@ SynBase* parseTerm(Lexer& lexer)
 		if (lexer.current.contents.size() > 1)
 			errorf(lexer.current.location, "Multicharacter literals are not supported");
 
-		SynBase* result = new SynNumberLiteral(lexer.current.location, lexer.current.contents[0]);
+		SynBase* result = new SynCharacterLiteral(lexer.current.location, lexer.current.contents[0]);
 		movenext(lexer);
 		return result;
 	}
@@ -128,7 +128,7 @@ SynBase* parseTerm(Lexer& lexer)
 
 		std::vector<SynBase*> elements;
 		for (size_t i = 0; i < lexer.current.contents.size(); ++i)
-			elements.push_back(new SynNumberLiteral(location, lexer.current.contents[i]));
+			elements.push_back(new SynCharacterLiteral(location, lexer.current.contents[i]));
 
 		movenext(lexer);
 
@@ -669,7 +669,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 		if (lexer.current.contents.size() > 1)
 			errorf(lexer.current.location, "Multicharacter literals are not supported");
 
-		SynMatch* result = new SynMatchNumber(lexer.current.location, lexer.current.contents[0]);
+		SynMatch* result = new SynMatchCharacter(lexer.current.location, lexer.current.contents[0]);
 		movenext(lexer);
 		return result;
 	}
@@ -680,7 +680,7 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 
 		std::vector<SynMatch*> elements;
 		for (size_t i = 0; i < lexer.current.contents.size(); ++i)
-			elements.push_back(new SynMatchNumber(location, lexer.current.contents[i]));
+			elements.push_back(new SynMatchCharacter(location, lexer.current.contents[i]));
 
 		movenext(lexer);
 

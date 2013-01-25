@@ -75,6 +75,13 @@ struct ExprNumberLiteral: Expr
 	ExprNumberLiteral(Type* type, const Location& location, long long value): Expr(type, location), value(value) {}
 };
 
+struct ExprCharacterLiteral: Expr
+{
+	char value;
+
+	ExprCharacterLiteral(Type* type, const Location& location, char value): Expr(type, location), value(value) {}
+};
+
 struct ExprArrayLiteral: Expr
 {
 	std::vector<Expr*> elements;
@@ -308,6 +315,16 @@ struct MatchCaseNumber: MatchCase
 	{
 	}
 };
+
+struct MatchCaseCharacter: MatchCase
+{
+	char value;
+
+	MatchCaseCharacter(Type* type, const Location& location, char value): MatchCase(type, location), value(value)
+	{
+	}
+};
+
 
 struct MatchCaseValue: MatchCase
 {

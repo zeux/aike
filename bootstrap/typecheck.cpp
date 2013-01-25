@@ -301,6 +301,11 @@ MatchCase* resolveMatch(SynMatch* match, Environment& env)
 		return new MatchCaseNumber(new TypeInt(), _->location, _->value);
 	}
 
+	if (CASE(SynMatchCharacter, match))
+	{
+		return new MatchCaseCharacter(new TypeChar(), _->location, _->value);
+	}
+
 	if (CASE(SynMatchBoolean, match))
 	{
 		return new MatchCaseBoolean(new TypeBool(), _->location, _->value);
@@ -601,6 +606,9 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynNumberLiteral, node))
 		return new ExprNumberLiteral(resolveType("int", env, _->location), _->location, _->value);
+
+	if (CASE(SynCharacterLiteral, node))
+		return new ExprCharacterLiteral(resolveType("char", env, _->location), _->location, _->value);
 
 	if (CASE(SynBooleanLiteral, node))
 		return new ExprBooleanLiteral(resolveType("bool", env, _->location), _->location, _->value);
@@ -1074,6 +1082,7 @@ Expr* resolve(SynBase* root)
 
 	env.types.push_back(TypeBinding("unit", new TypeUnit()));
 	env.types.push_back(TypeBinding("int", new TypeInt()));
+	env.types.push_back(TypeBinding("char", new TypeChar()));
 	env.types.push_back(TypeBinding("float", new TypeFloat()));
 	env.types.push_back(TypeBinding("bool", new TypeBool()));
 
@@ -1256,6 +1265,11 @@ bool unify(Type* lhs, Type* rhs)
 		return dynamic_cast<TypeInt*>(rhs) != 0;
 	}
 
+	if (CASE(TypeChar, lhs))
+	{
+		return dynamic_cast<TypeChar*>(rhs) != 0;
+	}
+
 	if (CASE(TypeFloat, lhs))
 	{
 		return dynamic_cast<TypeFloat*>(rhs) != 0;
@@ -1366,6 +1380,11 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 	}
 
 	if (CASE(MatchCaseNumber, case_))
+	{
+		return _->type;
+	}
+
+	if (CASE(MatchCaseCharacter, case_))
 	{
 		return _->type;
 	}
@@ -1526,6 +1545,11 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 	}
 
 	if (CASE(ExprNumberLiteral, root))
+	{
+		return _->type;
+	}
+
+	if (CASE(ExprCharacterLiteral, root))
 	{
 		return _->type;
 	}

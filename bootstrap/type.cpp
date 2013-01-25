@@ -91,6 +91,8 @@ void prettyPrint(std::ostream& os, Type* type, PrettyPrintContext& context)
 		os << "unit";
 	else if (CASE(TypeInt, type))
 		os << "int";
+	else if (CASE(TypeChar, type))
+		os << "char";
 	else if (CASE(TypeFloat, type))
 		os << "float";
 	else if (CASE(TypeBool, type))
@@ -182,6 +184,8 @@ void mangle(std::ostream& os, Type* type, const std::function<Type* (TypeGeneric
 		os << "u";
 	else if (CASE(TypeInt, type))
 		os << "i";
+	else if (CASE(TypeChar, type))
+		os << "c";
 	else if (CASE(TypeFloat, type))
 		os << "f";
 	else if (CASE(TypeBool, type))

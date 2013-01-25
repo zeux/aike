@@ -110,6 +110,13 @@ struct SynNumberLiteral: SynBase
 	SynNumberLiteral(const Location& location, long long value): SynBase(location), value(value) {}
 };
 
+struct SynCharacterLiteral: SynBase
+{
+	char value;
+
+	SynCharacterLiteral(const Location& location, char value): SynBase(location), value(value) {}
+};
+
 struct SynBooleanLiteral: SynBase
 {
 	bool value;
@@ -339,6 +346,13 @@ struct SynMatchNumber: SynMatch
 	long long value;
 
 	SynMatchNumber(const Location& location, long long value): SynMatch(location), value(value) {}
+};
+
+struct SynMatchCharacter: SynMatch
+{
+	char value;
+
+	SynMatchCharacter(const Location& location, char value): SynMatch(location), value(value) {}
 };
 
 struct SynMatchBoolean: SynMatch

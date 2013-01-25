@@ -111,6 +111,11 @@ LLVMTypeRef compileType(Context& context, Type* type, const Location& location)
 		return LLVMInt32TypeInContext(context.context);
 	}
 
+	if (CASE(TypeChar, type))
+	{
+		return LLVMInt8TypeInContext(context.context);
+	}
+
 	if (CASE(TypeFloat, type))
 	{
 		return LLVMFloatTypeInContext(context.context);
@@ -736,6 +741,23 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 
 		LLVMBuildBr(builder, on_success);
 	}
+	else if (CASE(MatchCaseCharacter, case_))
+	{
+		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+
+		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt8TypeInContext(context.context), uint32_t(_->value), false), "");
+
+		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
+
+		LLVMBuildCondBr(builder, cond, success, on_fail);
+
+		LLVMPositionBuilderAtEnd(builder, success);
+
+		if (target)
+			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
+
+		LLVMBuildBr(builder, on_success);
+	}
 	else if (CASE(MatchCaseValue, case_))
 	{
 		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
@@ -1214,6 +1236,9 @@ LLVMValueRef compileEqualityOperator(const Location& location, Context& context,
 	if (CASE(TypeInt, type))
 		return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
 
+	if (CASE(TypeChar, type))
+		return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
+
 	if (CASE(TypeFloat, type))
 		return LLVMBuildFCmp(builder, LLVMRealOEQ, left, right, "");
 
@@ -1260,6 +1285,11 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 	if (CASE(ExprNumberLiteral, node))
 	{
 		return LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->value), false);
+	}
+
+	if (CASE(ExprCharacterLiteral, node))
+	{
+		return LLVMConstInt(LLVMInt8TypeInContext(context.context), uint32_t(_->value), false);
 	}
 
 	if (CASE(ExprBooleanLiteral, node))

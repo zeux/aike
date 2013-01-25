@@ -1,7 +1,6 @@
 let y = [1, 2, 4]
 
 match y with
-| "test" -> 5
 | [] -> 33
 | [1, 3] -> 34
 | [1, x, 4] -> 35
@@ -9,4 +8,4 @@ match y with
 | _ -> 21
 
 // ERRORS:
-// (8,3): This case is already covered
+// (7,3): This case is already covered

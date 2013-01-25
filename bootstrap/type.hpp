@@ -40,6 +40,10 @@ struct TypeInt: Type
 {
 };
 
+struct TypeChar: Type
+{
+};
+
 struct TypeFloat: Type
 {
 };
