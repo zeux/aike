@@ -436,6 +436,8 @@ int main(int argc, char** argv)
 
 		std::vector<std::string> sources;
 		sources.push_back("ref.aike");
+		sources.push_back("option.aike");
+		sources.push_back("array.aike");
 		sources.push_back("main.aike");
 
 		runCompiler(sources, debugFlags, optimizationLevel);

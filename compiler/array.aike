@@ -1,0 +1,33 @@
+let unsafe_newarr(l: int): 'a[] =
+    llvm "
+    %r0 = mul i32 %l, sizeof('a)
+    %r1 = call i8* @malloc(i32 %r0)
+    %r2 = bitcast i8* %r1 to typeof('a)*
+    %r3 = insertvalue { typeof('a)*, i32 } zeroinitializer, typeof('a)* %r2, 0
+    %out = insertvalue { typeof('a)*, i32 } %r3, i32 %l, 1
+    "
+
+let unsafe_setarr(x: 'a[], i: int, v: 'a): unit =
+    llvm "
+    %r0 = extractvalue typeof(%x) %x, 0
+    %r1 = getelementptr typeof(%v)* %r0, i32 %i
+    store typeof(%v) %v, typeof(%v)* %r1
+    %out = bitcast i32 0 to i32"
+
+let length(x: 'a[]): int =
+    llvm "extractvalue typeof(%x) %x, 1"
+
+let array(count, gen) =
+    if count == 0 then
+        []
+    else
+        let arr = unsafe_newarr(count)
+        for i in 0..count-1 do
+            unsafe_setarr(arr, i, gen(i))
+        arr
+
+let map(arr, f) =
+    array(arr#length, fun i -> f(arr[i]))
+
+let concat(lhs, rhs) =
+    array(lhs#length + rhs#length, fun i -> if i < lhs#length then lhs[i] else rhs[i - lhs#length])
