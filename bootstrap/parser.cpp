@@ -146,7 +146,7 @@ SynUnaryOpType getUnaryOp(LexemeType type)
 	{
 	case LexPlus: return SynUnaryOpPlus;
 	case LexMinus: return SynUnaryOpMinus;
-	case LexNot: return SynUnaryOpNot;
+	case LexExclamation: return SynUnaryOpRefGet;
 	default: return SynUnaryOpUnknown;
 	}
 }
@@ -165,6 +165,7 @@ SynBinaryOpType getBinaryOp(LexemeType type)
 	case LexGreaterEqual: return SynBinaryOpGreaterEqual;
 	case LexEqualEqual: return SynBinaryOpEqual;
 	case LexNotEqual: return SynBinaryOpNotEqual;
+	case LexColonEqual: return SynBinaryOpRefSet;
 	default: return SynBinaryOpUnknown;
 	}
 }
@@ -173,16 +174,17 @@ int getBinaryOpPrecedence(SynBinaryOpType op)
 {
 	switch (op)
 	{
-	case SynBinaryOpAdd: return 3;
-	case SynBinaryOpSubtract: return 3;
-	case SynBinaryOpMultiply: return 4;
-	case SynBinaryOpDivide: return 4;
-	case SynBinaryOpLess: return 2;
-	case SynBinaryOpLessEqual: return 2;
-	case SynBinaryOpGreater: return 2;
-	case SynBinaryOpGreaterEqual: return 2;
-	case SynBinaryOpEqual: return 1;
-	case SynBinaryOpNotEqual: return 1;
+	case SynBinaryOpMultiply: return 5;
+	case SynBinaryOpDivide: return 5;
+	case SynBinaryOpAdd: return 4;
+	case SynBinaryOpSubtract: return 4;
+	case SynBinaryOpLess: return 3;
+	case SynBinaryOpLessEqual: return 3;
+	case SynBinaryOpGreater: return 3;
+	case SynBinaryOpGreaterEqual: return 3;
+	case SynBinaryOpEqual: return 2;
+	case SynBinaryOpNotEqual: return 2;
+	case SynBinaryOpRefSet: return 1;
 	default: return 0;
 	}
 }

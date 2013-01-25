@@ -762,9 +762,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 	{
 		Expr* value = resolveExpr(_->expr, env);
 
-		Type* result_type = _->op == SynUnaryOpNot ? new TypeBool() : value->type;
+		if (_->op == SynUnaryOpRefGet)
+		{
+			Type* type = resolveType("ref", env, _->location);
 
-		return new ExprUnaryOp(result_type, _->location, _->op, value);
+			// this is a hack to pass type to typechecker in the absence of type environment...
+			return new ExprUnaryOp(type, _->location, _->op, value);
+		}
+		else
+			return new ExprUnaryOp(new TypeGeneric(), _->location, _->op, value);
 	}
 
 	if (CASE(SynBinaryOp, node))
@@ -772,7 +778,15 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		Expr* left = resolveExpr(_->left, env);
 		Expr* right = resolveExpr(_->right, env);
 
-		return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, left, right);
+		if (_->op == SynBinaryOpRefSet)
+		{
+			Type* type = resolveType("ref", env, _->location);
+
+			// this is a hack to pass type to typechecker in the absence of type environment...
+			return new ExprBinaryOp(type, _->location, _->op, left, right);
+		}
+		else
+			return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, left, right);
 	}
 
 	if (CASE(SynCall, node))
@@ -1615,9 +1629,9 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			mustUnify(te, new TypeInt(), _->expr->location);
 			return _->type = new TypeInt();
 			
-		case SynUnaryOpNot:
-			mustUnify(te, new TypeBool(), _->expr->location);
-			return _->type = new TypeBool();
+		case SynUnaryOpRefGet:
+			mustUnify(te, _->type, _->expr->location);
+			return _->type = dynamic_cast<TypeInstance*>(_->type)->generics[0];
 
 		default: assert(!"Unknown unary op");
 		}
@@ -1650,6 +1664,11 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 		case SynBinaryOpNotEqual:
 			mustUnify(tr, tl, _->right->location);
 			return _->type = new TypeBool();
+
+		case SynBinaryOpRefSet:
+			mustUnify(tl, _->type, _->left->location);
+			mustUnify(tr, dynamic_cast<TypeInstance*>(_->type)->generics[0], _->right->location);
+			return _->type = new TypeUnit();
 
 		default: assert(!"Unknown binary op");
 		}

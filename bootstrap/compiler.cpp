@@ -1375,7 +1375,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		{
 		case SynUnaryOpPlus: return ev;
 		case SynUnaryOpMinus: return LLVMBuildNeg(builder, ev, "");
-		case SynUnaryOpNot: return LLVMBuildNot(builder, ev, "");
+		case SynUnaryOpRefGet: return LLVMBuildLoad(builder, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, ev, 1, ""), LLVMPointerType(compileType(context, _->type, _->location), 0), ""), "");
 		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
@@ -1397,6 +1397,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, lv, rv, "");
 		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type));
 		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type)), "");
+		case SynBinaryOpRefSet: return LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
 		default: assert(!"Unknown binary operation"); return 0;
 		}
 	}

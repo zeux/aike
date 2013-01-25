@@ -117,11 +117,11 @@ Lexeme readnext(Lexer& lexer)
 	case '=': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexEqualEqual) : LexEqual);
 	case '+': return consume(lexer), LexPlus;
 	case '-': return consume(lexer), (peekch(lexer) == '>' ? (consume(lexer), LexArrow) : LexMinus);
-	case ':': return consume(lexer), LexColon;
+	case ':': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexColonEqual) : LexColon);
 	case ';': return consume(lexer), LexSemicolon;
 	case '<': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexLessEqual) : LexLess);
 	case '>': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexGreaterEqual) : LexGreater);
-	case '!': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexNotEqual) : LexNot);
+	case '!': return consume(lexer), (peekch(lexer) == '=' ? (consume(lexer), LexNotEqual) : LexExclamation);
 	case '|': return consume(lexer), LexPipe;
 	case '*': return consume(lexer), LexMultiply;
 	case '/': return consume(lexer), LexDivide;
