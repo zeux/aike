@@ -95,7 +95,7 @@ Lexeme readident(Lexer& lexer)
 		consume(lexer);
 	}
 
-	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern" || data == "fun" || data == "for" || data == "in" || data == "do" || data == "true" || data == "false" || data == "type" || data == "while")
+	if (data == "let" || data == "match" || data == "with" || data == "if" || data == "then" || data == "else" || data == "llvm" || data == "extern" || data == "fun" || data == "for" || data == "in" || data == "do" || data == "true" || data == "false" || data == "type" || data == "while" || data == "and" || data == "or" || data == "not")
 		return Lexeme(LexKeyword, data);
 	else
 		return Lexeme(LexIdentifier, data);

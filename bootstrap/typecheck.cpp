@@ -1641,6 +1641,10 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			mustUnify(te, _->type, _->expr->location);
 			return _->type = dynamic_cast<TypeInstance*>(_->type)->generics[0];
 
+		case SynUnaryOpNot:
+			mustUnify(te, new TypeBool(), _->expr->location);
+			return _->type = new TypeBool();
+
 		default: assert(!"Unknown unary op");
 		}
 	}
@@ -1677,6 +1681,12 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			mustUnify(tl, _->type, _->left->location);
 			mustUnify(tr, dynamic_cast<TypeInstance*>(_->type)->generics[0], _->right->location);
 			return _->type = new TypeUnit();
+
+		case SynBinaryOpAnd:
+		case SynBinaryOpOr:
+			mustUnify(tl, new TypeBool(), _->left->location);
+			mustUnify(tr, new TypeBool(), _->right->location);
+			return _->type = new TypeBool();
 
 		default: assert(!"Unknown binary op");
 		}

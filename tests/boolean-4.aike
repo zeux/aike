@@ -1,0 +1,11 @@
+extern printint(i:int):unit
+
+let test(): bool =
+    printint(1)
+    false
+
+(if false and test() then 0 else 1) +
+(if true or test() then 1 else 0)
+
+// OUTPUT:
+// 2

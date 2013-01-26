@@ -1376,28 +1376,62 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		case SynUnaryOpPlus: return ev;
 		case SynUnaryOpMinus: return LLVMBuildNeg(builder, ev, "");
 		case SynUnaryOpRefGet: return LLVMBuildLoad(builder, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, ev, 1, ""), LLVMPointerType(compileType(context, _->type, _->location), 0), ""), "");
+		case SynUnaryOpNot: return LLVMBuildNot(builder, ev, "");
 		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
 
 	if (CASE(ExprBinaryOp, node))
 	{
-		LLVMValueRef lv = compileExpr(context, builder, _->left);
-		LLVMValueRef rv = compileExpr(context, builder, _->right);
-
 		switch (_->op)
 		{
-		case SynBinaryOpAdd: return LLVMBuildAdd(builder, lv, rv, "");
-		case SynBinaryOpSubtract: return LLVMBuildSub(builder, lv, rv, "");
-		case SynBinaryOpMultiply: return LLVMBuildMul(builder, lv, rv, "");
-		case SynBinaryOpDivide: return LLVMBuildSDiv(builder, lv, rv, "");
-		case SynBinaryOpLess: return LLVMBuildICmp(builder, LLVMIntSLT, lv, rv, "");
-		case SynBinaryOpLessEqual: return LLVMBuildICmp(builder, LLVMIntSLE, lv, rv, "");
-		case SynBinaryOpGreater: return LLVMBuildICmp(builder, LLVMIntSGT, lv, rv, "");
-		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, lv, rv, "");
-		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type));
-		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, lv, rv, finalType(_->left->type)), "");
-		case SynBinaryOpRefSet: return LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
+		case SynBinaryOpAdd: return LLVMBuildAdd(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpSubtract: return LLVMBuildSub(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpMultiply: return LLVMBuildMul(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpDivide: return LLVMBuildSDiv(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpLess: return LLVMBuildICmp(builder, LLVMIntSLT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpLessEqual: return LLVMBuildICmp(builder, LLVMIntSLE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpGreater: return LLVMBuildICmp(builder, LLVMIntSGT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), finalType(_->left->type));
+		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), finalType(_->left->type)), "");
+		case SynBinaryOpRefSet:
+			{
+				LLVMValueRef lv = compileExpr(context, builder, _->left);
+				LLVMValueRef rv = compileExpr(context, builder, _->right);
+
+				return LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
+			}
+		case SynBinaryOpAnd:
+		case SynBinaryOpOr:
+			{
+				LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+
+				LLVMBasicBlockRef current_basic_block = LLVMGetInsertBlock(builder);
+				LLVMBasicBlockRef next_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "next");
+				LLVMBasicBlockRef after_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "after");
+
+				LLVMBuildCondBr(builder, compileExpr(context, builder, _->left), _->op == SynBinaryOpOr ? after_basic_block : next_basic_block, _->op == SynBinaryOpOr ? next_basic_block : after_basic_block);
+
+				LLVMMoveBasicBlockAfter(next_basic_block, LLVMGetLastBasicBlock(function));
+				LLVMPositionBuilderAtEnd(builder, next_basic_block);
+
+				LLVMValueRef rv = compileExpr(context, builder, _->right);
+				LLVMBuildBr(builder, after_basic_block);
+
+				LLVMMoveBasicBlockAfter(after_basic_block, LLVMGetLastBasicBlock(function));
+				LLVMPositionBuilderAtEnd(builder, after_basic_block);
+
+				LLVMPHIRef pn = LLVMBuildPhi(builder, compileType(context, _->type, _->location), "");
+
+				LLVMAddIncoming(pn, &rv, &next_basic_block, 1);
+
+				LLVMValueRef lv = LLVMConstInt(LLVMInt1TypeInContext(context.context), _->op == SynBinaryOpOr ? 1 : 0, false);
+
+				LLVMAddIncoming(pn, &lv, &current_basic_block, 1);
+
+				return pn;
+			}
 		default: assert(!"Unknown binary operation"); return 0;
 		}
 	}

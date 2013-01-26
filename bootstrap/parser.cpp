@@ -140,20 +140,23 @@ SynBase* parseTerm(Lexer& lexer)
 	}
 }
 
-SynUnaryOpType getUnaryOp(LexemeType type)
+SynUnaryOpType getUnaryOp(Lexeme lexeme)
 {
-	switch (type)
+	switch (lexeme.type)
 	{
 	case LexPlus: return SynUnaryOpPlus;
 	case LexMinus: return SynUnaryOpMinus;
 	case LexExclamation: return SynUnaryOpRefGet;
+	case LexKeyword:
+		if (lexeme.contents == "not")
+			return SynUnaryOpNot;
 	default: return SynUnaryOpUnknown;
 	}
 }
 
-SynBinaryOpType getBinaryOp(LexemeType type)
+SynBinaryOpType getBinaryOp(Lexeme lexeme)
 {
-	switch (type)
+	switch (lexeme.type)
 	{
 	case LexPlus: return SynBinaryOpAdd;
 	case LexMinus: return SynBinaryOpSubtract;
@@ -166,6 +169,11 @@ SynBinaryOpType getBinaryOp(LexemeType type)
 	case LexEqualEqual: return SynBinaryOpEqual;
 	case LexNotEqual: return SynBinaryOpNotEqual;
 	case LexColonEqual: return SynBinaryOpRefSet;
+	case LexKeyword:
+		if (lexeme.contents == "and")
+			return SynBinaryOpAnd;
+		if (lexeme.contents == "or")
+			return SynBinaryOpOr;
 	default: return SynBinaryOpUnknown;
 	}
 }
@@ -174,16 +182,18 @@ int getBinaryOpPrecedence(SynBinaryOpType op)
 {
 	switch (op)
 	{
-	case SynBinaryOpMultiply: return 5;
-	case SynBinaryOpDivide: return 5;
-	case SynBinaryOpAdd: return 4;
-	case SynBinaryOpSubtract: return 4;
-	case SynBinaryOpLess: return 3;
-	case SynBinaryOpLessEqual: return 3;
-	case SynBinaryOpGreater: return 3;
-	case SynBinaryOpGreaterEqual: return 3;
-	case SynBinaryOpEqual: return 2;
-	case SynBinaryOpNotEqual: return 2;
+	case SynBinaryOpMultiply: return 7;
+	case SynBinaryOpDivide: return 7;
+	case SynBinaryOpAdd: return 6;
+	case SynBinaryOpSubtract: return 6;
+	case SynBinaryOpLess: return 5;
+	case SynBinaryOpLessEqual: return 5;
+	case SynBinaryOpGreater: return 5;
+	case SynBinaryOpGreaterEqual: return 5;
+	case SynBinaryOpEqual: return 4;
+	case SynBinaryOpNotEqual: return 4;
+	case SynBinaryOpAnd: return 3;
+	case SynBinaryOpOr: return 2;
 	case SynBinaryOpRefSet: return 1;
 	default: return 0;
 	}
@@ -930,7 +940,7 @@ SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
 
 SynBase* parsePrimary(Lexer& lexer)
 {
-	SynUnaryOpType uop = getUnaryOp(lexer.current.type);
+	SynUnaryOpType uop = getUnaryOp(lexer.current);
 
 	if (uop != SynUnaryOpUnknown)
 	{
@@ -974,9 +984,11 @@ SynBase* parsePrimary(Lexer& lexer)
 	if (iskeyword(lexer, "fun"))
 		return parseAnonymousFunc(lexer);
 
+	size_t column = lexer.current.location.column;
+
 	SynBase* result = parseTerm(lexer);
 
-	while (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint || lexer.current.type == LexSharp)
+	while (lexer.current.location.column >= column && (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint || lexer.current.type == LexSharp))
 	{
 		if (lexer.current.type == LexOpenBrace)
 		{
@@ -1113,7 +1125,7 @@ SynBase* parsePrimary(Lexer& lexer)
 SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 {
 	Location location = lexer.current.location;
-	SynBinaryOpType op = getBinaryOp(lexer.current.type);
+	SynBinaryOpType op = getBinaryOp(lexer.current);
 
 	while (op != SynBinaryOpUnknown && getBinaryOpPrecedence(op) >= limit)
 	{
@@ -1121,19 +1133,19 @@ SynBase* parseExprClimb(Lexer& lexer, SynBase* left, int limit)
 
 		SynBase* right = parsePrimary(lexer);
 
-		SynBinaryOpType nextop = getBinaryOp(lexer.current.type);
+		SynBinaryOpType nextop = getBinaryOp(lexer.current);
 
 		while (nextop != SynBinaryOpUnknown && getBinaryOpPrecedence(nextop) > getBinaryOpPrecedence(op))
 		{
 			right = parseExprClimb(lexer, right, getBinaryOpPrecedence(nextop));
 
-			nextop = getBinaryOp(lexer.current.type);
+			nextop = getBinaryOp(lexer.current);
 		}
 
 		left = new SynBinaryOp(location, op, left, right);
 
 		location = lexer.current.location;
-		op = getBinaryOp(lexer.current.type);
+		op = getBinaryOp(lexer.current);
 	}
 
 	return left;

@@ -15,6 +15,7 @@ void optimize(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef ta
 	LLVMAddGVNPass(fpm);
 	LLVMAddCFGSimplificationPass(fpm);
 	LLVMAddConstantPropagationPass(fpm);
+	LLVMAddSCCPPass(fpm);
 	LLVMAddTailCallEliminationPass(fpm);
 	LLVMAddLICMPass(fpm);
 

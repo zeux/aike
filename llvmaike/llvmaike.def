@@ -16,6 +16,7 @@ EXPORTS
     LLVMAddLICMPass
     LLVMAddPromoteMemoryToRegisterPass
     LLVMAddReassociatePass
+    LLVMAddSCCPPass
     LLVMAddTailCallEliminationPass
     LLVMAddTargetData
     LLVMAikeGetHostCPU

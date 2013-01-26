@@ -168,7 +168,8 @@ enum SynUnaryOpType
 	SynUnaryOpUnknown,
 	SynUnaryOpPlus,
 	SynUnaryOpMinus,
-	SynUnaryOpRefGet
+	SynUnaryOpRefGet,
+	SynUnaryOpNot
 };
 
 struct SynUnaryOp: SynBase
@@ -193,7 +194,9 @@ enum SynBinaryOpType
 	SynBinaryOpGreaterEqual,
 	SynBinaryOpEqual,
 	SynBinaryOpNotEqual,
-	SynBinaryOpRefSet
+	SynBinaryOpRefSet,
+	SynBinaryOpAnd,
+	SynBinaryOpOr
 };
 
 struct SynBinaryOp: SynBase

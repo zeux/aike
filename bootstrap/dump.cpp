@@ -94,6 +94,7 @@ void dump(std::ostream& os, SynUnaryOpType op)
 	case SynUnaryOpPlus: os << "unary +"; break;
 	case SynUnaryOpMinus: os << "unary -"; break;
 	case SynUnaryOpRefGet: os << "unary !"; break;
+	case SynUnaryOpNot: os << "unary not"; break;
 	default: assert(!"Unknown unary op");
 	}
 }
@@ -113,6 +114,8 @@ void dump(std::ostream& os, SynBinaryOpType op)
 	case SynBinaryOpEqual: os << "binary =="; break;
 	case SynBinaryOpNotEqual: os << "binary !="; break;
 	case SynBinaryOpRefSet: os << "binary :="; break;
+	case SynBinaryOpAnd: os << "binary and"; break;
+	case SynBinaryOpOr: os << "binary or"; break;
 	default: assert(!"Unknown binary op");
 	}
 }

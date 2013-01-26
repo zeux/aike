@@ -1,0 +1,5 @@
+(if not false then 1 else 0) +
+(if not true then 0 else 1)
+
+// OUTPUT:
+// 2
