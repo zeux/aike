@@ -1,0 +1,9 @@
+let error(loc: Location, message: char[]) =
+    print(loc.file.path)
+    print("(")
+    printint(loc.start.line)
+    print(",")
+    printint(loc.start.column)
+    print("): ")
+    print(message)
+    assert(false)

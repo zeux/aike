@@ -1,4 +1,11 @@
 ref.aike
+assert.aike
 option.aike
 array.aike
+char.aike
+io.aike
+
+location.aike
+output.aike
+lexer.aike
 main.aike

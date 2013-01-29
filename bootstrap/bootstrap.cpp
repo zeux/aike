@@ -53,6 +53,17 @@ void print(AikeArray<char> value)
 	gOutput->write(value.data, value.length);
 }
 
+std::string readFile(const std::string& path);
+
+AIKE_EXTERN
+AikeArray<char> readfile(AikeArray<char> path)
+{
+	std::string result = readFile(std::string(path.data, path.data + path.length));
+
+	AikeArray<char> ret = {strdup(result.c_str()), result.length()};
+	return ret;
+}
+
 void dumpError(std::ostream& os, const std::string& path, const Location& location, const std::string& error, bool outputErrorLocation)
 {
 	if (outputErrorLocation && location.file.path)

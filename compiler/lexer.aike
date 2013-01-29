@@ -1,0 +1,231 @@
+type Lexeme =
+| LexUnknown
+| LexEOF
+| LexComma
+| LexPoint
+| LexPointPoint
+| LexOpenBrace
+| LexCloseBrace
+| LexOpenBracket
+| LexCloseBracket
+| LexOpenCurlyBrace
+| LexCloseCurlyBrace
+| LexEqual
+| LexPlus
+| LexMinus
+| LexColon
+| LexSemicolon
+| LexArrow
+| LexLess
+| LexLessEqual
+| LexGreater
+| LexGreaterEqual
+| LexNotEqual
+| LexEqualEqual
+| LexPipe
+| LexMultiply
+| LexDivide
+| LexSharp
+| LexExclamation
+| LexColonEqual
+| LexKeyword char[]
+| LexIdentifier char[]
+| LexIdentifierGeneric char[]
+| LexNumber int
+| LexCharacter char
+| LexString char[]
+
+type LexerState =
+    { offset: int
+      line_offset: int
+      line: int
+
+      previous_end: LocOffset
+      current_start: LocOffset
+
+      current: Lexeme }
+
+type Lexer =
+    { file: LocFile
+
+      state: ref<LexerState> }
+
+let lex(lexer: Lexer) =
+    !lexer.state
+
+let getoffset(lexer: Lexer) =
+    let state = lex(lexer)
+    LocOffset(state.line_offset, state.line + 1, state.offset - state.line_offset + 1)
+
+let peekchoff(lexer: Lexer, offset) =
+    match lex(lexer).offset + offset with
+    | off if off < lexer.file.contents#length -> lexer.file.contents[off]
+    | _ -> char(0)
+
+let peekch(lexer: Lexer) =
+    peekchoff(lexer, 0)
+
+let consume(lexer: Lexer) =
+    match peekch(lexer) with
+    | ch if ch == char(9) ->
+        error(Location(lexer.file, getoffset(lexer), getoffset(lexer)), "Source file must not contain tabs")
+    | ch if ch == char(10) ->
+        let state = lex(lexer)
+        lexer.state := LexerState(state.offset + 1, state.offset + 1, state.line + 1, state.previous_end, state.current_start, state.current)
+    | ch ->
+        let state = lex(lexer)
+        assert(state.offset < lexer.file.contents#length)
+        lexer.state := LexerState(state.offset + 1, state.line_offset, state.line, state.previous_end, state.current_start, state.current)
+
+let readnumber(lexer: Lexer, base) =
+    let loop(result) =
+        let ch = peekch(lexer)
+
+        if isdigit(ch) then
+            if int(ch) - int('0') >= base then
+                LexUnknown
+            else
+                consume(lexer)
+                loop(result * base + int(ch) - int('0'))
+        else if (inrange(ch, 'a', 'f')) then
+            if base != 16 then
+                LexUnknown
+            else
+                consume(lexer)
+                loop(result * base + int(ch) - int('a') + 10)
+        else if (inrange(ch, 'A', 'F')) then
+            if base != 16 then
+                LexUnknown
+            else
+                consume(lexer)
+                loop(result * base + int(ch) - int('A') + 10)
+        else if ch == '_' then
+            consume(lexer)
+            loop(result)
+        else if isalpha(ch) then
+            LexUnknown
+        else
+            LexNumber(result)
+
+    loop(0)
+
+let isidentstart(ch) =
+    isalpha(ch) or ch == '_'
+
+let isident(ch) =
+    isalnum(ch) or ch == '_'
+
+let readwhile(lexer, pred) =
+    let data = ref("")
+
+    while pred(peekch(lexer)) do
+        data := concat(!data, [peekch(lexer)])
+        consume(lexer)
+
+    !data
+
+let readident(lexer) =
+    let data = readwhile(lexer, isident)
+
+    match data with
+    | "let" | "match" | "with" | "if" | "then" | "else" | "llvm" | "extern" | "fun" | "for" | "in" | "do" | "true" | "false" | "type" | "while" | "and" | "or" | "not" ->
+        LexKeyword(data)
+    | _ ->
+        LexIdentifier(data)
+
+let readnext(lexer) =
+    let lex1(lex) =
+        consume(lexer)
+        lex
+
+    let lex2(cond, lexif, lexelse) =
+        consume(lexer)
+        if peekch(lexer) == cond then
+            lexif
+        else
+            lexelse
+
+    match peekch(lexer) with
+    | ch if ch == char(0) -> LexEOF
+    | ',' -> lex1(LexComma)
+    | '.' -> lex2('.', LexPointPoint, LexPoint)
+    | '(' -> lex1(LexOpenBrace)
+    | ')' -> lex1(LexCloseBrace)
+    | '[' -> lex1(LexOpenBracket)
+    | ']' -> lex1(LexCloseBracket)
+    | '{' -> lex1(LexOpenCurlyBrace)
+    | '}' -> lex1(LexCloseCurlyBrace)
+    | '=' -> lex2('=', LexEqualEqual, LexEqual)
+    | '+' -> lex1(LexPlus)
+    | '-' -> lex2('>', LexArrow, LexMinus)
+    | ':' -> lex2('=', LexColonEqual, LexColon)
+    | ';' -> lex1(LexSemicolon)
+    | '<' -> lex2('=', LexLessEqual, LexLess)
+    | '>' -> lex2('=', LexGreaterEqual, LexGreater)
+    | '!' -> lex2('=', LexNotEqual, LexExclamation)
+    | '|' -> lex1(LexPipe)
+    | '*' -> lex1(LexMultiply)
+    | '/' -> lex1(LexDivide)
+    | '#' -> lex1(LexSharp)
+    | '0' ->
+        consume(lexer)
+        match peekch(lexer) with
+        | 'x' | 'X' ->
+            consume(lexer)
+            readnumber(lexer, 16)
+        | 'b' | 'B' ->
+            consume(lexer)
+            readnumber(lexer, 2)
+        | ch if isdigit(ch) or isalpha(ch) ->
+            LexUnknown
+        | _ ->
+            LexNumber(0)
+    | ch if isdigit(ch) ->
+        readnumber(lexer, 10)
+    | ch if ch == char(39) -> // '
+        consume(lexer)
+
+        if isidentstart(peekch(lexer)) and peekchoff(lexer, 1) != char(39) then
+            let data = readwhile(lexer, isident)
+
+            LexIdentifierGeneric(data)
+        else
+            let data = readwhile(lexer, fun ch -> ch != char(39))
+
+            consume(lexer)
+
+            LexCharacter(data[0])
+    | '"' ->
+        consume(lexer)
+
+        let data = readwhile(lexer, fun ch -> ch != '"')
+
+        consume(lexer)
+
+        LexString(data)
+    | ch if isidentstart(ch) ->
+        readident(lexer)
+    | _ ->
+        LexUnknown
+
+let lexnext(lexer) =
+    while isspace(peekch(lexer)) do
+        consume(lexer)
+
+    if peekch(lexer) == '/' and peekchoff(lexer, 1) == '/' then
+        while peekch(lexer) != char(0) and peekch(lexer) != char(10) do
+            consume(lexer)
+
+        lexnext(lexer)
+    else
+        let offset = getoffset(lexer)
+        let lexeme = readnext(lexer)
+        let state = lex(lexer)
+
+        lexer.state := LexerState(state.offset, state.line_offset, state.line, state.current_start, offset, lexeme)
+
+let lexcapture(lexer: Lexer) =
+    !lexer.state
+
+let lexrestore(lexer: Lexer, state) =
+    lexer.state := state

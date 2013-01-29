@@ -1,0 +1,3 @@
+let assert(x) =
+    if not x then
+        [()][1]
