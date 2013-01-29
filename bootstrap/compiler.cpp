@@ -1584,8 +1584,30 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 							: 0;
 
 				BindingFunction* bindfun = dynamic_cast<BindingFunction*>(binding);
-				LLVMValueRef external_value = bindfun ? context.values[bindfun->context_target] : compileExpr(context, builder, external);
 
+				LLVMValueRef external_value;
+				
+				if (bindfun)
+				{
+					if (dynamic_cast<ExprBinding*>(external))
+						external_value = context.values[bindfun->context_target];
+					else
+					{
+						ExprBindingExternal* bindexpr = dynamic_cast<ExprBindingExternal*>(external);
+						assert(bindexpr);
+
+						LLVMValueRef value = compileBinding(context, builder, bindexpr->context, bindexpr->type, bindexpr->location);
+
+						value = LLVMBuildPointerCast(builder, value, context.function_context_type.back(), "");
+
+						external_value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, bindexpr->member_index, ""), "");
+					}
+				}
+				else
+				{
+					external_value = compileExpr(context, builder, external);
+				}
+		
 				if (external_value)
 				{
 					LLVMValueRef external_value_cast = bindfun ? LLVMBuildBitCast(builder, external_value, LLVMPointerType(LLVMInt8TypeInContext(context.context), 0), "") : external_value;
