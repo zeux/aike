@@ -1,12 +1,14 @@
 type vec2 = { x: int; y: int }
 
-let a = match vec2(2, 3) with
-| vec2(v, v) -> v * 2
-| vec2(u, v) -> u + v
+let a =
+    match vec2(2, 3) with
+    | vec2(v, v) -> v * 2
+    | vec2(u, v) -> u + v
 
-let b = match vec2(3, 3) with
-| vec2(v, v) -> v * 2
-| vec2(u, v) -> u - v
+let b =
+    match vec2(3, 3) with
+    | vec2(v, v) -> v * 2
+    | vec2(u, v) -> u - v
 
 a + b * 10
 

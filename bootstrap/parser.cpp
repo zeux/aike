@@ -11,14 +11,14 @@ inline bool iskeyword(Lexer& lexer, const char* expected)
 	return lexer.current.type == LexKeyword && lexer.current.contents == expected;
 }
 
-inline bool islower(const Lexeme& start, const Lexeme& current)
+inline bool islower(const Location& lhs, const Location& rhs)
 {
-	return current.location.column < start.location.column || current.type == LexEOF;
+	return lhs.column < rhs.column;
 }
 
-inline bool issameline(const Lexeme& start, const Lexeme& current)
+inline bool issameline(const Location& lhs, const Location& rhs)
 {
-	return current.location.line == start.location.line;
+	return lhs.line == rhs.line;
 }
 
 SynType* parseType(Lexer& lexer);
@@ -424,7 +424,7 @@ std::vector<SynTypedVar> parseFunctionArguments(Lexer& lexer)
 	return args;
 }
 
-SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
+SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name, const Location& start)
 {
 	std::vector<SynTypedVar> args = parseFunctionArguments(lexer);
 
@@ -440,6 +440,9 @@ SynBase* parseLetFunc(Lexer& lexer, const SynIdentifier& name)
 	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '='");
 
 	movenext(lexer);
+
+	if (!islower(start, lexer.current.location))
+		errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
 
 	return new SynLetFunc(name.location, name, rettype, args, parseBlock(lexer));
 }
@@ -504,6 +507,8 @@ SynBase* parseAnonymousFunc(Lexer& lexer)
 
 SynBase* parseLet(Lexer& lexer)
 {
+	Location start = lexer.current.location;
+
 	assert(iskeyword(lexer, "let"));
 	movenext(lexer);
 
@@ -569,12 +574,15 @@ SynBase* parseLet(Lexer& lexer)
 		else if(vars[0].type)
 			errorf(lexer.current.location, "unexpected '(' after variable type");
 
-		return parseLetFunc(lexer, vars[0].name);
+		return parseLetFunc(lexer, vars[0].name, start);
 	}
 
 	if (lexer.current.type != LexEqual) errorf(lexer.current.location, "Expected '='");
 
 	movenext(lexer);
+
+	if (!islower(start, lexer.current.location))
+		errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
 
 	if (vars.size() == 1)
 		return new SynLetVar(location, vars[0], parseBlock(lexer));
@@ -851,7 +859,8 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 
 SynBase* parseMatchWith(Lexer& lexer)
 {
-	Location location = lexer.current.location;
+	Location start = lexer.current.location;
+
 	assert(iskeyword(lexer, "match"));
 	movenext(lexer);
 
@@ -863,8 +872,11 @@ SynBase* parseMatchWith(Lexer& lexer)
 	std::vector<SynMatch*> variants;
 	std::vector<SynBase*> expressions;
 
+	if (islower(lexer.current.location, start))
+		errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+
 	// Allow to skip first '|' as long as the identifier is on the same line
-	while (lexer.current.type == LexPipe || (variants.empty() && lexer.current.location.line == location.line))
+	while (!islower(lexer.current.location, start) && (lexer.current.type == LexPipe || (variants.empty() && issameline(start, lexer.current.location))))
 	{
 		if (lexer.current.type == LexPipe)
 			movenext(lexer);
@@ -901,7 +913,7 @@ SynBase* parseMatchWith(Lexer& lexer)
 		expressions.push_back(parseBlock(lexer));
 	}
 
-	return new SynMatchWith(location, variable, variants, expressions);
+	return new SynMatchWith(start, variable, variants, expressions);
 }
 
 SynBase* parseTypeDefinition(Lexer& lexer, const SynIdentifier& name)
@@ -1158,30 +1170,18 @@ SynBase* parseExpr(Lexer& lexer)
 
 SynBase* parseBlock(Lexer& lexer)
 {
-	Lexeme start = lexer.current;
+	Location start = lexer.current.location;
 
 	SynBase* head = parseExpr(lexer);
 
-	if (!islower(start, lexer.current) && !issameline(start, lexer.current))
-	{
-		std::vector<SynBase*> exprs;
+	std::vector<SynBase*> exprs;
 
-		exprs.push_back(head);
+	exprs.push_back(head);
 
-		while (!islower(start, lexer.current) && !issameline(start, lexer.current))
-			exprs.push_back(parseExpr(lexer));
-		
-		return new SynBlock(start.location, exprs);
-	}
-	else
-	{
-		// block required for types
-		std::vector<SynBase*> exprs;
-
-		exprs.push_back(head);
-
-		return new SynBlock(start.location, exprs);
-	}
+	while (lexer.current.type != LexEOF && !islower(lexer.current.location, start) && !issameline(lexer.current.location, start))
+		exprs.push_back(parseExpr(lexer));
+	
+	return new SynBlock(start, exprs);
 }
 
 SynBase* parse(Lexer& lexer)

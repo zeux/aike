@@ -1272,14 +1272,19 @@ LLVMValueRef compileEqualityOperator(const Location& location, Context& context,
 	return 0;
 }
 
+LLVMValueRef compileUnit(Context& context)
+{
+	// since we only have int type right now, unit should be int :)
+	return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false);
+}
+
 LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 {
 	assert(node);
 
 	if (CASE(ExprUnit, node))
 	{
-		// since we only have int type right now, unit should be int :)
-		return LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, false);
+		return compileUnit(context);
 	}
 
 	if (CASE(ExprNumberLiteral, node))
@@ -1400,7 +1405,8 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 				LLVMValueRef lv = compileExpr(context, builder, _->left);
 				LLVMValueRef rv = compileExpr(context, builder, _->right);
 
-				return LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
+				LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
+				return compileUnit(context);
 			}
 		case SynBinaryOpAnd:
 		case SynBinaryOpOr:

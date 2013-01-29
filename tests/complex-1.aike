@@ -38,11 +38,11 @@ let add(f, g) : expr =
     | (Int(0), f) -> f
     | (Add(f, g), h) -> add(f, add(g, h))
     | (f, Add(g, h)) ->
-        (match cmp(f, g) with
+        match cmp(f, g) with
         | -1 -> Add(f, Add(g, h))
         | x if x == -1 -> Add(f, Add(g, h))
         | 0 -> Add(Mul(Int(2), f), h)
-        | _ -> add(g, add(f, h)))
+        | _ -> add(g, add(f, h))
     | (f, g) ->
         match cmp(f, g) with
         | -1 -> Add(f, g)
@@ -60,9 +60,9 @@ let mul(f, g) : expr =
     | (Int(1), f) -> f
     | (Mul(f, g), h) -> mul(f, mul(g, h))
     | (f, Mul(g, h)) ->
-        (match cmp(f, g) with
+        match cmp(f, g) with
         | 1 -> mul(g, mul(f, h))
-        | _ -> Mul(f, Mul(g, h)))
+        | _ -> Mul(f, Mul(g, h))
     | (f, g) ->
         match cmp(f, g) with
         | 1 -> mul(g, f)

@@ -1,0 +1,8 @@
+let x = match 2 with
+| 1 -> 0
+| x -> x
+
+x
+
+// ERRORS:
+// (2,1): Incorrect identation: this token is offside of context at (1,9). Indent this token further.

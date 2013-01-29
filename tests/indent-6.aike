@@ -1,0 +1,8 @@
+match 2 with
+| 1 ->
+    match 2 with
+    | _ -> 0
+| x -> x
+
+// OUTPUT:
+// 2

@@ -64,6 +64,7 @@ EXPORTS
     LLVMCreateTargetData
     LLVMCreateTargetMachine
     LLVMDumpModule
+    LLVMDumpValue
     LLVMFinalizeFunctionPassManager
     LLVMFloatTypeInContext
     LLVMFunctionType
