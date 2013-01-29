@@ -3,7 +3,9 @@ let source = readfile(path)
 let lexer = Lexer(LocFile(path, source), ref(LexerState(0, 0, 0, LocOffset(0, 0, 0), LocOffset(0, 0, 0), LexUnknown)))
 
 let count = ref(0)
+
 while lex(lexer).current != LexEOF do
+    count := !count + 1
     lexnext(lexer)
 
 !count
