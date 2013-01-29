@@ -1,39 +1,39 @@
 type Lexeme =
-| LexUnknown
-| LexEOF
-| LexComma
-| LexPoint
-| LexPointPoint
-| LexOpenBrace
-| LexCloseBrace
-| LexOpenBracket
-| LexCloseBracket
-| LexOpenCurlyBrace
-| LexCloseCurlyBrace
-| LexEqual
-| LexPlus
-| LexMinus
-| LexColon
-| LexSemicolon
-| LexArrow
-| LexLess
-| LexLessEqual
-| LexGreater
-| LexGreaterEqual
-| LexNotEqual
-| LexEqualEqual
-| LexPipe
-| LexMultiply
-| LexDivide
-| LexSharp
-| LexExclamation
-| LexColonEqual
-| LexKeyword char[]
-| LexIdentifier char[]
-| LexIdentifierGeneric char[]
-| LexNumber int
-| LexCharacter char
-| LexString char[]
+    | LexUnknown
+    | LexEOF
+    | LexComma
+    | LexPoint
+    | LexPointPoint
+    | LexOpenBrace
+    | LexCloseBrace
+    | LexOpenBracket
+    | LexCloseBracket
+    | LexOpenCurlyBrace
+    | LexCloseCurlyBrace
+    | LexEqual
+    | LexPlus
+    | LexMinus
+    | LexColon
+    | LexSemicolon
+    | LexArrow
+    | LexLess
+    | LexLessEqual
+    | LexGreater
+    | LexGreaterEqual
+    | LexNotEqual
+    | LexEqualEqual
+    | LexPipe
+    | LexMultiply
+    | LexDivide
+    | LexSharp
+    | LexExclamation
+    | LexColonEqual
+    | LexKeyword char[]
+    | LexIdentifier char[]
+    | LexIdentifierGeneric char[]
+    | LexNumber int
+    | LexCharacter char
+    | LexString char[]
 
 type LexerState =
     { offset: int

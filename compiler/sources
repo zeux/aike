@@ -8,4 +8,6 @@ io.aike
 location.aike
 output.aike
 lexer.aike
+ast.aike
+dump.aike
 main.aike

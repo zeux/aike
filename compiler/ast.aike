@@ -1,0 +1,79 @@
+type SynIdentifier =
+    { name: char[]
+      location: Location }
+
+type SynType =
+    | SynTypeNone
+    | SynTypeGeneric { name: SynIdentifier }
+    | SynTypeIdentifier { ty: SynIdentifier; generics: SynType[] }
+    | SynTypeArray { contained: SynType }
+    | SynTypeFunction { result: SynType; args: SynType[] }
+    | SynTypeRecord { members: SynTypedVar[] }
+    | SynTypeTuple { members: SynType[] }
+
+type SynTypedVar =
+    { name: SynIdentifier
+      ty: SynType }
+
+type SynUnaryOpType =
+    | SynUnaryOpPlus
+    | SynUnaryOpMinus
+    | SynUnaryOpRefGet
+    | SynUnaryOpNot
+
+type SynBinaryOpType =
+    | SynBinaryOpAdd
+    | SynBinaryOpSubtract
+    | SynBinaryOpMultiply
+    | SynBinaryOpDivide
+    | SynBinaryOpLess
+    | SynBinaryOpLessEqual
+    | SynBinaryOpGreater
+    | SynBinaryOpGreaterEqual
+    | SynBinaryOpEqual
+    | SynBinaryOpNotEqual
+    | SynBinaryOpRefSet
+    | SynBinaryOpAnd
+    | SynBinaryOpOr
+
+type SynNode =
+    | SynUnit { location: Location }
+    | SynNumberLiteral { location: Location; value: int }
+    | SynCharacterLiteral { location: Location; value: char }
+    | SynBooleanLiteral { location: Location; value: bool }
+    | SynArrayLiteral { location: Location; elements: SynNode[] }
+    | SynTupleLiteral { location: Location; elements: SynNode[] }
+    | SynTypeDefinition { location: Location; name: SynIdentifier; ty: SynType; generics: SynType[] }
+    | SynUnionDefinition { location: Location; name: SynIdentifier; members: SynTypedVar[]; generics: SynType[] }
+    | SynVariableReference { location: Location; name: char[] }
+    | SynUnaryOp { location: Location; op: SynUnaryOpType; expr: SynNode }
+    | SynBinaryOp { location: Location; op: SynBinaryOpType; left: SynNode; right: SynNode }
+    | SynCall { location: Location; expr: SynNode; args: SynNode[]; arg_names: SynIdentifier[] }
+    | SynArrayIndex { location: Location; expr: SynNode; index: SynNode }
+    | SynArraySlice { location: Location; expr: SynNode; index_start: SynNode; index_end: SynNode }
+    | SynMemberAccess { location: Location; expr: SynNode; member: SynIdentifier }
+    | SynLetVar { location: Location; var: SynTypedVar; body: SynNode }
+    | SynLetVars { location: Location; vars: SynTypedVar[]; body: SynNode }
+    | SynLLVM { location: Location; body: char[] }
+    | SynLetFunc { location: Location; var: SynIdentifier; result: SynType; args: SynTypedVar[]; body: SynNode }
+    | SynExternFunc { location: Location; var: SynIdentifier; result: SynType; args: SynTypedVar[] }
+    | SynIfThenElse { location: Location; condition: SynNode; thenbody: SynNode; elsebody: SynNode }
+    | SynForInDo { location: Location; var: SynTypedVar; container: SynNode; body: SynNode }
+    | SynForInRangeDo { location: Location; var: SynTypedVar; range_start: SynNode; range_end: SynNode; body: SynNode }
+    | SynWhileDo { location: Location; condition: SynNode; body: SynNode }
+    | SynMatchWith { location: Location; expr: SynNode; variants: SynMatch[]; expressions: SynNode[] }
+    | SynBlock { location: Location; expressions: SynNode[] }
+
+type SynMatch =
+    | SynMatchNumberLiteral { location: Location; value: int }
+    | SynMatchCharacterLiteral { location: Location; value: char }
+    | SynMatchBooleanLiteral { location: Location; value: bool }
+    | SynMatchArrayLiteral { location: Location; elements: SynMatch[] }
+    | SynMatchTupleLiteral { location: Location; elements: SynMatch[] }
+    | SynMatchTypeSimple { location: Location; ty: SynIdentifier; alias: SynIdentifier }
+    | SynMatchTypeComplex { location: Location; ty: SynIdentifier; args: SynMatch[]; arg_names: SynIdentifier[] }
+    // Later this can be resolved to MatchCaseUnion if the identifier was a union type tag
+    | SynMatchPlaceholder { location: Location; alias: SynTypedVar }
+    | SynMatchPlaceholderUnnamed { location: Location }
+    | SynMatchOr { location: Location; options: SynMatch[] }
+    | SynMatchIf { location: Location; value: SynMatch; condition: SynNode }

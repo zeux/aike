@@ -1,3 +1,6 @@
 extern printint(value: int): unit
 extern print(value: char[]): unit
 extern readfile(path: char[]): char[]
+
+let println() =
+    print([char(10)])
