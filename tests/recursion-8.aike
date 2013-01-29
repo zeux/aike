@@ -1,0 +1,13 @@
+let peekch() =
+    ()
+
+let consume() =
+    peekch()
+
+let readnext() =
+    let lex1() =
+        consume()
+
+    0
+
+readnext()
