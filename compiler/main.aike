@@ -1,10 +1,11 @@
 let path = "../tests/generic-17.aike"
 let source = readfile(path)
 let lexer = Lexer(LocFile(path, source), ref(LexerState(0, 0, 0, LocOffset(0, 0, 0), LocOffset(0, 0, 0), LexUnknown)))
+lexnext(lexer)
 
 let count = ref(0)
 
-while lex(lexer).current != LexEOF do
+while lexcurrent(lexer) != LexEOF do
     count := !count + 1
     lexnext(lexer)
 

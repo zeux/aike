@@ -50,15 +50,12 @@ type Lexer =
 
       state: ref<LexerState> }
 
-let lex(lexer: Lexer) =
-    !lexer.state
-
 let getoffset(lexer: Lexer) =
-    let state = lex(lexer)
+    let state = !lexer.state
     LocOffset(state.line_offset, state.line + 1, state.offset - state.line_offset + 1)
 
 let peekchoff(lexer: Lexer, offset) =
-    match lex(lexer).offset + offset with
+    match (!lexer.state).offset + offset with
     | off if off < lexer.file.contents#length -> lexer.file.contents[off]
     | _ -> char(0)
 
@@ -70,10 +67,10 @@ let consume(lexer: Lexer) =
     | ch if ch == char(9) ->
         error(Location(lexer.file, getoffset(lexer), getoffset(lexer)), "Source file must not contain tabs")
     | ch if ch == char(10) ->
-        let state = lex(lexer)
+        let state = !lexer.state
         lexer.state := LexerState(state.offset + 1, state.offset + 1, state.line + 1, state.previous_end, state.current_start, state.current)
     | ch ->
-        let state = lex(lexer)
+        let state = !lexer.state
         assert(state.offset < lexer.file.contents#length)
         lexer.state := LexerState(state.offset + 1, state.line_offset, state.line, state.previous_end, state.current_start, state.current)
 
@@ -220,7 +217,7 @@ let lexnext(lexer) =
     else
         let offset = getoffset(lexer)
         let lexeme = readnext(lexer)
-        let state = lex(lexer)
+        let state = !lexer.state
 
         lexer.state := LexerState(state.offset, state.line_offset, state.line, state.current_start, offset, lexeme)
 
@@ -229,3 +226,12 @@ let lexcapture(lexer: Lexer) =
 
 let lexrestore(lexer: Lexer, state) =
     lexer.state := state
+
+let lexcurrent(lexer: Lexer) =
+    (!lexer.state).current
+
+let lexoffprevious(lexer: Lexer) =
+    (!lexer.state).previous_end
+
+let lexoffcurrent(lexer: Lexer) =
+    (!lexer.state).current_start
