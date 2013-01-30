@@ -205,7 +205,7 @@ let readnext(lexer) =
     | _ ->
         LexUnknown
 
-let lexnext(lexer) =
+let skipws(lexer) =
     while isspace(peekch(lexer)) do
         consume(lexer)
 
@@ -213,13 +213,17 @@ let lexnext(lexer) =
         while peekch(lexer) != char(0) and peekch(lexer) != char(10) do
             consume(lexer)
 
-        lexnext(lexer)
-    else
-        let offset = getoffset(lexer)
-        let lexeme = readnext(lexer)
-        let state = !lexer.state
+        skipws(lexer)
 
-        lexer.state := LexerState(state.offset, state.line_offset, state.line, state.current_start, offset, lexeme)
+let lexnext(lexer) =
+    let previous_end = getoffset(lexer)
+    skipws(lexer)
+    let current_start = getoffset(lexer)
+
+    let lexeme = readnext(lexer)
+    let state = !lexer.state
+
+    lexer.state := LexerState(state.offset, state.line_offset, state.line, previous_end, current_start, lexeme)
 
 let lexcapture(lexer: Lexer) =
     !lexer.state
@@ -230,8 +234,8 @@ let lexrestore(lexer: Lexer, state) =
 let lexcurrent(lexer: Lexer) =
     (!lexer.state).current
 
-let lexoffprevious(lexer: Lexer) =
+let lexpreviousend(lexer: Lexer) =
     (!lexer.state).previous_end
 
-let lexoffcurrent(lexer: Lexer) =
+let lexcurrentoff(lexer: Lexer) =
     (!lexer.state).current_start
