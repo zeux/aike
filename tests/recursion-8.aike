@@ -11,3 +11,6 @@ let readnext() =
     0
 
 readnext()
+
+// OUTPUT:
+// 0

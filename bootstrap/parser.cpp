@@ -1000,7 +1000,8 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	SynBase* result = parseTerm(lexer);
 
-	while (lexer.current.location.column >= column && (lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket || lexer.current.type == LexPoint || lexer.current.type == LexSharp))
+	while (((lexer.current.type == LexOpenBrace || lexer.current.type == LexOpenBracket) && lexer.current.location.column > column) ||
+		   ((lexer.current.type == LexPoint || lexer.current.type == LexSharp) && lexer.current.location.column >= column))
 	{
 		if (lexer.current.type == LexOpenBrace)
 		{

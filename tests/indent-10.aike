@@ -1,0 +1,7 @@
+let test() = ()
+
+test()
+(2)
+
+// OUTPUT:
+// 2
