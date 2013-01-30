@@ -526,6 +526,9 @@ LLVMFunctionRef compileFunctionInstance(Context& context, Expr* node, const Gene
 	// compile function body given a non-generic type
 	LLVMFunctionRef func = compileFunction(context, node, mtype, [&](LLVMFunctionRef func) { context.function_instances[std::make_pair(node, mtype)] = func; });
 
+	if(!LLVMAikeVerifyFunction(func))
+		errorf(location, "Internal compiler error");
+
 	// restore old generic type instantiations
 	context.generic_instances = old_generic_instances;
 
@@ -804,6 +807,14 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 
 			LLVMMoveBasicBlockAfter(next_check, LLVMGetLastBasicBlock(function));
 			LLVMPositionBuilderAtEnd(builder, next_check);
+		}
+
+		if (_->elements.empty())
+		{
+			LLVMBuildBr(builder, success_all);
+
+			LLVMMoveBasicBlockAfter(success_all, LLVMGetLastBasicBlock(function));
+			LLVMPositionBuilderAtEnd(builder, success_all);
 		}
 
 		if (target)
@@ -1965,4 +1976,7 @@ void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef tar
 	LLVMValueRef result = compileExpr(ctx, builder, root);
 
 	LLVMBuildRet(builder, result);
+
+	if(!LLVMAikeVerifyFunction(entryf))
+		errorf(Location(), "Internal compiler error");
 }
