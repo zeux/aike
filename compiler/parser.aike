@@ -4,6 +4,10 @@ let islower(lhs: LocOffset, rhs: LocOffset) =
 let issameline(lhs: LocOffset, rhs: LocOffset) =
     lhs.line == rhs.line
 
+let getref(x) =
+    // $$$ this is needed since expr unary op handles ref via a hack (see SynUnaryOp resolving)
+    !x
+
 let parseList(lexer, begin, end, pred) =
     let result = ref([])
 
@@ -106,17 +110,19 @@ let parseLetFunc(lexer, name, start) =
     lexskip(lexer, LexEqual)
 
     if not islower(start, lexcurrentoff(lexer)) then
-        // $$$ error(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
-        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+        // $$$ error(lexer.current.location, "Incorrect indentation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect indentation: this token is offside of context. Indent this token further.")
 
     let body = parseBlock(lexer)
 
     SynLetFunc(lexloc(lexer, start), name, result, args, body)
 
-let parseExternFunc(lexer, name, start) =
+let parseExternFunc(lexer) =
     let start = lexcurrentoff(lexer)
 
     lexskip(lexer, LexKeyword("extern"))
+
+    let name = parseIdentifier(lexer)
 
     let args = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer))
     let result = parseTypeOpt(lexer)
@@ -159,8 +165,8 @@ let parseLetVars(lexer, vars, start) =
     lexskip(lexer, LexEqual)
 
     if not islower(start, lexcurrentoff(lexer)) then
-        // $$$ errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
-        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+        // $$$ errorf(lexer.current.location, "Incorrect indentation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect indentation: this token is offside of context. Indent this token further.")
 
     let body = parseBlock(lexer)
 
@@ -292,7 +298,7 @@ let parseNamedList(lexer, begin, end, pred) =
     // $$$ newline needed because of parser bug
     )
 
-    (list, !names)
+    (list, getref(names))
 
 let parseMatchPattern(lexer) =
     let start = lexcurrentoff(lexer)
@@ -342,7 +348,7 @@ let parseMatchPattern(lexer) =
         | LexOpenBrace -> // vec2(x, y)
             let (args, arg_names) = parseNamedList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseMatchPattern(lexer))
 
-            if arg_names != [] and arg_names#length != (!args)#length then
+            if arg_names != [] and arg_names#length != args#length then
                 error(arg_names[0].location, "Named and unnamed function arguments are not allowed to be mixed in a single call")
 
             SynMatchTypeComplex(lexloc(lexer, start), name, args, arg_names)
@@ -363,7 +369,8 @@ let parseMatchPattern(lexer) =
         if elements == [] then
             error(lexloc(lexer, start), "Unit matching is not allowed")
 
-        // $$$ will there be an error here? :)
+        // $$$ will there be an error if we omit the next line?
+        SynMatchTupleLiteral(lexloc(lexer, start), elements)
 
     | x ->
         error(lexcurrentloc(lexer), "Unexpected lexeme " #concat(lexname(x)))
@@ -410,10 +417,10 @@ let parseMatchWith(lexer) =
     let expressions = ref([])
 
     if islower(lexcurrentoff(lexer), start) then
-        // $$$ errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
-        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+        // $$$ errorf(lexer.current.location, "Incorrect indentation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect indentation: this token is offside of context. Indent this token further.")
 
-    while not islower(lexcurrentloc(lexer), start) and (lexcurrent(lexer) == LexPipe or variants == []) do
+    while not islower(lexcurrentoff(lexer), start) and (lexcurrent(lexer) == LexPipe or getref(variants) == []) do
         if lexcurrent(lexer) == LexPipe then
             lexnext(lexer)
 
@@ -427,10 +434,10 @@ let parseMatchWith(lexer) =
         variants := concat(!variants, [pat])
         expressions := concat(!expressions, [expr])
 
-    if variants == [] then
+    if getref(variants) == [] then
         error(lexcurrentloc(lexer), "Empty match expression")
 
-    SynMatchWith(lexloc(lexer, start), expr, variants, expressions)
+    SynMatchWith(lexloc(lexer, start), expr, !variants, !expressions)
 
 let parseTypeRecord(lexer) =
     lexskip(lexer, LexOpenCurlyBrace)
@@ -454,7 +461,7 @@ let parseTypeRecord(lexer) =
 
     lexnext(lexer)
 
-    !result
+    SynTypeRecord(!result)
 
 let parseTypeUnion(lexer) =
     let result = ref([])
@@ -708,7 +715,7 @@ let getBinaryOpPrec(lexeme) =
 
 let parseExprClimbGreater(lexer, expr, limit, start) =
     match getBinaryOpPrec(lexcurrent(lexer)) with
-    | Some ((op, prec)) if prec > start ->
+    | Some ((op, prec)) if prec > limit ->
         let result = parseExprClimb(lexer, expr, limit, start)
 
         parseExprClimbGreater(lexer, result, limit, start)
@@ -748,7 +755,7 @@ let parseBlock(lexer) =
         // $$$ N^2
         exprs := concat(!exprs, [expr])
 
-    SynBlock(lexloc(lexer, start), exprs)
+    SynBlock(lexloc(lexer, start), getref(exprs))
 
 let parse(lexer) =
     let code = parseBlock(lexer)

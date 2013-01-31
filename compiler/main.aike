@@ -3,10 +3,17 @@ let source = readfile(path)
 let lexer = Lexer(LocFile(path, source), ref(LexerState(0, 0, 0, LocOffset(0, 0, 0), LocOffset(0, 0, 0), LexUnknown)))
 lexnext(lexer)
 
-let count = ref(0)
+if false then
+    let count = ref(0)
 
-while lexcurrent(lexer) != LexEOF do
-    count := !count + 1
-    lexnext(lexer)
+    while lexcurrent(lexer) != LexEOF do
+        count := !count + 1
+        lexnext(lexer)
 
-!count
+    !count
+else
+    let tree = parse(lexer)
+
+    dumpSynNode(tree, 0)
+
+    0
