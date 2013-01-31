@@ -1230,6 +1230,8 @@ LLVMValueRef compileArrayEqualityOperator(const Location& location, Context& con
 
 LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type)
 {
+	type = finalType(type);
+
 	if (CASE(TypeUnit, type))
 		return LLVMConstInt(LLVMInt1TypeInContext(context.context), true, false);
 
