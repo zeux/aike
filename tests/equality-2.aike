@@ -1,0 +1,9 @@
+type ref<'T> = ref 'T
+
+if [ref(5)] == [ref(5)] then
+    1
+else
+    0
+
+// OUTPUT:
+// 1

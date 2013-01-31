@@ -208,6 +208,19 @@ LLVMTypeRef compileType(Context& context, Type* type, const Location& location)
 	errorf(location, "Unrecognized type");
 }
 
+size_t instantiateInstanceTypes(Context& context, TypeInstance* instance, const Location& location)
+{
+	size_t generic_type_count = context.generic_instances.size();
+
+	const std::vector<Type*>& generics = getGenericTypes(*instance->prototype);
+	assert(generics.size() == instance->generics.size());
+
+	for (size_t i = 0; i < instance->generics.size(); ++i)
+		context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(getTypeInstance(context, instance->generics[i], location), compileType(context, instance->generics[i], location))));
+
+	return generic_type_count;
+}
+
 LLVMFunctionTypeRef compileFunctionType(Context& context, Type* type, const Location& location, Type* context_type)
 {
 	type = finalType(type);
@@ -463,7 +476,7 @@ LLVMFunctionRef compileUnionConstructor(Context& context, ExprUnionConstructorFu
 		LLVMValueRef data = LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, "malloc"), &arg, 1, "");
 		LLVMValueRef typed_data = LLVMBuildBitCast(builder, data, member_ref_type, "");
 
-		if (node->args.size() > 1)
+		if (node->args.size() > 1 || node->target->name.find("Syn") == 0)
 		{
 			for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 				LLVMBuildStore(builder, argi, LLVMBuildStructGEP(builder, typed_data, i, ""));
@@ -1271,11 +1284,21 @@ LLVMValueRef compileEqualityOperator(const Location& location, Context& context,
 	{
 		auto instance = _;
 
+		size_t generic_type_count = instantiateInstanceTypes(context, instance, location);
+
 		if (CASE(TypePrototypeRecord, *instance->prototype))
-			return compileStructEqualityOperator(location, context, builder, left, right, instance, _->member_types);
+		{
+			LLVMValueRef result = compileStructEqualityOperator(location, context, builder, left, right, instance, _->member_types);
+			context.generic_instances.resize(generic_type_count);
+			return result;
+		}
 
 		if (CASE(TypePrototypeUnion, *instance->prototype))
-			return compileUnionEqualityOperator(location, context, builder, left, right, instance, _);
+		{
+			LLVMValueRef result = compileUnionEqualityOperator(location, context, builder, left, right, instance, _);
+			context.generic_instances.resize(generic_type_count);
+			return result;
+		}
 
 		assert(!"Unknown type prototype");
 		return 0;
