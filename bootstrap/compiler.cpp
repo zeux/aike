@@ -520,7 +520,7 @@ LLVMFunctionRef compileFunctionInstance(Context& context, Expr* node, const Gene
 	instantiateGenericTypes(context, new_generic_instances, node->type, instance_type, location);
 
 	// the type context for the body compilation should consist of all generic instances defined at the declaration point, plus all types instantiated from declaration
-	context.generic_instances = generic_instances;
+	// note that we have to preserve old generic instances because instantiateGenericTypes is not guaranteed to produce final types
 	context.generic_instances.insert(context.generic_instances.end(), new_generic_instances.begin(), new_generic_instances.end());
 
 	// compile function body given a non-generic type
@@ -1230,7 +1230,7 @@ LLVMValueRef compileArrayEqualityOperator(const Location& location, Context& con
 
 LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type)
 {
-	type = finalType(type);
+	type = getTypeInstance(context, type, location);
 
 	if (CASE(TypeUnit, type))
 		return LLVMConstInt(LLVMInt1TypeInContext(context.context), true, false);
@@ -1254,17 +1254,17 @@ LLVMValueRef compileEqualityOperator(const Location& location, Context& context,
 		errorf(location, "Cannot compare functions"); // Feel free to implement
 
 	if (CASE(TypeTuple, type))
-		return compileStructEqualityOperator(location, context, builder, left, right, finalType(_), _->members);
+		return compileStructEqualityOperator(location, context, builder, left, right, _, _->members);
 
 	if (CASE(TypeInstance, type))
 	{
 		auto instance = _;
 
 		if (CASE(TypePrototypeRecord, *instance->prototype))
-			return compileStructEqualityOperator(location, context, builder, left, right, finalType(instance), _->member_types);
+			return compileStructEqualityOperator(location, context, builder, left, right, instance, _->member_types);
 
 		if (CASE(TypePrototypeUnion, *instance->prototype))
-			return compileUnionEqualityOperator(location, context, builder, left, right, finalType(instance), _);
+			return compileUnionEqualityOperator(location, context, builder, left, right, instance, _);
 
 		assert(!"Unknown type prototype");
 		return 0;
@@ -1400,8 +1400,8 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		case SynBinaryOpLessEqual: return LLVMBuildICmp(builder, LLVMIntSLE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
 		case SynBinaryOpGreater: return LLVMBuildICmp(builder, LLVMIntSGT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
 		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), finalType(_->left->type));
-		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), finalType(_->left->type)), "");
+		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type);
+		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type), "");
 		case SynBinaryOpRefSet:
 			{
 				LLVMValueRef lv = compileExpr(context, builder, _->left);
