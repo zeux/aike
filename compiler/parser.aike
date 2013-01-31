@@ -369,7 +369,6 @@ let parseMatchPattern(lexer) =
         if elements == [] then
             error(lexloc(lexer, start), "Unit matching is not allowed")
 
-        // $$$ will there be an error if we omit the next line?
         SynMatchTupleLiteral(lexloc(lexer, start), elements)
 
     | x ->
@@ -600,7 +599,8 @@ let parseSuffixIndex(lexer, expr, start) =
             if lexcurrent(lexer) == LexCloseBracket then
                 None
             else
-                parseExpr(lexer)
+                // $$$ Type inference bug: removing Some() below (leaving parseExpr(lexer)) results in calling parseExpr with -> option<SynNode> signature :-/
+                Some(parseExpr(lexer))
 
         lexskip(lexer, LexCloseBracket)
 
@@ -691,32 +691,33 @@ let parsePrimary(lexer) =
 
 let getBinaryOpPrec(lexeme) =
     match lexeme with
-    | LexMultiply -> Some((SynBinaryOpMultiply, 7))
-    | LexDivide -> Some((SynBinaryOpDivide, 7))
+    | LexMultiply -> (SynBinaryOpMultiply, 7)
+    | LexDivide -> (SynBinaryOpDivide, 7)
 
-    | LexPlus -> Some((SynBinaryOpAdd, 6))
-    | LexMinus -> Some((SynBinaryOpSubtract, 6))
+    | LexPlus -> (SynBinaryOpAdd, 6)
+    | LexMinus -> (SynBinaryOpSubtract, 6)
 
-    | LexLess -> Some((SynBinaryOpLess, 5))
-    | LexLessEqual -> Some((SynBinaryOpLessEqual, 5))
-    | LexGreater -> Some((SynBinaryOpGreater, 5))
-    | LexGreaterEqual -> Some((SynBinaryOpGreaterEqual, 5))
+    | LexLess -> (SynBinaryOpLess, 5)
+    | LexLessEqual -> (SynBinaryOpLessEqual, 5)
+    | LexGreater -> (SynBinaryOpGreater, 5)
+    | LexGreaterEqual -> (SynBinaryOpGreaterEqual, 5)
 
-    | LexEqualEqual -> Some((SynBinaryOpEqual, 4))
-    | LexNotEqual -> Some((SynBinaryOpNotEqual, 4))
+    | LexEqualEqual -> (SynBinaryOpEqual, 4)
+    | LexNotEqual -> (SynBinaryOpNotEqual, 4)
 
-    | LexKeyword("and") -> Some((SynBinaryOpAnd, 3))
+    | LexKeyword("and") -> (SynBinaryOpAnd, 3)
 
-    | LexKeyword("or") -> Some((SynBinaryOpOr, 2))
+    | LexKeyword("or") -> (SynBinaryOpOr, 2)
 
-    | LexColonEqual -> Some((SynBinaryOpRefSet, 1))
+    | LexColonEqual -> (SynBinaryOpRefSet, 1)
 
-    | _ -> None
+    // $$$ Option is not used because of a bootstrap bug with matching
+    | _ -> (SynBinaryOpAdd, -1)
 
 let parseExprClimbGreater(lexer, expr, limit, start) =
     match getBinaryOpPrec(lexcurrent(lexer)) with
-    | Some ((op, prec)) if prec > limit ->
-        let result = parseExprClimb(lexer, expr, limit, start)
+    | (op, prec) if prec > limit ->
+        let result = parseExprClimb(lexer, expr, prec, start)
 
         parseExprClimbGreater(lexer, result, limit, start)
     | _ ->
@@ -724,7 +725,7 @@ let parseExprClimbGreater(lexer, expr, limit, start) =
 
 let parseExprClimb(lexer, expr, limit, start) =
     match getBinaryOpPrec(lexcurrent(lexer)) with
-    | Some ((op, prec)) if prec >= limit ->
+    | (op, prec) if prec >= limit ->
         lexnext(lexer)
 
         let head = parsePrimary(lexer)
