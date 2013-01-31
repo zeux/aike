@@ -2,12 +2,7 @@ let foo(f) = f()
 let bar() = 5
 
 foo(fun ->
-    if true then
-        if false then
-            ()
-        else
-            ()
-
+    ()
     bar())
 
 // OUTPUT:
