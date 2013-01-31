@@ -846,6 +846,11 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 
 		if (record_type)
 		{
+			if (_->member_names.empty())
+				assert(record_type->member_types.size() == _->member_values.size());
+			else
+				assert(record_type->member_types.size() >= _->member_values.size());
+
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
 				LLVMBasicBlockRef next_check = i != _->member_values.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : success_all;
@@ -865,6 +870,8 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 		}
 		else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
 		{
+			assert(tuple_type->members.size() == _->member_values.size());
+
 			for (size_t i = 0; i < _->member_values.size(); ++i)
 			{
 				LLVMBasicBlockRef next_check = i != _->member_values.size() - 1 ? LLVMAppendBasicBlockInContext(context.context, function, "next_check") : success_all;

@@ -1,0 +1,10 @@
+type option<'a> = Some 'a | None
+
+let foo = Some((true, 5))
+
+match foo with
+| Some ((x, y)) if y > 3 -> y
+| _ -> 0
+
+// OUTPUT:
+// 5
