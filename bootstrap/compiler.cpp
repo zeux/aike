@@ -1463,12 +1463,14 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 				LLVMValueRef rv = compileExpr(context, builder, _->right);
 				LLVMBuildBr(builder, after_basic_block);
 
+				LLVMBasicBlockRef next_basic_block_end = LLVMGetInsertBlock(builder);
+
 				LLVMMoveBasicBlockAfter(after_basic_block, LLVMGetLastBasicBlock(function));
 				LLVMPositionBuilderAtEnd(builder, after_basic_block);
 
 				LLVMPHIRef pn = LLVMBuildPhi(builder, compileType(context, _->type, _->location), "");
 
-				LLVMAddIncoming(pn, &rv, &next_basic_block, 1);
+				LLVMAddIncoming(pn, &rv, &next_basic_block_end, 1);
 
 				LLVMValueRef ev = LLVMConstInt(LLVMInt1TypeInContext(context.context), _->op == SynBinaryOpOr ? 1 : 0, false);
 
