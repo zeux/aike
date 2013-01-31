@@ -540,7 +540,7 @@ LLVMFunctionRef compileFunctionInstance(Context& context, Expr* node, const Gene
 	LLVMFunctionRef func = compileFunction(context, node, mtype, [&](LLVMFunctionRef func) { context.function_instances[std::make_pair(node, mtype)] = func; });
 
 	if(!LLVMAikeVerifyFunction(func))
-		errorf(location, "Internal compiler error");
+		errorf(location, "Internal compiler error in %s", LLVMGetValueName(func));
 
 	// restore old generic type instantiations
 	context.generic_instances = old_generic_instances;
@@ -1844,8 +1844,10 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 		compileExpr(context, builder, _->body);
 
+		LLVMBasicBlockRef body_basic_block_end = LLVMGetInsertBlock(builder);
+
 		LLVMValueRef next_index = LLVMBuildNSWAdd(builder, index, LLVMConstInt(LLVMInt32TypeInContext(context.context), 1, false), "");
-		LLVMAddIncoming(index, &next_index, &body_basic_block, 1);
+		LLVMAddIncoming(index, &next_index, &body_basic_block_end, 1);
 
 		LLVMBuildBr(builder, step_basic_block);
 
