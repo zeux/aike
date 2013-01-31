@@ -48,6 +48,12 @@ void printint(int value)
 }
 
 AIKE_EXTERN
+void printi(int value)
+{
+	*gOutput << value;
+}
+
+AIKE_EXTERN
 void print(AikeArray<char> value)
 {
 	gOutput->write(value.data, value.length);

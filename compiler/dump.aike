@@ -89,7 +89,7 @@ let dumpSynFunction(name: SynIdentifier, result, args) =
 let dumpSynMatch(node, indent) =
     match node with
     | SynMatchNumberLiteral(_, value) ->
-        printint(value)
+        printi(value)
 
     | SynMatchCharacterLiteral(_, value) ->
         print([value])
@@ -151,7 +151,7 @@ let dumpSynNode(node, indent) =
         println()
         
     | SynNumberLiteral(_, value) ->
-        printint(value)
+        printi(value)
         println()
 
     | SynCharacterLiteral(_, value) ->
@@ -231,7 +231,7 @@ let dumpSynNode(node, indent) =
             if i < arg_names#length then
                 print(arg_names[i].name)
             else
-                printint(i)
+                printi(i)
             println()
             dumpSynNode(args[i], indent + 1)
 
