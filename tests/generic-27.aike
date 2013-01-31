@@ -1,0 +1,13 @@
+type ref<'T> = ref 'T
+
+let gen(pred) =
+    let x = ref([])
+
+    x := [pred()]
+
+    !x
+
+gen(fun -> 1)[0]
+
+// OUTPUT:
+// 1
