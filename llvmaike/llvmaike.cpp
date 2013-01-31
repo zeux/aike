@@ -49,6 +49,27 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 	return LLVMBuildCall(builder, function, Ops, 5, "");
 }
 
+void LLVMAikeFatalErrorHandler(void *user_data, const std::string& reason)
+{
+	throw std::exception(reason.c_str());
+}
+
+int LLVMAikeVerifyFunction(LLVMValueRef function)
+{
+	llvm::remove_fatal_error_handler();
+	llvm::install_fatal_error_handler(LLVMAikeFatalErrorHandler, 0);
+
+	try
+	{
+		if(LLVMVerifyFunction(function, LLVMPrintMessageAction))
+			return 0;
+	}catch(std::exception &e){
+		return 0;
+	}
+
+	return 1;
+}
+
 const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module)
 {
 	llvm::SMDiagnostic err;

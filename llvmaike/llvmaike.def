@@ -24,6 +24,7 @@ EXPORTS
     LLVMAikeGetTypeName
     LLVMAikeInit
     LLVMAikeParseAssemblyString
+    LLVMAikeVerifyFunction
     LLVMAppendBasicBlockInContext
     LLVMBuildAdd
     LLVMBuildAlloca
