@@ -11,4 +11,7 @@ type expr =
 
 let x = 5 in x
 
+- a typo in match for union cases without data results in the name being treated as a variable name.
+prevent using case restrictions for the first letter?
+
 - lazy record fields: http://www.lexifi.com/blog/ocaml-extensions-lexifi-semi-implicit-laziness
