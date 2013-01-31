@@ -239,3 +239,52 @@ let lexpreviousend(lexer: Lexer) =
 
 let lexcurrentoff(lexer: Lexer) =
     (!lexer.state).current_start
+
+let lexcurrentloc(lexer: Lexer) =
+    Location(lexer.file, lexcurrentoff(lexer), lexcurrentoff(lexer))
+
+let lexloc(lexer: Lexer, start: LocOffset) =
+    Location(lexer.file, start, lexcurrentoff(lexer))
+
+let lexname(lexeme) =
+    match lexeme with
+    | LexUnknown -> "unknown"
+    | LexEOF -> "EOF"
+    | LexComma -> "','"
+    | LexPoint -> "'.'"
+    | LexPointPoint -> "'..'"
+    | LexOpenBrace -> "'('"
+    | LexCloseBrace -> "')'"
+    | LexOpenBracket -> "'['"
+    | LexCloseBracket -> "']'"
+    | LexOpenCurlyBrace -> "'{'"
+    | LexCloseCurlyBrace -> "'}'"
+    | LexEqual -> "'='"
+    | LexPlus -> "'+'"
+    | LexMinus -> "'-'"
+    | LexColon -> "':'"
+    | LexSemicolon -> "';'"
+    | LexArrow -> "'->'"
+    | LexLess -> "'<'"
+    | LexLessEqual -> "'<='"
+    | LexGreater -> "'>'"
+    | LexGreaterEqual -> "'>='"
+    | LexNotEqual -> "'!='"
+    | LexEqualEqual -> "'=='"
+    | LexPipe -> "'|'"
+    | LexMultiply -> "'*'"
+    | LexDivide -> "'/'"
+    | LexSharp -> "'#'"
+    | LexExclamation -> "'!'"
+    | LexColonEqual -> "':='"
+    | LexKeyword value | LexIdentifier value -> concat("'", concat(value, "'"))
+    | LexIdentifierGeneric value -> concat("'", value)
+    | LexNumber value -> "number" // $$$
+    | LexCharacter value -> concat("'", concat([value], "'"))
+    | LexString value -> concat(['"'], concat(value, ['"']))
+
+let lexskip(lexer: Lexer, expected: Lexeme) =
+    if lexcurrent(lexer) == expected then
+        lexnext(lexer)
+    else
+        error(lexcurrentloc(lexer), concat("Expected ", concat(lexname(expected), concat(", got ", lexname(lexcurrent(lexer))))))

@@ -1,0 +1,756 @@
+let islower(lhs: LocOffset, rhs: LocOffset) =
+    lhs.column < rhs.column
+
+let issameline(lhs: LocOffset, rhs: LocOffset) =
+    lhs.line == rhs.line
+
+let parseList(lexer, begin, end, pred) =
+    let result = ref([])
+
+    lexskip(lexer, begin)
+
+    while lexcurrent(lexer) != end do
+        if !result != [] then
+            lexskip(lexer, LexComma)
+
+        // $$$ N^2
+        result := concat(!result, [pred()])
+
+    lexnext(lexer)
+
+    !result
+
+let parseIdentifier(lexer) =
+    match lexcurrent(lexer) with
+    | LexIdentifier value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynIdentifier(value, lexloc(lexer, start))
+    | _ ->
+        error(lexcurrentloc(lexer), "Expected identifier")
+
+let parseGenericIdentifier(lexer) =
+    match lexcurrent(lexer) with
+    | LexIdentifierGeneric value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynTypeGeneric(SynIdentifier(value, lexloc(lexer, start)))
+    | _ ->
+        error(lexcurrentloc(lexer), "Expected generic identifier")
+
+let parseGenericTypeList(lexer) =
+    match lexcurrent(lexer) with
+    | LexLess ->
+        parseList(lexer, LexLess, LexGreater, fun -> parseGenericIdentifier(lexer))
+    | _ ->
+        []
+
+let parseGenericInstantiation(lexer) =
+    match lexcurrent(lexer) with
+    | LexLess ->
+        parseList(lexer, LexLess, LexGreater, fun -> parseType(lexer))
+    | _ ->
+        []
+
+let parseTypeBraced(lexer) =
+    let list = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseType(lexer))
+
+    if lexcurrent(lexer) == LexArrow then
+        lexnext(lexer)
+
+        SynTypeFunction(parseType(lexer), list)
+    else
+        // $$$ Does it make sense to handle 0 and 1 arity separately (i.e. unit and single type)?
+        SynTypeTuple(list)
+
+let parseType(lexer) =
+    let ty =
+        match lexcurrent(lexer) with
+        | LexOpenBrace ->
+            parseTypeBraced(lexer)
+        | LexIdentifierGeneric ->
+            parseGenericIdentifier(lexer)
+        | _ ->
+            let ident = parseIdentifier(lexer)
+            let generics = parseGenericInstantiation(lexer)
+            SynTypeIdentifier(ident, generics)
+    
+    if lexcurrent(lexer) == LexOpenBracket then
+        lexnext(lexer)
+        lexskip(lexer, LexCloseBracket)
+
+        SynTypeArray(ty)
+    else
+        ty
+
+let parseTypeOpt(lexer) =
+    if lexcurrent(lexer) == LexColon then
+        lexnext(lexer)
+
+        parseType(lexer)
+    else
+        SynTypeNone
+
+let parseTypedVar(lexer) =
+    let name = parseIdentifier(lexer)
+    let ty = parseTypeOpt(lexer)
+
+    SynTypedVar(name, ty)
+
+let parseLetFunc(lexer, name, start) =
+    let args = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer))
+    let result = parseTypeOpt(lexer)
+
+    lexskip(lexer, LexEqual)
+
+    if not islower(start, lexcurrentoff(lexer)) then
+        // $$$ error(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+
+    let body = parseBlock(lexer)
+
+    SynLetFunc(lexloc(lexer, start), name, result, args, body)
+
+let parseExternFunc(lexer, name, start) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("extern"))
+
+    let args = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer))
+    let result = parseTypeOpt(lexer)
+
+    // $$$ why is an explicit type qualifier needed?
+    for a: SynTypedVar in args do
+        if a.ty == SynTypeNone then
+            // $$$ error(args[i].name.location, "Extern function '%s': type declaration missing for argument '%s'", name.name.c_str(), args[i].name.name.c_str());
+            error(a.name.location, "Extern function: type declaration missing for argument")
+
+    if result == SynTypeNone then
+        // $$$ errorf(name.location, "Extern function '%s': type declaration missing for return type", name.name.c_str());
+        error(lexcurrentloc(lexer), "Extern function: type declaration missing for return type")
+
+    SynExternFunc(lexloc(lexer, start), name, result, args)
+
+let parseAnonymousFunc(lexer) =
+    let start = lexcurrentoff(lexer)
+    
+    lexskip(lexer, LexKeyword("fun"))
+
+    let name = SynIdentifier("", lexloc(lexer, start))
+
+    let (args, result) =
+        match lexcurrent(lexer) with
+        | LexOpenBrace ->
+            (parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer)), parseTypeOpt(lexer))
+        | LexIdentifier _ ->
+            ([SynTypedVar(parseIdentifier(lexer), SynTypeNone)], SynTypeNone)
+        | _ ->
+            ([], SynTypeNone)
+
+    lexskip(lexer, LexArrow)
+
+    let body = parseBlock(lexer)
+
+    SynLetFunc(lexloc(lexer, start), name, result, args, body)
+
+let parseLetVars(lexer, vars, start) =
+    lexskip(lexer, LexEqual)
+
+    if not islower(start, lexcurrentoff(lexer)) then
+        // $$$ errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+
+    let body = parseBlock(lexer)
+
+    match vars with
+    | [v] -> SynLetVar(lexloc(lexer, start), v, body)
+    | _ -> SynLetVars(lexloc(lexer, start), vars, body)
+
+let parseLet(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("let"))
+
+    if lexcurrent(lexer) == LexOpenBrace then
+        let vars = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer))
+
+        parseLetVars(lexer, vars, start)
+    else
+        let name = parseIdentifier(lexer)
+
+        if lexcurrent(lexer) == LexOpenBrace then
+            parseLetFunc(lexer, name, start)
+        else
+            let ty = parseTypeOpt(lexer)
+
+            parseLetVars(lexer, [SynTypedVar(name, ty)], start)
+
+let parseLLVM(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("llvm"))
+
+    match lexcurrent(lexer) with
+    | LexString value ->
+        lexnext(lexer)
+
+        SynLLVM(lexloc(lexer, start), value)
+    | _ ->
+        error(lexcurrentloc(lexer), "Expected string after llvm keyword")
+
+let parseIfThenElse(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("if"))
+
+    let cond = parseExpr(lexer)
+
+    lexskip(lexer, LexKeyword("then"))
+
+    let thenbody = parseBlock(lexer)
+
+    let elsebody =
+        if lexcurrent(lexer) == LexKeyword("else") then
+            lexnext(lexer)
+            parseBlock(lexer)
+        else
+            SynUnit(lexcurrentloc(lexer))
+
+    SynIfThenElse(lexloc(lexer, start), cond, thenbody, elsebody)
+
+let parseForInDo(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("for"))
+
+    let var = parseTypedVar(lexer)
+
+    lexskip(lexer, LexKeyword("in"))
+
+    let container = parseExpr(lexer)
+
+    if lexcurrent(lexer) == LexPointPoint then
+        lexnext(lexer)
+
+        let range_start = container
+        let range_end = parseExpr(lexer)
+
+        lexskip(lexer, LexKeyword("do"))
+
+        let body = parseBlock(lexer)
+
+        SynForInRangeDo(lexloc(lexer, start), var, range_start, range_end, body)
+    else
+        lexskip(lexer, LexKeyword("do"))
+
+        let body = parseBlock(lexer)
+
+        SynForInDo(lexloc(lexer, start), var, container, body)
+
+let parseWhileDo(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("while"))
+
+    let condition = parseExpr(lexer)
+
+    lexskip(lexer, LexKeyword("do"))
+
+    let body = parseBlock(lexer)
+
+    SynWhileDo(lexloc(lexer, start), condition, body)
+
+let parseMatchPatternNumber(lexer, negative, start) =
+    match lexcurrent(lexer) with
+    | LexNumber value ->
+        lexnext(lexer)
+        SynMatchNumberLiteral(lexloc(lexer, start), if negative then -value else value)
+    | _ ->
+        error(lexcurrentloc(lexer), "Expected a number")
+
+let parseNamedList(lexer, begin, end, pred) =
+    let names = ref([])
+
+    let list = parseList(lexer, begin, end, fun ->
+        match lexcurrent(lexer) with
+        | LexIdentifier _ ->
+            let state = lexcapture(lexer)
+            let name = parseIdentifier(lexer)
+
+            if lexcurrent(lexer) == LexEqual then
+                lexnext(lexer)
+
+                // $$$ N^2
+                names := concat(!names, [name])
+            else
+                lexrestore(lexer, state)
+        | _ -> ()
+
+        pred()
+    // $$$ newline needed because of parser bug
+    )
+
+    (list, !names)
+
+let parseMatchPattern(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    match lexcurrent(lexer) with
+    | LexMinus ->
+        lexnext(lexer)
+        parseMatchPatternNumber(lexer, true, start)
+
+    | LexPlus ->
+        lexnext(lexer)
+        parseMatchPatternNumber(lexer, false, start)
+
+    | LexNumber value ->
+        lexnext(lexer)
+        SynMatchNumberLiteral(lexloc(lexer, start), value)
+
+    | LexKeyword("true") ->
+        lexnext(lexer)
+        SynMatchBooleanLiteral(lexloc(lexer, start), true)
+
+    | LexKeyword("false") ->
+        lexnext(lexer)
+        SynMatchBooleanLiteral(lexloc(lexer, start), false)
+
+    | LexCharacter value ->
+        lexnext(lexer)
+        SynMatchCharacterLiteral(lexloc(lexer, start), value)
+
+    | LexString value ->
+        lexnext(lexer)
+        SynMatchArrayLiteral(lexloc(lexer, start), value #map(fun ch -> SynMatchCharacterLiteral(lexloc(lexer, start), ch)))
+
+    | LexIdentifier("_") ->
+        lexnext(lexer)
+        SynMatchPlaceholderUnnamed(lexloc(lexer, start))
+
+    | LexIdentifier _ ->
+        let name = parseIdentifier(lexer)
+
+        match lexcurrent(lexer) with
+        | LexIdentifier _ -> // vec2 x
+            let alias = parseIdentifier(lexer)
+
+            SynMatchTypeSimple(lexloc(lexer, start), name, alias)
+
+        | LexOpenBrace -> // vec2(x, y)
+            let (args, arg_names) = parseNamedList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseMatchPattern(lexer))
+
+            if arg_names != [] and arg_names#length != (!args)#length then
+                error(arg_names[0].location, "Named and unnamed function arguments are not allowed to be mixed in a single call")
+
+            SynMatchTypeComplex(lexloc(lexer, start), name, args, arg_names)
+
+        | _ ->
+            let ty = parseTypeOpt(lexer)
+
+            SynMatchPlaceholder(lexloc(lexer, start), SynTypedVar(name, ty))
+
+    | LexOpenBracket ->
+        let elements = parseList(lexer, LexOpenBracket, LexCloseBracket, fun -> parseMatchPattern(lexer))
+
+        SynMatchArrayLiteral(lexloc(lexer, start), elements)
+
+    | LexOpenBrace ->
+        let elements = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseMatchPattern(lexer))
+
+        if elements == [] then
+            error(lexloc(lexer, start), "Unit matching is not allowed")
+
+        // $$$ will there be an error here? :)
+
+    | x ->
+        error(lexcurrentloc(lexer), "Unexpected lexeme " #concat(lexname(x)))
+
+let parseMatchCase(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    let head = parseMatchPattern(lexer)
+    let options = ref([head])
+
+    while lexcurrent(lexer) == LexPipe do
+        lexnext(lexer)
+
+        let pat = parseMatchPattern(lexer)
+
+        // $$$ N^2
+        options := concat(!options, [pat])
+
+    let pat =
+        match !options with
+        | [p] -> p
+        | list -> SynMatchOr(lexloc(lexer, start), list)
+
+    // if suffix
+    if lexcurrent(lexer) == LexKeyword("if") then
+        lexnext(lexer)
+
+        let condition = parseExpr(lexer)
+
+        SynMatchIf(lexloc(lexer, start), pat, condition)
+    else
+        pat
+
+let parseMatchWith(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("match"))
+
+    let expr = parseExpr(lexer)
+
+    lexskip(lexer, LexKeyword("with"))
+
+    let variants = ref([])
+    let expressions = ref([])
+
+    if islower(lexcurrentoff(lexer), start) then
+        // $$$ errorf(lexer.current.location, "Incorrect identation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
+        error(lexcurrentloc(lexer), "Incorrect identation: this token is offside of context. Indent this token further.")
+
+    while not islower(lexcurrentloc(lexer), start) and (lexcurrent(lexer) == LexPipe or variants == []) do
+        if lexcurrent(lexer) == LexPipe then
+            lexnext(lexer)
+
+        let pat = parseMatchCase(lexer)
+
+        lexskip(lexer, LexArrow)
+
+        let expr = parseBlock(lexer)
+
+        // $$$ N^2
+        variants := concat(!variants, [pat])
+        expressions := concat(!expressions, [expr])
+
+    if variants == [] then
+        error(lexcurrentloc(lexer), "Empty match expression")
+
+    SynMatchWith(lexloc(lexer, start), expr, variants, expressions)
+
+let parseTypeRecord(lexer) =
+    lexskip(lexer, LexOpenCurlyBrace)
+
+    let prevoff = ref(lexcurrentoff(lexer))
+    let result = ref([])
+
+    while lexcurrent(lexer) != LexCloseCurlyBrace do
+        if !result != [] then
+            if lexcurrent(lexer) == LexSemicolon then
+                lexnext(lexer)
+            else if issameline(lexcurrentoff(lexer), !prevoff) then
+                error(lexcurrentloc(lexer), "Expected ';' or a newline after previous record field")
+
+        prevoff := lexcurrentoff(lexer)
+
+        let field = parseTypedVar(lexer)
+
+        // $$$ N^2
+        result := concat(!result, [field])
+
+    lexnext(lexer)
+
+    !result
+
+let parseTypeUnion(lexer) =
+    let result = ref([])
+
+    while lexcurrent(lexer) == LexPipe or !result == [] do
+        if lexcurrent(lexer) == LexPipe then
+            lexnext(lexer)
+
+        let name = parseIdentifier(lexer)
+
+        let ty =
+            match lexcurrent(lexer) with
+            | LexOpenCurlyBrace ->
+                parseTypeRecord(lexer)
+            | LexIdentifier _ | LexIdentifierGeneric _ ->
+                parseType(lexer)
+            | LexOpenBrace ->
+                parseType(lexer)
+            | _ ->
+                SynTypeNone
+
+        // $$$ N^2
+        result := concat(!result, [SynTypedVar(name, ty)])
+
+    !result
+
+let parseTypeDefinition(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    lexskip(lexer, LexKeyword("type"))
+
+    let name = parseIdentifier(lexer)
+    let generics = parseGenericTypeList(lexer)
+
+    lexskip(lexer, LexEqual)
+
+    if lexcurrent(lexer) == LexOpenCurlyBrace then
+        let ty = parseTypeRecord(lexer)
+
+        SynTypeDefinition(lexloc(lexer, start), name, ty, generics)
+    else
+        let members = parseTypeUnion(lexer)
+
+        SynUnionDefinition(lexloc(lexer, start), name, members, generics)
+
+let parseTerm(lexer) =
+    match lexcurrent(lexer) with
+    | LexOpenBrace ->
+        let start = lexcurrentoff(lexer)
+        let elements = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseExpr(lexer))
+
+        match elements with
+        | [] -> SynUnit(lexloc(lexer, start))
+        | [e] -> e
+        | _ -> SynTupleLiteral(lexloc(lexer, start), elements)
+
+    | LexOpenBracket ->
+        let start = lexcurrentoff(lexer)
+        let elements = parseList(lexer, LexOpenBracket, LexCloseBracket, fun -> parseExpr(lexer))
+
+        SynArrayLiteral(lexloc(lexer, start), elements)
+    
+    | LexNumber value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynNumberLiteral(lexloc(lexer, start), value)
+    
+    | LexIdentifier value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynVariableReference(lexloc(lexer, start), value)
+
+    | LexKeyword("true") ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynBooleanLiteral(lexloc(lexer, start), true)
+
+    | LexKeyword("false") ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynBooleanLiteral(lexloc(lexer, start), false)
+
+    | LexCharacter value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynCharacterLiteral(lexloc(lexer, start), value)
+
+    | LexString value ->
+        let start = lexcurrentoff(lexer)
+        lexnext(lexer)
+
+        SynArrayLiteral(lexloc(lexer, start), value #map(fun ch -> SynCharacterLiteral(lexloc(lexer, start), ch)))
+
+    | _ ->
+        error(lexcurrentloc(lexer), "Unexpected lexeme")
+
+let getUnaryOp(lexeme) =
+    match lexeme with
+    | LexPlus -> Some(SynUnaryOpPlus)
+    | LexMinus -> Some(SynUnaryOpMinus)
+    | LexExclamation -> Some(SynUnaryOpRefGet)
+    | LexKeyword("not") -> Some(SynUnaryOpNot)
+    | _ -> None
+
+let parseSuffixCall(lexer, expr, start) =
+    lexskip(lexer, LexOpenBrace)
+
+    let (args, arg_names) = parseNamedList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseExpr(lexer))
+
+    if arg_names != [] and arg_names#length != args#length then
+        error(arg_names[0].location, "Named and unnamed function arguments are not allowed to be mixed in a single call")
+
+    SynCall(lexloc(lexer, start), expr, args, arg_names)
+
+let parseSuffixIndex(lexer, expr, start) =
+    lexskip(lexer, LexOpenBracket)
+
+    if lexcurrent(lexer) == LexCloseBracket then
+        error(lexcurrentloc(lexer), "Expression expected after '['")
+
+    let index_start = 
+        if lexcurrent(lexer) == LexPointPoint then
+            SynNumberLiteral(lexcurrentloc(lexer), 0)
+        else
+            parseExpr(lexer)
+
+    if lexcurrent(lexer) == LexPointPoint then
+        lexnext(lexer)
+
+        let index_end =
+            if lexcurrent(lexer) == LexCloseBracket then
+                None
+            else
+                parseExpr(lexer)
+
+        lexskip(lexer, LexCloseBracket)
+
+        SynArraySlice(lexloc(lexer, start), expr, index_start, index_end)
+    else
+        lexskip(lexer, LexCloseBracket)
+
+        SynArrayIndex(lexloc(lexer, start), expr, index_start)
+
+let parseSuffixMember(lexer, expr, start) =
+    lexskip(lexer, LexPoint)
+
+    let name = parseIdentifier(lexer)
+
+    SynMemberAccess(lexloc(lexer, start), expr, name)
+
+let parseSuffixSharp(lexer, expr, start) =
+    lexskip(lexer, LexSharp)
+
+    let name = parseIdentifier(lexer)
+
+    let args =
+        if lexcurrent(lexer) == LexOpenBrace then
+            parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseExpr(lexer))
+        else
+            []
+
+    SynCall(lexloc(lexer, start), SynVariableReference(name.location, name.name), concat([expr], args), [])
+
+let parsePrimarySuffixes(lexer, expr, start: LocOffset) =
+    match lexcurrent(lexer) with
+    | LexOpenBrace if lexcurrentoff(lexer).column > start.column ->
+        parsePrimarySuffixes(lexer, parseSuffixCall(lexer, expr, start), start)
+
+    | LexOpenBracket if lexcurrentoff(lexer).column > start.column ->
+        parsePrimarySuffixes(lexer, parseSuffixIndex(lexer, expr, start), start)
+
+    | LexPoint if lexcurrentoff(lexer).column >= start.column ->
+        parsePrimarySuffixes(lexer, parseSuffixMember(lexer, expr, start), start)
+
+    | LexSharp if lexcurrentoff(lexer).column >= start.column ->
+        parsePrimarySuffixes(lexer, parseSuffixSharp(lexer, expr, start), start)
+
+    | _ ->
+        expr
+
+let parsePrimary(lexer) =
+    match lexcurrent(lexer) with
+    | LexKeyword("extern") ->
+        parseExternFunc(lexer)
+
+    | LexKeyword("type") ->
+        parseTypeDefinition(lexer)
+
+    | LexKeyword("llvm") ->
+        parseLLVM(lexer)
+
+    | LexKeyword("if") ->
+        parseIfThenElse(lexer)
+
+    | LexKeyword("for") ->
+        parseForInDo(lexer)
+
+    | LexKeyword("while") ->
+        parseWhileDo(lexer)
+
+    | LexKeyword("match") ->
+        parseMatchWith(lexer)
+
+    | LexKeyword("fun") ->
+        parseAnonymousFunc(lexer)
+
+    | _ ->
+        let start = lexcurrentoff(lexer)
+
+        match getUnaryOp(lexcurrent(lexer)) with
+        | Some(uop) ->
+            lexnext(lexer)
+
+            let expr = parsePrimary(lexer)
+
+            SynUnaryOp(lexloc(lexer, start), uop, expr)
+
+        | None ->
+            let expr = parseTerm(lexer)
+
+            parsePrimarySuffixes(lexer, expr, start)
+
+let getBinaryOpPrec(lexeme) =
+    match lexeme with
+    | LexMultiply -> Some((SynBinaryOpMultiply, 7))
+    | LexDivide -> Some((SynBinaryOpDivide, 7))
+
+    | LexPlus -> Some((SynBinaryOpAdd, 6))
+    | LexMinus -> Some((SynBinaryOpSubtract, 6))
+
+    | LexLess -> Some((SynBinaryOpLess, 5))
+    | LexLessEqual -> Some((SynBinaryOpLessEqual, 5))
+    | LexGreater -> Some((SynBinaryOpGreater, 5))
+    | LexGreaterEqual -> Some((SynBinaryOpGreaterEqual, 5))
+
+    | LexEqualEqual -> Some((SynBinaryOpEqual, 4))
+    | LexNotEqual -> Some((SynBinaryOpNotEqual, 4))
+
+    | LexKeyword("and") -> Some((SynBinaryOpAnd, 3))
+
+    | LexKeyword("or") -> Some((SynBinaryOpOr, 2))
+
+    | LexColonEqual -> Some((SynBinaryOpRefSet, 1))
+
+    | _ -> None
+
+let parseExprClimbGreater(lexer, expr, limit, start) =
+    match getBinaryOpPrec(lexcurrent(lexer)) with
+    | Some ((op, prec)) if prec > start ->
+        let result = parseExprClimb(lexer, expr, limit, start)
+
+        parseExprClimbGreater(lexer, result, limit, start)
+    | _ ->
+        expr
+
+let parseExprClimb(lexer, expr, limit, start) =
+    match getBinaryOpPrec(lexcurrent(lexer)) with
+    | Some ((op, prec)) if prec >= limit ->
+        lexnext(lexer)
+
+        let head = parsePrimary(lexer)
+        let right = parseExprClimbGreater(lexer, head, prec, start)
+
+        let result = SynBinaryOp(lexloc(lexer, start), op, expr, right)
+
+        parseExprClimb(lexer, result, limit, start)
+    | _ ->
+        expr
+
+let parseExpr(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    let head = parsePrimary(lexer)
+
+    parseExprClimb(lexer, head, 0, start)
+
+let parseBlock(lexer) =
+    let start = lexcurrentoff(lexer)
+
+    let head = parseExpr(lexer)
+    let exprs = ref([head])
+
+    while lexcurrent(lexer) != LexEOF and not islower(lexcurrentoff(lexer), start) and not issameline(lexcurrentoff(lexer), start) do
+        let expr = parseExpr(lexer)
+
+        // $$$ N^2
+        exprs := concat(!exprs, [expr])
+
+    SynBlock(lexloc(lexer, start), exprs)
+
+let parse(lexer) =
+    let code = parseBlock(lexer)
+    assert(lexcurrent(lexer) == LexEOF)
+    code

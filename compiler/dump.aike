@@ -254,8 +254,13 @@ let dumpSynNode(node, indent) =
         dumpSynNode(index_start, indent + 1)
         printindent(indent)
         print("to")
-        println()
-        dumpSynNode(index_end, indent + 1)
+        match index_end with
+        | Some v ->
+            println()
+            dumpSynNode(v, indent + 1)
+        | None ->
+            print(" end")
+            println()
 
     | SynMemberAccess(_, expr, member) ->
         print("member ")

@@ -50,7 +50,7 @@ type SynNode =
     | SynBinaryOp { location: Location; op: SynBinaryOpType; left: SynNode; right: SynNode }
     | SynCall { location: Location; expr: SynNode; args: SynNode[]; arg_names: SynIdentifier[] }
     | SynArrayIndex { location: Location; expr: SynNode; index: SynNode }
-    | SynArraySlice { location: Location; expr: SynNode; index_start: SynNode; index_end: SynNode }
+    | SynArraySlice { location: Location; expr: SynNode; index_start: SynNode; index_end: option<SynNode> }
     | SynMemberAccess { location: Location; expr: SynNode; member: SynIdentifier }
     | SynLetVar { location: Location; var: SynTypedVar; body: SynNode }
     | SynLetVars { location: Location; vars: SynTypedVar[]; body: SynNode }

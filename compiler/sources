@@ -10,4 +10,5 @@ output.aike
 lexer.aike
 ast.aike
 dump.aike
+parser.aike
 main.aike

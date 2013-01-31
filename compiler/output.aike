@@ -6,4 +6,5 @@ let error(loc: Location, message: char[]) =
     printint(loc.start.column)
     print("): ")
     print(message)
-    assert(false)
+    println()
+    [][0]
