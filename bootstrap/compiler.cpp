@@ -1449,11 +1449,13 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 			{
 				LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
+				LLVMValueRef lv = compileExpr(context, builder, _->left);
+
 				LLVMBasicBlockRef current_basic_block = LLVMGetInsertBlock(builder);
 				LLVMBasicBlockRef next_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "next");
 				LLVMBasicBlockRef after_basic_block = LLVMAppendBasicBlockInContext(context.context, function, "after");
 
-				LLVMBuildCondBr(builder, compileExpr(context, builder, _->left), _->op == SynBinaryOpOr ? after_basic_block : next_basic_block, _->op == SynBinaryOpOr ? next_basic_block : after_basic_block);
+				LLVMBuildCondBr(builder, lv, _->op == SynBinaryOpOr ? after_basic_block : next_basic_block, _->op == SynBinaryOpOr ? next_basic_block : after_basic_block);
 
 				LLVMMoveBasicBlockAfter(next_basic_block, LLVMGetLastBasicBlock(function));
 				LLVMPositionBuilderAtEnd(builder, next_basic_block);
@@ -1468,9 +1470,9 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 				LLVMAddIncoming(pn, &rv, &next_basic_block, 1);
 
-				LLVMValueRef lv = LLVMConstInt(LLVMInt1TypeInContext(context.context), _->op == SynBinaryOpOr ? 1 : 0, false);
+				LLVMValueRef ev = LLVMConstInt(LLVMInt1TypeInContext(context.context), _->op == SynBinaryOpOr ? 1 : 0, false);
 
-				LLVMAddIncoming(pn, &lv, &current_basic_block, 1);
+				LLVMAddIncoming(pn, &ev, &current_basic_block, 1);
 
 				return pn;
 			}
