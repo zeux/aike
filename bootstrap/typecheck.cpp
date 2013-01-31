@@ -828,9 +828,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 				args[i] = resolveExpr(_->arg_values[i], env);
 		}
 
-		TypeFunction* function_type = dynamic_cast<TypeFunction*>(function->type);
-
-		return new ExprCall(function_type ? function_type->result : new TypeGeneric(), _->location, function, args);
+		return new ExprCall(new TypeGeneric(), _->location, function, args);
 	}
 
 	if (CASE(SynArrayIndex, node))

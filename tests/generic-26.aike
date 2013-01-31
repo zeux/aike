@@ -1,0 +1,8 @@
+let id(x) = x
+
+let y = (id(true), id(5))
+
+0
+
+// OUTPUT:
+// 0
