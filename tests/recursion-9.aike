@@ -1,0 +1,11 @@
+type option<'T> = Some 'T | None
+
+let parseExpr() =
+    let a = parseExpr()
+    let b: option<int> = parseExpr()
+
+    b
+
+let x = parseExpr()
+
+0

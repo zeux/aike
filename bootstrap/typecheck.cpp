@@ -1930,7 +1930,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 					ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + j]);
 
-					// fix types for the arguments of functions that are in the same scope and follow after this expressions
+					// fix types for functions that are in the same scope and follow after this expressions
 					// this allows generalization for backward references (i.e. no recursion), but should properly infer types
 					// for mutually recursive definitions
 					for (size_t k = j + 1; k < count; ++k)
@@ -1939,8 +1939,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 						if (references(func, nextfunc))
 						{
-							for (size_t ai = 0; ai < nextfunc->args.size(); ++ai)
-								nongen.push_back(nextfunc->args[ai]->type);
+							nongen.push_back(nextfunc->type);
 						}
 					}
 
