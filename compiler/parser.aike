@@ -559,8 +559,8 @@ let parseTerm(lexer) =
 
         SynArrayLiteral(lexloc(lexer, start), value #map(fun ch -> SynCharacterLiteral(lexloc(lexer, start), ch)))
 
-    | _ ->
-        error(lexcurrentloc(lexer), "Unexpected lexeme")
+    | x ->
+        error(lexcurrentloc(lexer), "Unexpected lexeme " #concat(lexname(x)))
 
 let getUnaryOp(lexeme) =
     match lexeme with
@@ -571,8 +571,6 @@ let getUnaryOp(lexeme) =
     | _ -> None
 
 let parseSuffixCall(lexer, expr, start) =
-    lexskip(lexer, LexOpenBrace)
-
     let (args, arg_names) = parseNamedList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseExpr(lexer))
 
     if arg_names != [] and arg_names#length != args#length then
@@ -672,6 +670,9 @@ let parsePrimary(lexer) =
 
     | LexKeyword("fun") ->
         parseAnonymousFunc(lexer)
+
+    | LexKeyword("let") ->
+        parseLet(lexer)
 
     | _ ->
         let start = lexcurrentoff(lexer)

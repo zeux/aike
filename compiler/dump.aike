@@ -92,7 +92,7 @@ let dumpSynMatch(node, indent) =
         printi(value)
 
     | SynMatchCharacterLiteral(_, value) ->
-        print([value])
+        print([char(39), value, char(39)])
 
     | SynMatchBooleanLiteral(_, value) ->
         print(if value then "true" else "false")
@@ -140,7 +140,9 @@ let dumpSynMatch(node, indent) =
         println()
         printindent(indent)
         print("if")
+        println()
         dumpSynNode(condition, indent + 1)
+        printindent(indent)
 
 let dumpSynNode(node, indent) =
     printindent(indent)
@@ -155,7 +157,7 @@ let dumpSynNode(node, indent) =
         println()
 
     | SynCharacterLiteral(_, value) ->
-        print([value])
+        print([char(39), value, char(39)])
         println()
 
     | SynBooleanLiteral(_, value) ->
@@ -167,6 +169,7 @@ let dumpSynNode(node, indent) =
         println()
         for e in elements do
             dumpSynNode(e, indent + 1)
+        printindent(indent)
         print("]")
         println()
 
@@ -175,6 +178,7 @@ let dumpSynNode(node, indent) =
         println()
         for e in elements do
             dumpSynNode(e, indent + 1)
+        printindent(indent)
         print(")")
         println()
 

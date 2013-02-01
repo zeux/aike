@@ -138,6 +138,7 @@ let readnext(lexer) =
     let lex2(cond, lexif, lexelse) =
         consume(lexer)
         if peekch(lexer) == cond then
+            consume(lexer)
             lexif
         else
             lexelse
