@@ -9,3 +9,9 @@ let parseExpr() =
 let x = parseExpr()
 
 0
+
+// ERRORS:
+// (7,31): Type mismatch. Expecting a
+//     option<option<int>>
+// but given a
+//     option<int>

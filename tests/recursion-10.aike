@@ -13,3 +13,9 @@ let parseExpr() =
 let x = parseExpr()
 
 0
+
+// ERRORS:
+// (8,5): Type mismatch. Expecting a
+//     option<Choice>
+// but given a
+//     Choice
