@@ -1845,12 +1845,15 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 
 	if (CASE(ExprForInDo, root))
 	{
+		// order of analyze calls is important for knowing type of index variable in body (important if it's a record)
 		Type* tarr = analyze(_->arr, nongen);
-		Type* tbody = analyze(_->body, nongen);
 
 		TypeArray* ta = new TypeArray(_->target->type);
 
 		mustUnify(tarr, ta, _->arr->location);
+
+		Type* tbody = analyze(_->body, nongen);
+
 		mustUnify(tbody, new TypeUnit(), _->body->location);
 
 		return _->type = new TypeUnit();

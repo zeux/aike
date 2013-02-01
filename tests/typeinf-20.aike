@@ -1,0 +1,18 @@
+type point = { x: int; y: int }
+
+let gen2(pred) =
+    [pred(), pred()]
+
+let genp(x) =
+    point(x, x + 1)
+
+let args = gen2(fun -> genp(1))
+
+for a in args do
+    let x = a.x
+    ()
+
+0
+
+// OUTPUT:
+// 0
