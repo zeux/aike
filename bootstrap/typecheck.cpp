@@ -1792,8 +1792,7 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 	{
 		size_t nongen_count = nongen.size();
 
-		for (size_t i = 0; i < _->args.size(); ++i)
-			nongen.push_back(_->args[i]->type);
+		nongen.push_back(_->type);
 
 		Type* tb = analyze(_->body, nongen);
 
