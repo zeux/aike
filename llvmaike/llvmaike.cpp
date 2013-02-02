@@ -49,6 +49,14 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 	return LLVMBuildCall(builder, function, Ops, 5, "");
 }
 
+int LLVMAikeIsAnInstruction(LLVMValueRef value)
+{
+	if(llvm::isa<llvm::Instruction>((llvm::Value*)value))
+		return 1;
+
+	return 0;
+}
+
 void LLVMAikeFatalErrorHandler(void *user_data, const std::string& reason)
 {
 	throw std::exception(reason.c_str());

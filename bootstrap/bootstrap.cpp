@@ -25,6 +25,7 @@ enum DebugFlags
 	DebugTypedAST = 4,
 	DebugCode = 8,
 	DebugObject = 16,
+	DebugInfo = 32,
 };
 
 #if defined(__linux)
@@ -203,7 +204,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
 		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
 
-		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root);
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (debugFlags & DebugInfo) != 0);
 
 		LLVMExecutionEngineRef ee;
 		char* error;
@@ -326,7 +327,7 @@ void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlag
 		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
 		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
 
-		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root);
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (debugFlags & DebugInfo) != 0);
 
 		LLVMExecutionEngineRef ee;
 		char* error;
@@ -403,6 +404,8 @@ unsigned int parseDebugFlags(int argc, char** argv)
 			result |= DebugCode;
 		else if (strcmp(argv[i], "--debug-object") == 0)
 			result |= DebugObject;
+		else if (strcmp(argv[i], "--debug-info") == 0)
+			result |= DebugInfo;
 		else if (strcmp(argv[i], "--debug") == 0)
 			result |= DebugParse | DebugAST | DebugTypedAST | DebugCode;
 	}

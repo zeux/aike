@@ -1,4 +1,5 @@
 EXPORTS
+    LLVMABIAlignmentOfType
     LLVMABISizeOfType
     LLVMAddBasicAliasAnalysisPass
     LLVMAddCFGSimplificationPass
@@ -13,7 +14,9 @@ EXPORTS
     LLVMAddIPConstantPropagationPass
     LLVMAddIncoming
     LLVMAddInstructionCombiningPass
+    LLVMAikeIsAnInstruction
     LLVMAddLICMPass
+    LLVMAddNamedMetadataOperand
     LLVMAddPromoteMemoryToRegisterPass
     LLVMAddReassociatePass
     LLVMAddSCCPPass
@@ -58,6 +61,7 @@ EXPORTS
     LLVMConstNull
     LLVMContextCreate
     LLVMCountParams
+    LLVMCountStructElementTypes
     LLVMCreateBuilderInContext
     LLVMCreateExecutionEngineForModule
     LLVMCreateFunctionPassManagerForModule
@@ -68,7 +72,6 @@ EXPORTS
     LLVMDumpValue
     LLVMFinalizeFunctionPassManager
     LLVMFloatTypeInContext
-    LLVMFunctionType
     LLVMFunctionType
     LLVMGenericValueToInt
     LLVMGetBasicBlockParent
@@ -84,32 +87,33 @@ EXPORTS
     LLVMGetLastParam
     LLVMGetMDKindIDInContext
     LLVMGetNamedFunction
-    LLVMGetNamedFunction
     LLVMGetNextFunction
     LLVMGetNextParam
     LLVMGetNextTarget
     LLVMGetOrInsertFunction
     LLVMGetReturnType
+    LLVMGetStructElementTypes
     LLVMGetValueName
     LLVMInitializeFunctionPassManager
     LLVMInt1TypeInContext
     LLVMInt32TypeInContext
-    LLVMInt32TypeInContext
-    LLVMInt8TypeInContext
+    LLVMInt64TypeInContext
     LLVMInt8TypeInContext
     LLVMMDNodeInContext
+    LLVMMDStringInContext
     LLVMModuleCreateWithNameInContext
     LLVMMoveBasicBlockAfter
-    LLVMPointerType
+    LLVMOffsetOfElement
     LLVMPointerType
     LLVMPositionBuilderAtEnd
+    LLVMReplaceAllUsesWith
     LLVMRunFunction
     LLVMRunFunctionPassManager
     LLVMRunPassManager
     LLVMSetLinkage
-    LLVMSetLinkage
     LLVMSetMetadata
     LLVMSetValueName
+    LLVMSizeOfTypeInBits
     LLVMStructCreateNamed
     LLVMStructSetBody
     LLVMStructTypeInContext

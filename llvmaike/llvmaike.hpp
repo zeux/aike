@@ -25,6 +25,8 @@ typedef LLVMValueRef LLVMFunctionRef;
 typedef LLVMValueRef LLVMPHIRef;
 typedef LLVMTypeRef LLVMStructTypeRef;
 typedef LLVMTypeRef LLVMFunctionTypeRef;
+typedef LLVMValueRef LLVMMetadataRef;
+typedef LLVMValueRef LLVMInstructionRef;
 
 LLVMTypeRef LLVMGetContainedType(LLVMTypeRef type, size_t index);
 
@@ -34,6 +36,8 @@ LLVMValueRef LLVMBuildCall2(LLVMBuilderRef builder, LLVMFunctionRef function, LL
 LLVMFunctionRef LLVMGetOrInsertFunction(LLVMModuleRef module, const char* name, LLVMFunctionTypeRef type);
 
 LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLVMModuleRef module, LLVMValueRef Dst, LLVMValueRef Src, LLVMValueRef Size, unsigned Align, bool isVolatile);
+
+int LLVMAikeIsAnInstruction(LLVMValueRef value);
 
 int LLVMAikeVerifyFunction(LLVMValueRef function);
 

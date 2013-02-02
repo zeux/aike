@@ -12,6 +12,22 @@
 
 typedef std::vector<std::pair<Type*, std::pair<Type*, LLVMTypeRef> > > GenericInstances;
 
+struct DebugInfo
+{
+	bool enabled;
+
+	LLVMMetadataRef compile_unit;
+	LLVMMetadataRef file;
+
+	std::vector<LLVMMetadataRef> blocks;
+
+	LLVMMetadataRef	functionPlaceholder;
+	std::vector<LLVMMetadataRef> functions;
+
+	LLVMMetadataRef	typePlaceholder;
+	std::map<std::string, LLVMMetadataRef> types;
+};
+
 struct Context
 {
 	LLVMContextRef context;
@@ -27,7 +43,430 @@ struct Context
 	std::vector<LLVMTypeRef> function_context_type;
 
 	GenericInstances generic_instances;
+
+	DebugInfo debug;
 };
+
+LLVMTypeRef compileType(Context& context, Type* type, const Location& location);
+Type* getTypeInstance(Context& context, Type* type, const Location& location);
+
+LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type);
+
+LLVMValueRef getConstBool(Context& context, bool value)
+{
+	return LLVMConstInt(LLVMInt1TypeInContext(context.context), value, false);
+}
+
+LLVMValueRef getConstInt(Context& context, int value)
+{
+	return LLVMConstInt(LLVMInt32TypeInContext(context.context), value, true);
+}
+
+LLVMValueRef getConstLong(Context& context, long long value)
+{
+	return LLVMConstInt(LLVMInt64TypeInContext(context.context), value, true);
+}
+
+LLVMMetadataRef getNullMetadata(Context& context)
+{
+	LLVMValueRef value = nullptr;
+
+	return LLVMMDNodeInContext(context.context, &value, 1);
+}
+
+LLVMMetadataRef getStringMetadata(Context& context, const std::string& str)
+{
+	return LLVMMDStringInContext(context.context, str.data(), str.length());
+}
+
+LLVMMetadataRef getArrayMetadata(Context& context, LLVMMetadataRef* values, unsigned count)
+{
+	return LLVMMDNodeInContext(context.context, values, count);
+}
+
+const unsigned DW_version = (12 << 16);
+
+const unsigned DW_TAG_compile_unit = 17;
+const unsigned DW_TAG_file_type = 41;
+const unsigned DW_TAG_base_type = 36;
+const unsigned DW_TAG_subrange_type = 33;
+const unsigned DW_TAG_subprogram = 46;
+const unsigned DW_TAG_lexical_block = 11;
+
+LLVMMetadataRef getCompileUnitMetadata(Context& context, const std::string& file, const std::string& folder)
+{
+	LLVMValueRef zero = nullptr;
+	LLVMValueRef placeholder = getConstInt(context, DW_version | DW_TAG_base_type);
+
+	LLVMMetadataRef enumerationPlaceholder = LLVMMDNodeInContext(context.context, &zero, 1);
+	LLVMMetadataRef enumetations = LLVMMDNodeInContext(context.context, &enumerationPlaceholder, 1);
+
+	LLVMMetadataRef globalTypePlaceholder = LLVMMDNodeInContext(context.context, &zero, 1);
+	LLVMMetadataRef globalTypes = LLVMMDNodeInContext(context.context, &globalTypePlaceholder, 1);
+
+	context.debug.functionPlaceholder = LLVMMDNodeInContext(context.context, &placeholder, 1);
+	LLVMMetadataRef functions = LLVMMDNodeInContext(context.context, &context.debug.functionPlaceholder, 1);
+
+	LLVMMetadataRef globalValuePlaceholder = LLVMMDNodeInContext(context.context, &zero, 1);
+	LLVMMetadataRef globalValues = LLVMMDNodeInContext(context.context, &globalValuePlaceholder, 1);
+
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_compile_unit),
+		getConstInt(context, 0),
+		getConstInt(context, 0x8000),
+		getStringMetadata(context, file),
+		getStringMetadata(context, folder),
+		getStringMetadata(context, "Aike bootstrap"),
+		getConstBool(context, true),
+		getConstBool(context, false),
+		getStringMetadata(context, ""),
+		getConstInt(context, 0),
+		enumetations,
+		globalTypes,
+		functions,
+		globalValues
+	};
+
+	LLVMMetadataRef compile_unit = getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+
+	if(context.debug.enabled)
+		LLVMAddNamedMetadataOperand(context.module, "llvm.dbg.cu", compile_unit);
+
+	return compile_unit;
+}
+
+void finalizeMetadata(Context& context)
+{
+	LLVMMetadataRef functions = getArrayMetadata(context, context.debug.functions.data(), context.debug.functions.size());
+	LLVMReplaceAllUsesWith(context.debug.functionPlaceholder, functions);
+}
+
+LLVMMetadataRef getFileMetadata(Context& context, const std::string& file, const std::string& folder)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_file_type),
+		getStringMetadata(context, file),
+		getStringMetadata(context, folder),
+		context.debug.compile_unit
+	};
+
+	return getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+}
+
+const unsigned DW_ATE_address = 1;
+const unsigned DW_ATE_boolean = 2;
+const unsigned DW_ATE_float = 4;
+const unsigned DW_ATE_signed = 5;
+const unsigned DW_ATE_signed_char = 6;
+const unsigned DW_ATE_unsigned = 7;
+const unsigned DW_ATE_unsigned_char = 8;
+
+LLVMMetadataRef getBaseTypeMetadata(Context& context, const std::string& name, unsigned line, long long size, long long alignment, long long offset_in_type, unsigned dw_encoding)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_base_type),
+		context.debug.compile_unit,
+		getStringMetadata(context, name),
+		context.debug.file,
+		getConstInt(context, line),
+		getConstLong(context, size),
+		getConstLong(context, alignment),
+		getConstLong(context, offset_in_type),
+		getConstInt(context, 0),
+		getConstInt(context, dw_encoding)
+	};
+
+	return getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+}
+
+const unsigned DW_TAG_formal_parameter = 5;
+const unsigned DW_TAG_member = 13;
+const unsigned DW_TAG_pointer_type = 15;
+const unsigned DW_TAG_reference_type = 16;
+const unsigned DW_TAG_typedef = 22;
+const unsigned DW_TAG_ptr_to_member_type = 31;
+const unsigned DW_TAG_const_type = 38;
+const unsigned DW_TAG_volatile_type = 53;
+const unsigned DW_TAG_restrict_type = 55;
+
+LLVMMetadataRef getDerivedTypeMetadata(Context& context, unsigned type, const std::string& name, unsigned line, long long size, long long alignment, long long offset_in_type, LLVMMetadataRef parent)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | type),
+		context.debug.blocks.back(),
+		getStringMetadata(context, name),
+		context.debug.file,
+		getConstInt(context, line),
+		getConstLong(context, size),
+		getConstLong(context, alignment),
+		getConstLong(context, offset_in_type),
+		getConstInt(context, 0),
+		parent
+	};
+
+	return getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+}
+
+const unsigned DW_TAG_array_type = 1;
+const unsigned DW_TAG_enumeration_type = 4;
+const unsigned DW_TAG_structure_type = 19;
+const unsigned DW_TAG_union_type = 23;
+const unsigned DW_TAG_subroutine_type = 21;
+const unsigned DW_TAG_inheritance = 28;
+
+LLVMMetadataRef getCompositeTypeMetadata(Context& context, unsigned type, const std::string& name, unsigned line, long long size, long long alignment, long long offset_in_type, LLVMMetadataRef parent, LLVMMetadataRef members)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | type),
+		context.debug.blocks.back(),
+		getStringMetadata(context, name),
+		context.debug.file,
+		getConstInt(context, line),
+		getConstLong(context, size),
+		getConstLong(context, alignment),
+		getConstLong(context, offset_in_type),
+		getConstInt(context, 0),
+		parent,
+		members,
+		getConstInt(context, 0)
+	};
+
+	return getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+}
+
+LLVMMetadataRef getArrayRangeMetadata(Context& context, long long size)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_subrange_type),
+		getConstLong(context, 0),
+		getConstLong(context, size)
+	};
+
+	return getArrayMetadata(context, values, sizeof(values) / sizeof(values[0]));
+}
+
+LLVMMetadataRef getTypeMetadata(Context& context, Type* type, long long offset_in_type, const Location& location);
+
+LLVMMetadataRef getFunctionTypeMetadata(Context& context, Type* type, const Location& location)
+{
+	type = finalType(type);
+
+	if (CASE(TypeFunction, type))
+	{
+		std::vector<LLVMTypeRef> llvm_arg_types;
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+			llvm_arg_types.push_back(compileType(context, _->args[i], location));
+
+		llvm_arg_types.push_back(LLVMPointerType(LLVMInt8TypeInContext(context.context), 0));
+
+		std::vector<LLVMMetadataRef> members;
+
+		members.push_back(getTypeMetadata(context, _->result, 0, location));
+		for (size_t i = 0; i < _->args.size(); ++i)
+			members.push_back(getTypeMetadata(context, _->args[i], 0, location));
+
+		return getCompositeTypeMetadata(context, DW_TAG_subroutine_type, "", location.line, 0, 0, 0, nullptr, getArrayMetadata(context, members.data(), members.size()));
+	}
+
+	assert(!"not a function type");
+	return 0;
+}
+
+LLVMMetadataRef getTypeMetadata(Context& context, Type* type, long long offset_in_type, const Location& location)
+{
+	type = finalType(type);
+
+	LLVMTypeRef llvm_type = compileType(context, type, location);
+
+	if (CASE(TypeGeneric, type))
+	{
+		for (size_t i = 0; i < context.generic_instances.size(); ++i)
+		{
+			if (type == context.generic_instances[i].first)
+				return getTypeMetadata(context, context.generic_instances[i].second.first, offset_in_type, location);
+		}
+
+		errorf(location, "No instance of the generic type '%s found", _->name.empty() ? "a" : _->name.c_str());
+	}
+
+	if (CASE(TypeUnit, type))
+		return getBaseTypeMetadata(context, "unit", 0, 32, 32, offset_in_type, DW_ATE_signed);
+
+	if (CASE(TypeInt, type))
+		return getBaseTypeMetadata(context, "int", 0, 32, 32, offset_in_type, DW_ATE_signed);
+
+	if (CASE(TypeChar, type))
+		return getBaseTypeMetadata(context, "char", 0, 8, 8, offset_in_type, DW_ATE_unsigned_char);
+
+	if (CASE(TypeFloat, type))
+		return getBaseTypeMetadata(context, "float", 0, 32, 32, offset_in_type, DW_ATE_float);
+
+	if (CASE(TypeBool, type))
+		return getBaseTypeMetadata(context, "bool", 0, 8, 8, offset_in_type, DW_ATE_boolean);
+
+	if (CASE(TypeClosureContext, type))
+	{
+		std::vector<LLVMTypeRef> llvm_members(LLVMCountStructElementTypes(llvm_type));
+		LLVMGetStructElementTypes(llvm_type, llvm_members.data());
+
+		std::vector<LLVMMetadataRef> members;
+
+		for (size_t i = 0; i < llvm_members.size(); ++i)
+		{
+			LLVMMetadataRef member;
+			if (dynamic_cast<TypeClosureContext*>(_->member_types[i]))
+				member = getDerivedTypeMetadata(context, DW_TAG_pointer_type, "", 0, 32, 32, 0, getBaseTypeMetadata(context, "char", 0, 8, 8, offset_in_type, DW_ATE_unsigned_char)); // TODO: x64 exists
+			else
+				member = getTypeMetadata(context, _->member_types[i], 0, location);
+
+			members.push_back(getDerivedTypeMetadata(context, DW_TAG_member, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_members[i]), LLVMABIAlignmentOfType(context.targetData, llvm_members[i]), LLVMOffsetOfElement(context.targetData, llvm_type, i) * 8, member));
+		}
+
+		return getCompositeTypeMetadata(context, DW_TAG_structure_type, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_type), LLVMABIAlignmentOfType(context.targetData, llvm_type), offset_in_type, nullptr, getArrayMetadata(context, members.data(), members.size()));
+	}
+
+	if (CASE(TypeTuple, type))
+	{
+		std::vector<LLVMTypeRef> llvm_members(LLVMCountStructElementTypes(llvm_type));
+		LLVMGetStructElementTypes(llvm_type, llvm_members.data());
+
+		std::vector<LLVMMetadataRef> members;
+
+		for (size_t i = 0; i < _->members.size(); ++i)
+			members.push_back(getDerivedTypeMetadata(context, DW_TAG_member, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_members[i]), LLVMABIAlignmentOfType(context.targetData, llvm_members[i]), LLVMOffsetOfElement(context.targetData, llvm_type, i) * 8, getTypeMetadata(context, _->members[i], 0, location)));
+
+		return getCompositeTypeMetadata(context, DW_TAG_structure_type, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_type), LLVMABIAlignmentOfType(context.targetData, llvm_type), offset_in_type, nullptr, getArrayMetadata(context, members.data(), members.size()));
+	}
+
+	if (CASE(TypeArray, type))
+	{
+		std::vector<LLVMMetadataRef> members;
+
+		// TODO: x64 exists
+		members.push_back(getDerivedTypeMetadata(context, DW_TAG_pointer_type, "", 0, 32, 32, 0, getTypeMetadata(context, _->contained, 0, location)));
+		members.push_back(getBaseTypeMetadata(context, "int", 0, 32, 32, 32, DW_ATE_signed));
+
+		return getCompositeTypeMetadata(context, DW_TAG_structure_type, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_type), LLVMABIAlignmentOfType(context.targetData, llvm_type), offset_in_type, nullptr, getArrayMetadata(context, members.data(), members.size()));
+	}
+
+	if (CASE(TypeFunction, type))
+	{
+		std::vector<LLVMMetadataRef> members;
+
+		members.push_back(getDerivedTypeMetadata(context, DW_TAG_pointer_type, "", 0, 32, 32, 0, getFunctionTypeMetadata(context, type, location))); // TODO: x64 exists
+		members.push_back(getDerivedTypeMetadata(context, DW_TAG_pointer_type, "", 0, 32, 32, 32, getBaseTypeMetadata(context, "char", 0, 8, 8, offset_in_type, DW_ATE_unsigned_char))); // TODO: x64 exists
+
+		return getCompositeTypeMetadata(context, DW_TAG_structure_type, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_type), LLVMABIAlignmentOfType(context.targetData, llvm_type), offset_in_type, nullptr, getArrayMetadata(context, members.data(), members.size()));
+	}
+
+	if (CASE(TypeInstance, type))
+	{
+		// compute mangled instance type name
+		std::string mtype = typeNameMangled(type, [&](TypeGeneric* tg) { return getTypeInstance(context, tg, location); } );
+
+		if (context.debug.types.count(mtype) > 0)
+			return context.debug.types[mtype];
+
+		LLVMMetadataRef placeholder = getNullMetadata(context);
+
+		context.debug.types[mtype] = placeholder;
+
+		std::vector<LLVMTypeRef> llvm_members(LLVMCountStructElementTypes(llvm_type));
+		LLVMGetStructElementTypes(llvm_type, llvm_members.data());
+
+		size_t generic_type_count = context.generic_instances.size();
+
+		const std::vector<Type*>& generics = getGenericTypes(*_->prototype);
+		assert(generics.size() == _->generics.size());
+
+		for (size_t i = 0; i < _->generics.size(); ++i)
+			context.generic_instances.push_back(std::make_pair(generics[i], std::make_pair(_->generics[i], compileType(context, _->generics[i], location))));
+
+		std::vector<LLVMMetadataRef> members;
+
+		if (TypePrototypeRecord *target = dynamic_cast<TypePrototypeRecord*>(*_->prototype))
+		{
+			for (size_t i = 0; i < target->member_types.size(); ++i)
+				members.push_back(getDerivedTypeMetadata(context, DW_TAG_member, "", 0, LLVMSizeOfTypeInBits(context.targetData, llvm_members[i]), LLVMABIAlignmentOfType(context.targetData, llvm_members[i]), LLVMOffsetOfElement(context.targetData, llvm_type, i) * 8, getTypeMetadata(context, target->member_types[i], 0, location)));
+		}
+
+		if (TypePrototypeUnion *target = dynamic_cast<TypePrototypeUnion*>(*_->prototype))
+		{
+			members.push_back(getBaseTypeMetadata(context, "int", 0, 32, 32, offset_in_type, DW_ATE_signed));
+			members.push_back(getDerivedTypeMetadata(context, DW_TAG_pointer_type, "", 0, 32, 32, 32, getBaseTypeMetadata(context, "char", 0, 8, 8, offset_in_type, DW_ATE_unsigned_char))); // TODO: x64 exists
+		}
+
+		context.generic_instances.resize(generic_type_count);
+
+		LLVMMetadataRef type = getCompositeTypeMetadata(context, DW_TAG_structure_type, mtype, 0, LLVMSizeOfTypeInBits(context.targetData, llvm_type), LLVMABIAlignmentOfType(context.targetData, llvm_type), offset_in_type, nullptr, getArrayMetadata(context, members.data(), members.size()));
+		
+		LLVMReplaceAllUsesWith(placeholder, type);
+
+		return context.debug.types[mtype] = type;
+	}
+
+	errorf(location, "Unrecognized type");
+}
+
+LLVMMetadataRef getFunctionMetadata(Context& context, const std::string& name, const std::string& fullName, const Location& location, LLVMMetadataRef type)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_subprogram),
+		getConstInt(context, 0),
+		context.debug.blocks.back(),
+		getStringMetadata(context, name),
+		getStringMetadata(context, fullName),
+		getStringMetadata(context, fullName),
+		context.debug.file,
+		getConstInt(context, location.line),
+		type,
+		getConstBool(context, false),
+		getConstBool(context, true), // TODO: isNotExternal
+	};
+
+	LLVMMetadataRef value = LLVMMDNodeInContext(context.context, values, sizeof(values) / sizeof(values[0]));
+
+	context.debug.functions.push_back(value);
+
+	return value;
+}
+
+LLVMMetadataRef getBlockMetadata(Context& context, const Location& location)
+{
+	static unsigned int unique_id = 0;
+
+	LLVMValueRef values[] = {
+		getConstInt(context, DW_version | DW_TAG_lexical_block),
+		context.debug.blocks.back(),
+		getConstInt(context, location.line),
+		getConstInt(context, location.column),
+		context.debug.file,
+		getConstInt(context, unique_id++)
+	};
+
+	return LLVMMDNodeInContext(context.context, values, sizeof(values) / sizeof(values[0]));
+}
+
+LLVMMetadataRef getLocationMetadata(Context& context, const Location& location)
+{
+	LLVMValueRef values[] = {
+		getConstInt(context, location.line),
+		getConstInt(context, location.column),
+		context.debug.blocks.back(),
+		0
+	};
+
+	return LLVMMDNodeInContext(context.context, values, sizeof(values) / sizeof(values[0]));
+}
+
+LLVMInstructionRef setDebugMetadata(Context& context, LLVMInstructionRef instruction, LLVMMetadataRef metadata)
+{
+	if(context.debug.enabled && LLVMAikeIsAnInstruction(instruction))
+		LLVMSetMetadata(instruction, LLVMGetMDKindIDInContext(context.context, "dbg", 3), metadata);
+
+	return instruction;
+}
 
 Type* getTypeInstance(Context& context, Type* type, const Location& location)
 {
@@ -44,10 +483,6 @@ Type* getTypeInstance(Context& context, Type* type, const Location& location)
 
 	return type;
 }
-
-LLVMTypeRef compileType(Context& context, Type* type, const Location& location);
-
-LLVMValueRef compileEqualityOperator(const Location& location, Context& context, LLVMBuilderRef builder, LLVMValueRef left, LLVMValueRef right, Type* type);
 
 LLVMTypeRef compileTypePrototype(Context& context, TypePrototype* proto, const Location& location, const std::string& mtype)
 {
@@ -498,16 +933,19 @@ LLVMFunctionRef compileFunction(Context& context, Expr* node, const std::string&
 {
 	if (CASE(ExprLetFunc, node))
 	{
+		context.debug.blocks.push_back(getFunctionMetadata(context, _->target->name, _->target->name + ".." + mtype, _->location, getFunctionTypeMetadata(context, node->type, _->location)));
 		return compileRegularFunction(context, _, mtype, ready);
 	}
 
 	if (CASE(ExprStructConstructorFunc, node))
 	{
+		context.debug.blocks.push_back(getFunctionMetadata(context, _->target->name, _->target->name + ".." + mtype, _->location, getFunctionTypeMetadata(context, node->type, _->location)));
 		return compileStructConstructor(context, _, mtype);
 	}
 
 	if (CASE(ExprUnionConstructorFunc, node))
 	{
+		context.debug.blocks.push_back(getFunctionMetadata(context, _->target->name, _->target->name + ".." + mtype, _->location, getFunctionTypeMetadata(context, node->type, _->location)));
 		return compileUnionConstructor(context, _, mtype);
 	}
 
@@ -538,6 +976,8 @@ LLVMFunctionRef compileFunctionInstance(Context& context, Expr* node, const Gene
 
 	// compile function body given a non-generic type
 	LLVMFunctionRef func = compileFunction(context, node, mtype, [&](LLVMFunctionRef func) { context.function_instances[std::make_pair(node, mtype)] = func; });
+
+	context.debug.blocks.pop_back();
 
 	if(!LLVMAikeVerifyFunction(func))
 		errorf(location, "Internal compiler error in %s", LLVMGetValueName(func));
@@ -1422,9 +1862,9 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		switch (_->op)
 		{
 		case SynUnaryOpPlus: return ev;
-		case SynUnaryOpMinus: return LLVMBuildNeg(builder, ev, "");
-		case SynUnaryOpRefGet: return LLVMBuildLoad(builder, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, ev, 1, ""), LLVMPointerType(compileType(context, _->type, _->location), 0), ""), "");
-		case SynUnaryOpNot: return LLVMBuildNot(builder, ev, "");
+		case SynUnaryOpMinus: return setDebugMetadata(context, LLVMBuildNeg(builder, ev, ""), getLocationMetadata(context, _->location));
+		case SynUnaryOpRefGet: return setDebugMetadata(context, LLVMBuildLoad(builder, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, ev, 1, ""), LLVMPointerType(compileType(context, _->type, _->location), 0), ""), ""), getLocationMetadata(context, _->location));
+		case SynUnaryOpNot: return setDebugMetadata(context, LLVMBuildNot(builder, ev, ""), getLocationMetadata(context, _->location));
 		default: assert(!"Unknown unary operation"); return 0;
 		}
 	}
@@ -1433,14 +1873,14 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 	{
 		switch (_->op)
 		{
-		case SynBinaryOpAdd: return LLVMBuildAdd(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpSubtract: return LLVMBuildSub(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpMultiply: return LLVMBuildMul(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpDivide: return LLVMBuildSDiv(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpLess: return LLVMBuildICmp(builder, LLVMIntSLT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpLessEqual: return LLVMBuildICmp(builder, LLVMIntSLE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpGreater: return LLVMBuildICmp(builder, LLVMIntSGT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
-		case SynBinaryOpGreaterEqual: return LLVMBuildICmp(builder, LLVMIntSGE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), "");
+		case SynBinaryOpAdd: return setDebugMetadata(context, LLVMBuildAdd(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpSubtract: return setDebugMetadata(context, LLVMBuildSub(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpMultiply: return setDebugMetadata(context, LLVMBuildMul(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpDivide: return setDebugMetadata(context, LLVMBuildSDiv(builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpLess: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSLT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpLessEqual: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSLE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpGreater: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSGT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
+		case SynBinaryOpGreaterEqual: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSGE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
 		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type);
 		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type), "");
 		case SynBinaryOpRefSet:
@@ -1500,7 +1940,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 		args.push_back(LLVMBuildExtractValue(builder, holder, 1, ""));
 
-		return LLVMBuildCall(builder, LLVMBuildExtractValue(builder, holder, 0, ""), args.data(), args.size(), "");
+		return setDebugMetadata(context, LLVMBuildCall(builder, LLVMBuildExtractValue(builder, holder, 0, ""), args.data(), args.size(), ""), getLocationMetadata(context, _->location));
 	}
 
 	if (CASE(ExprArrayIndex, node))
@@ -1951,6 +2391,8 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 	if (CASE(ExprBlock, node))
 	{
+		context.debug.blocks.push_back(getBlockMetadata(context, _->location));
+
 		LLVMValueRef value = 0;
 
 		for (size_t i = 0; i < _->expressions.size(); )
@@ -1990,6 +2432,8 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 			}
 		}
 
+		context.debug.blocks.pop_back();
+
 		return value;
 	}
 
@@ -1997,12 +2441,25 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 	return 0;
 }
 
-void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData, Expr* root)
+void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef targetData, Expr* root, bool generateDebugInfo)
 {
 	Context ctx;
 	ctx.context = context;
 	ctx.module = module;
 	ctx.targetData = targetData;
+
+	std::string file = "name.aike";
+	std::string folder = "D:/dev/Aike/tests";
+
+	ctx.debug.enabled = generateDebugInfo;
+
+	ctx.debug.compile_unit = getCompileUnitMetadata(ctx, file, folder);
+
+	ctx.debug.file = getFileMetadata(ctx, file, folder);
+
+	ctx.debug.blocks.push_back(ctx.debug.compile_unit);
+
+	ctx.debug.blocks.push_back(getFunctionMetadata(ctx, "entrypoint", "entrypoint", Location(), getFunctionTypeMetadata(ctx, new TypeFunction(new TypeUnit(), std::vector<Type*>()), Location())));
 
 	LLVMFunctionRef entryf = LLVMAddFunction(ctx.module, "entrypoint", LLVMFunctionType(LLVMInt32TypeInContext(ctx.context), 0, 0, false));
 
@@ -2017,4 +2474,6 @@ void compile(LLVMContextRef context, LLVMModuleRef module, LLVMTargetDataRef tar
 
 	if(!LLVMAikeVerifyFunction(entryf))
 		errorf(Location(), "Internal compiler error");
+
+	finalizeMetadata(ctx);
 }
