@@ -911,7 +911,12 @@ LLVMFunctionRef compileUnionConstructor(Context& context, ExprUnionConstructorFu
 		LLVMValueRef data = LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, "malloc"), &arg, 1, "");
 		LLVMValueRef typed_data = LLVMBuildBitCast(builder, data, member_ref_type, "");
 
-		if (node->args.size() > 1 || node->target->name.find("Syn") == 0)
+		// Get the member type of this union tag
+		Type *type = finalType(node->member_type);
+		TypeInstance *record_inst_type = dynamic_cast<TypeInstance*>(type);
+		TypePrototypeRecord *record_type = record_inst_type ? dynamic_cast<TypePrototypeRecord*>(*record_inst_type->prototype) : nullptr;
+
+		if (node->args.size() > 1 || (record_type && record_type->name == node->member_name))
 		{
 			for (size_t i = 0; i < LLVMCountParams(func); ++i, argi = LLVMGetNextParam(argi))
 				LLVMBuildStore(builder, argi, LLVMBuildStructGEP(builder, typed_data, i, ""));
@@ -1373,7 +1378,20 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 
 		LLVMValueRef element = LLVMBuildLoad(builder, LLVMBuildBitCast(builder, type_ptr, LLVMPointerType(compileType(context, type, _->location), 0), ""), "");
 
-		compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
+		// Get the member type of this union tag
+		type = finalType(type);
+
+		MatchCaseMembers *option = dynamic_cast<MatchCaseMembers*>(_->pattern);
+
+		TypeInstance *record_inst_type = dynamic_cast<TypeInstance*>(type);
+		TypePrototypeRecord *record_type = record_inst_type ? dynamic_cast<TypePrototypeRecord*>(*record_inst_type->prototype) : nullptr;
+
+		if (record_type && record_type->name == union_type->member_names[_->tag])
+			compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
+		else if (option && option->member_values.size() == 1)
+			compileMatch(context, builder, option->member_values[0], element, 0, 0, on_fail, success_all);
+		else
+			compileMatch(context, builder, _->pattern, element, 0, 0, on_fail, success_all);
 
 		LLVMMoveBasicBlockAfter(success_all, LLVMGetLastBasicBlock(function));
 		LLVMPositionBuilderAtEnd(builder, success_all);

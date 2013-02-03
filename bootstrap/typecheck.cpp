@@ -740,7 +740,7 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 			env.bindings.back().push_back(Binding(_->members[i].name.name, _->members[i].type ? new BindingFreeFunction(target, member_names) : new BindingUnionUnitConstructor(target, member_names)));
 
-			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, i, element_type));
+			expression->expressions.push_back(new ExprUnionConstructorFunc(function_type, _->location, target, args, _->members[i].name.name, i, element_type));
 		}
 
 		expression->expressions.push_back(new ExprUnit(new TypeUnit(), Location()));

@@ -1,0 +1,10 @@
+type vec2 = { x: int; y: int }
+
+type option<'a> = Some 'a | None
+
+match Some(vec2(1, 2)) with
+| Some (vec2(x, y)) -> x + y
+| None -> 0
+
+// OUTPUT:
+// 3
