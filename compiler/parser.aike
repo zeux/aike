@@ -4,10 +4,6 @@ let islower(lhs: LocOffset, rhs: LocOffset) =
 let issameline(lhs: LocOffset, rhs: LocOffset) =
     lhs.line == rhs.line
 
-let getref(x) =
-    // $$$ this is needed since expr unary op handles ref via a hack (see SynUnaryOp resolving)
-    !x
-
 let parseList(lexer, begin, end, pred) =
     let result = ref([])
 
@@ -127,8 +123,7 @@ let parseExternFunc(lexer) =
     let args = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseTypedVar(lexer))
     let result = parseTypeOpt(lexer)
 
-    // $$$ why is an explicit type qualifier needed?
-    for a: SynTypedVar in args do
+    for a in args do
         if a.ty == SynTypeNone then
             // $$$ error(args[i].name.location, "Extern function '%s': type declaration missing for argument '%s'", name.name.c_str(), args[i].name.name.c_str());
             error(a.name.location, "Extern function: type declaration missing for argument")
@@ -298,7 +293,7 @@ let parseNamedList(lexer, begin, end, pred) =
     // $$$ newline needed because of parser bug
     )
 
-    (list, getref(names))
+    (list, !names)
 
 let parseMatchPattern(lexer) =
     let start = lexcurrentoff(lexer)
@@ -419,7 +414,7 @@ let parseMatchWith(lexer) =
         // $$$ errorf(lexer.current.location, "Incorrect indentation: this token is offside of context at (%d,%d). Indent this token further.", start.line, start.column);
         error(lexcurrentloc(lexer), "Incorrect indentation: this token is offside of context. Indent this token further.")
 
-    while not islower(lexcurrentoff(lexer), start) and (lexcurrent(lexer) == LexPipe or getref(variants) == []) do
+    while not islower(lexcurrentoff(lexer), start) and (lexcurrent(lexer) == LexPipe or !variants == []) do
         if lexcurrent(lexer) == LexPipe then
             lexnext(lexer)
 
@@ -433,7 +428,7 @@ let parseMatchWith(lexer) =
         variants := concat(!variants, [pat])
         expressions := concat(!expressions, [expr])
 
-    if getref(variants) == [] then
+    if !variants == [] then
         error(lexcurrentloc(lexer), "Empty match expression")
 
     SynMatchWith(lexloc(lexer, start), expr, !variants, !expressions)
@@ -597,7 +592,6 @@ let parseSuffixIndex(lexer, expr, start) =
             if lexcurrent(lexer) == LexCloseBracket then
                 None
             else
-                // $$$ Type inference bug: removing Some() below (leaving parseExpr(lexer)) results in calling parseExpr with -> option<SynNode> signature :-/
                 Some(parseExpr(lexer))
 
         lexskip(lexer, LexCloseBracket)
@@ -757,7 +751,7 @@ let parseBlock(lexer) =
         // $$$ N^2
         exprs := concat(!exprs, [expr])
 
-    SynBlock(lexloc(lexer, start), getref(exprs))
+    SynBlock(lexloc(lexer, start), !exprs)
 
 let parse(lexer) =
     let code = parseBlock(lexer)
