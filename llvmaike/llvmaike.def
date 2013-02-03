@@ -14,7 +14,6 @@ EXPORTS
     LLVMAddIPConstantPropagationPass
     LLVMAddIncoming
     LLVMAddInstructionCombiningPass
-    LLVMAikeIsAnInstruction
     LLVMAddLICMPass
     LLVMAddNamedMetadataOperand
     LLVMAddPromoteMemoryToRegisterPass
@@ -26,6 +25,7 @@ EXPORTS
     LLVMAikeGetHostTriple
     LLVMAikeGetTypeName
     LLVMAikeInit
+    LLVMAikeIsInstruction
     LLVMAikeParseAssemblyString
     LLVMAikeVerifyFunction
     LLVMAppendBasicBlockInContext

@@ -49,7 +49,7 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 	return LLVMBuildCall(builder, function, Ops, 5, "");
 }
 
-int LLVMAikeIsAnInstruction(LLVMValueRef value)
+int LLVMAikeIsInstruction(LLVMValueRef value)
 {
 	if(llvm::isa<llvm::Instruction>((llvm::Value*)value))
 		return 1;

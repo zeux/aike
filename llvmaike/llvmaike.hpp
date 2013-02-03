@@ -37,7 +37,7 @@ LLVMFunctionRef LLVMGetOrInsertFunction(LLVMModuleRef module, const char* name, 
 
 LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLVMModuleRef module, LLVMValueRef Dst, LLVMValueRef Src, LLVMValueRef Size, unsigned Align, bool isVolatile);
 
-int LLVMAikeIsAnInstruction(LLVMValueRef value);
+int LLVMAikeIsInstruction(LLVMValueRef value);
 
 int LLVMAikeVerifyFunction(LLVMValueRef function);
 

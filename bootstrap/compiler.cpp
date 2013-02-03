@@ -462,7 +462,7 @@ LLVMMetadataRef getLocationMetadata(Context& context, const Location& location)
 
 LLVMInstructionRef setDebugMetadata(Context& context, LLVMInstructionRef instruction, LLVMMetadataRef metadata)
 {
-	if(context.debug.enabled && LLVMAikeIsAnInstruction(instruction))
+	if(context.debug.enabled && LLVMAikeIsInstruction(instruction))
 		LLVMSetMetadata(instruction, LLVMGetMDKindIDInContext(context.context, "dbg", 3), metadata);
 
 	return instruction;
