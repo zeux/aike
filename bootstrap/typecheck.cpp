@@ -764,13 +764,13 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		if (_->op == SynUnaryOpRefGet)
 		{
-			Type* type = resolveType("ref", env, _->location);
+			Type* refty = resolveType("ref", env, _->location);
 
 			// this is a hack to pass type to typechecker in the absence of type environment...
-			return new ExprUnaryOp(type, _->location, _->op, value);
+			return new ExprUnaryOp(new TypeGeneric(), _->location, _->op, value, refty);
 		}
 		else
-			return new ExprUnaryOp(new TypeGeneric(), _->location, _->op, value);
+			return new ExprUnaryOp(new TypeGeneric(), _->location, _->op, value, NULL);
 	}
 
 	if (CASE(SynBinaryOp, node))
@@ -780,10 +780,10 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 		if (_->op == SynBinaryOpRefSet)
 		{
-			Type* type = resolveType("ref", env, _->location);
+			Type* refty = resolveType("ref", env, _->location);
 
 			// this is a hack to pass type to typechecker in the absence of type environment...
-			return new ExprBinaryOp(type, _->location, _->op, left, right);
+			return new ExprBinaryOp(new TypeUnit(), _->location, _->op, left, right, refty);
 		}
 		else
 			return new ExprBinaryOp(new TypeGeneric(), _->location, _->op, left, right);
@@ -1636,8 +1636,8 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			return _->type = new TypeInt();
 			
 		case SynUnaryOpRefGet:
-			mustUnify(te, _->type, _->expr->location);
-			return _->type = dynamic_cast<TypeInstance*>(_->type)->generics[0];
+			mustUnify(te, _->refty, _->expr->location);
+			return _->type = dynamic_cast<TypeInstance*>(_->refty)->generics[0];
 
 		case SynUnaryOpNot:
 			mustUnify(te, new TypeBool(), _->expr->location);
@@ -1676,8 +1676,8 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 			return _->type = new TypeBool();
 
 		case SynBinaryOpRefSet:
-			mustUnify(tl, _->type, _->left->location);
-			mustUnify(tr, dynamic_cast<TypeInstance*>(_->type)->generics[0], _->right->location);
+			mustUnify(tl, _->refty, _->left->location);
+			mustUnify(tr, dynamic_cast<TypeInstance*>(_->refty)->generics[0], _->right->location);
 			return _->type = new TypeUnit();
 
 		case SynBinaryOpAnd:

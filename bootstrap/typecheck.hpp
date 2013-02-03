@@ -117,8 +117,9 @@ struct ExprUnaryOp: Expr
 {
 	SynUnaryOpType op;
 	Expr* expr;
+	Type* refty;
 
-	ExprUnaryOp(Type* type, const Location& location, SynUnaryOpType op, Expr* expr): Expr(type, location), op(op), expr(expr) {}
+	ExprUnaryOp(Type* type, const Location& location, SynUnaryOpType op, Expr* expr, Type* refty = NULL): Expr(type, location), op(op), expr(expr), refty(refty) {}
 };
 
 struct ExprBinaryOp: Expr
@@ -126,8 +127,9 @@ struct ExprBinaryOp: Expr
 	SynBinaryOpType op;
 	Expr* left;
 	Expr* right;
+	Type* refty;
 
-	ExprBinaryOp(Type* type, const Location& location, SynBinaryOpType op, Expr* left, Expr* right): Expr(type, location), op(op), left(left), right(right) {}
+	ExprBinaryOp(Type* type, const Location& location, SynBinaryOpType op, Expr* left, Expr* right, Type* refty = NULL): Expr(type, location), op(op), left(left), right(right), refty(refty) {}
 };
 
 struct ExprCall: Expr
