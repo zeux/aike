@@ -380,6 +380,10 @@ void dump(std::ostream& os, SynBase* root, int indent)
 	{
 		os << _->value;
 	}
+	else if (CASE(SynMatchCharacter, root))
+	{
+		os << "\'" << _->value << "\'";
+	}
 	else if (CASE(SynMatchBoolean, root))
 	{
 		os << (_->value ? "true" : "false");
@@ -534,6 +538,15 @@ void dump(std::ostream& os, PrettyPrintContext& context, MatchCase* case_)
 	else if (CASE(MatchCaseNumber, case_))
 	{
 		os << _->value;
+		if (_->type)
+		{
+			os << ": ";
+			dump(os, context, _->type);
+		}
+	}
+	else if (CASE(MatchCaseCharacter, case_))
+	{
+		os << "\'" << _->value << "\'";
 		if (_->type)
 		{
 			os << ": ";
