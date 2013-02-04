@@ -3,14 +3,14 @@ cmake_minimum_required (VERSION 2.8)
 
 # Get LLVM config
 set(LLVM_ROOT ${CMAKE_CURRENT_LIST_DIR}/extern/llvm CACHE PATH "Root of LLVM install.")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${LLVM_ROOT}/share/llvm/cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${LLVM_ROOT}/build/share/llvm/cmake")
 include(LLVMConfig)
 
 # Setup LLVM paths
 # include_directories( ${LLVM_INCLUDE_DIRS} )
 # link_directories( ${LLVM_LIBRARY_DIRS} )
-include_directories( ${LLVM_ROOT}/include )
-link_directories( ${LLVM_ROOT}/lib )
+include_directories( ${LLVM_ROOT}/include ${LLVM_ROOT}/build/include )
+link_directories( ${LLVM_ROOT}/build/lib )
 add_definitions( ${LLVM_DEFINITIONS} )
 
 # Include various LLVM components
