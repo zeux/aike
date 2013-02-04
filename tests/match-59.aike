@@ -1,0 +1,12 @@
+type option = Some int | None
+type variant = Maybe option | Else
+
+match Maybe(Some(4)) with
+| Maybe(Some((x))) -> x
+| _ -> 0
+
+// ERRORS:
+// (5,9): Type mismatch. Expecting a
+//     int
+// but given a
+//     ('a)
