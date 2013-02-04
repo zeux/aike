@@ -1164,7 +1164,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 			context.values[_->alias] = value;
 
 		if (target)
-			LLVMBuildStore(builder, compileExpr(context, builder, rhs), target);
+			setDebugMetadata(context, LLVMBuildStore(builder, compileExpr(context, builder, rhs), target), getLocationMetadata(context, _->location));
 
 		LLVMBuildBr(builder, on_success);
 	}
@@ -1172,7 +1172,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 	{
 		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt1TypeInContext(context.context), _->value, false), "");
+		LLVMValueRef cond = setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt1TypeInContext(context.context), _->value, false), ""), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
@@ -1189,7 +1189,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 	{
 		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->value), false), "");
+		LLVMValueRef cond = setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->value), false), ""), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
@@ -1206,7 +1206,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 	{
 		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt8TypeInContext(context.context), uint32_t(_->value), false), "");
+		LLVMValueRef cond = setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntEQ, value, LLVMConstInt(LLVMInt8TypeInContext(context.context), uint32_t(_->value), false), ""), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
@@ -1223,7 +1223,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 	{
 		LLVMFunctionRef function = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
-		LLVMValueRef cond = compileEqualityOperator(_->location, context, builder, compileBinding(context, builder, _->value, finalType(_->type), _->location), value, finalType(_->type));
+		LLVMValueRef cond = setDebugMetadata(context, compileEqualityOperator(_->location, context, builder, compileBinding(context, builder, _->value, finalType(_->type), _->location), value, finalType(_->type)), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success = LLVMAppendBasicBlockInContext(context.context, function, "success");
 
@@ -1246,7 +1246,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 
 		LLVMValueRef size = LLVMBuildExtractValue(builder, value, 1, "");
 
-		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, size, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size()), false), "");
+		LLVMValueRef cond = setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntEQ, size, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->elements.size()), false), ""), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success_size = LLVMAppendBasicBlockInContext(context.context, function, "success_size");
 		LLVMBasicBlockRef success_all = LLVMAppendBasicBlockInContext(context.context, function, "success_all");
@@ -1366,7 +1366,7 @@ void compileMatch(Context& context, LLVMBuilderRef builder, MatchCase* case_, LL
 		LLVMValueRef type_id = LLVMBuildExtractValue(builder, value, 0, "");
 		LLVMValueRef type_ptr = LLVMBuildExtractValue(builder, value, 1, "");
 
-		LLVMValueRef cond = LLVMBuildICmp(builder, LLVMIntEQ, type_id, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->tag), false), "");
+		LLVMValueRef cond = setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntEQ, type_id, LLVMConstInt(LLVMInt32TypeInContext(context.context), uint32_t(_->tag), false), ""), getLocationMetadata(context, _->location));
 
 		LLVMBasicBlockRef success_tag = LLVMAppendBasicBlockInContext(context.context, function, "success_tag");
 		LLVMBasicBlockRef success_all = LLVMAppendBasicBlockInContext(context.context, function, "success_all");
@@ -1899,14 +1899,14 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		case SynBinaryOpLessEqual: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSLE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
 		case SynBinaryOpGreater: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSGT, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
 		case SynBinaryOpGreaterEqual: return setDebugMetadata(context, LLVMBuildICmp(builder, LLVMIntSGE, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), ""), getLocationMetadata(context, _->location));
-		case SynBinaryOpEqual: return compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type);
-		case SynBinaryOpNotEqual: return LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type), "");
+		case SynBinaryOpEqual: return setDebugMetadata(context, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type), getLocationMetadata(context, _->location));
+		case SynBinaryOpNotEqual: return setDebugMetadata(context, LLVMBuildNot(builder, compileEqualityOperator(_->location, context, builder, compileExpr(context, builder, _->left), compileExpr(context, builder, _->right), _->left->type), ""), getLocationMetadata(context, _->location));
 		case SynBinaryOpRefSet:
 			{
 				LLVMValueRef lv = compileExpr(context, builder, _->left);
 				LLVMValueRef rv = compileExpr(context, builder, _->right);
 
-				LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), ""));
+				setDebugMetadata(context, LLVMBuildStore(builder, rv, LLVMBuildBitCast(builder, LLVMBuildExtractValue(builder, lv, 1, ""), LLVMPointerType(LLVMTypeOf(rv), 0), "")), getLocationMetadata(context, _->location));
 				return compileUnit(context);
 			}
 		case SynBinaryOpAnd:
@@ -2024,7 +2024,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		TypePrototypeRecord* record_type = inst_type ? dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype) : 0;
 
 		if (record_type)
-			return LLVMBuildExtractValue(builder, aggr, getMemberIndexByName(record_type, _->member_name, _->location), "");
+			return setDebugMetadata(context, LLVMBuildExtractValue(builder, aggr, getMemberIndexByName(record_type, _->member_name, _->location), ""), getLocationMetadata(context, _->location));
 
 		errorf(_->location, "Expected a record type");
 	}
@@ -2209,7 +2209,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		LLVMBasicBlockRef elsebb = LLVMAppendBasicBlockInContext(context.context, func, "else");
 		LLVMBasicBlockRef ifendbb = LLVMAppendBasicBlockInContext(context.context, func, "ifend");
 
-		LLVMBuildCondBr(builder, cond, thenbb, elsebb);
+		setDebugMetadata(context, LLVMBuildCondBr(builder, cond, thenbb, elsebb), getLocationMetadata(context, _->location));
 
 		LLVMPositionBuilderAtEnd(builder, thenbb);
 		LLVMValueRef thenbody = compileExpr(context, builder, _->thenbody);
@@ -2253,7 +2253,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 		LLVMPositionBuilderAtEnd(builder, step_basic_block);
 
-		LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntULT, LLVMBuildLoad(builder, index, ""), size, ""), body_basic_block, end_basic_block);
+		setDebugMetadata(context, LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntULT, LLVMBuildLoad(builder, index, ""), size, ""), body_basic_block, end_basic_block), getLocationMetadata(context, _->location));
 
 		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
 		LLVMPositionBuilderAtEnd(builder, body_basic_block);
@@ -2293,7 +2293,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		LLVMPHIRef index = LLVMBuildPhi(builder, LLVMInt32TypeInContext(context.context), "");
 		LLVMAddIncoming(index, &start, &before, 1);
 
-		LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntSLE, index, end, ""), body_basic_block, end_basic_block);
+		setDebugMetadata(context, LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntSLE, index, end, ""), body_basic_block, end_basic_block), getLocationMetadata(context, _->location));
 
 		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
 		LLVMPositionBuilderAtEnd(builder, body_basic_block);
@@ -2327,7 +2327,7 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 
 		LLVMPositionBuilderAtEnd(builder, condition_basic_block);
 
-		LLVMBuildCondBr(builder, compileExpr(context, builder, _->condition), body_basic_block, end_basic_block);
+		setDebugMetadata(context, LLVMBuildCondBr(builder, compileExpr(context, builder, _->condition), body_basic_block, end_basic_block), getLocationMetadata(context, _->location));
 
 		LLVMMoveBasicBlockAfter(body_basic_block, LLVMGetLastBasicBlock(function));
 		LLVMPositionBuilderAtEnd(builder, body_basic_block);
