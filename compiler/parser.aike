@@ -57,12 +57,11 @@ let parseGenericInstantiation(lexer) =
 let parseTypeBraced(lexer) =
     let list = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseType(lexer))
 
-    if lexcurrent(lexer) == LexArrow then
-        lexnext(lexer)
+    if lexcurrent(lexer) == LexArrow or list#length < 2 then
+        lexskip(lexer, LexArrow)
 
         SynTypeFunction(parseType(lexer), list)
     else
-        // $$$ Does it make sense to handle 0 and 1 arity separately (i.e. unit and single type)?
         SynTypeTuple(list)
 
 let parseType(lexer) =
@@ -289,9 +288,7 @@ let parseNamedList(lexer, begin, end, pred) =
                 lexrestore(lexer, state)
         | _ -> ()
 
-        pred()
-    // $$$ newline needed because of parser bug
-    )
+        pred())
 
     (list, !names)
 
@@ -361,10 +358,13 @@ let parseMatchPattern(lexer) =
     | LexOpenBrace ->
         let elements = parseList(lexer, LexOpenBrace, LexCloseBrace, fun -> parseMatchPattern(lexer))
 
-        if elements == [] then
+        match elements with
+        | [] ->
             error(lexloc(lexer, start), "Unit matching is not allowed")
-
-        SynMatchTupleLiteral(lexloc(lexer, start), elements)
+        | [e] ->
+            e
+        | list ->
+            SynMatchTupleLiteral(lexloc(lexer, start), list)
 
     | x ->
         error(lexcurrentloc(lexer), "Unexpected lexeme " #concat(lexname(x)))
@@ -510,7 +510,7 @@ let parseTerm(lexer) =
         match elements with
         | [] -> SynUnit(lexloc(lexer, start))
         | [e] -> e
-        | _ -> SynTupleLiteral(lexloc(lexer, start), elements)
+        | list -> SynTupleLiteral(lexloc(lexer, start), list)
 
     | LexOpenBracket ->
         let start = lexcurrentoff(lexer)
@@ -686,32 +686,31 @@ let parsePrimary(lexer) =
 
 let getBinaryOpPrec(lexeme) =
     match lexeme with
-    | LexMultiply -> (SynBinaryOpMultiply, 7)
-    | LexDivide -> (SynBinaryOpDivide, 7)
+    | LexMultiply -> Some((SynBinaryOpMultiply, 7))
+    | LexDivide -> Some((SynBinaryOpDivide, 7))
 
-    | LexPlus -> (SynBinaryOpAdd, 6)
-    | LexMinus -> (SynBinaryOpSubtract, 6)
+    | LexPlus -> Some((SynBinaryOpAdd, 6))
+    | LexMinus -> Some((SynBinaryOpSubtract, 6))
 
-    | LexLess -> (SynBinaryOpLess, 5)
-    | LexLessEqual -> (SynBinaryOpLessEqual, 5)
-    | LexGreater -> (SynBinaryOpGreater, 5)
-    | LexGreaterEqual -> (SynBinaryOpGreaterEqual, 5)
+    | LexLess -> Some((SynBinaryOpLess, 5))
+    | LexLessEqual -> Some((SynBinaryOpLessEqual, 5))
+    | LexGreater -> Some((SynBinaryOpGreater, 5))
+    | LexGreaterEqual -> Some((SynBinaryOpGreaterEqual, 5))
 
-    | LexEqualEqual -> (SynBinaryOpEqual, 4)
-    | LexNotEqual -> (SynBinaryOpNotEqual, 4)
+    | LexEqualEqual -> Some((SynBinaryOpEqual, 4))
+    | LexNotEqual -> Some((SynBinaryOpNotEqual, 4))
 
-    | LexKeyword("and") -> (SynBinaryOpAnd, 3)
+    | LexKeyword("and") -> Some((SynBinaryOpAnd, 3))
 
-    | LexKeyword("or") -> (SynBinaryOpOr, 2)
+    | LexKeyword("or") -> Some((SynBinaryOpOr, 2))
 
-    | LexColonEqual -> (SynBinaryOpRefSet, 1)
+    | LexColonEqual -> Some((SynBinaryOpRefSet, 1))
 
-    // $$$ Option is not used because of a bootstrap bug with matching
-    | _ -> (SynBinaryOpAdd, -1)
+    | _ -> None
 
 let parseExprClimbGreater(lexer, expr, limit, start) =
     match getBinaryOpPrec(lexcurrent(lexer)) with
-    | (op, prec) if prec > limit ->
+    | Some((op, prec)) if prec > limit ->
         let result = parseExprClimb(lexer, expr, prec, start)
 
         parseExprClimbGreater(lexer, result, limit, start)
@@ -720,7 +719,7 @@ let parseExprClimbGreater(lexer, expr, limit, start) =
 
 let parseExprClimb(lexer, expr, limit, start) =
     match getBinaryOpPrec(lexcurrent(lexer)) with
-    | (op, prec) if prec >= limit ->
+    | Some((op, prec)) if prec >= limit ->
         lexnext(lexer)
 
         let head = parsePrimary(lexer)
@@ -739,13 +738,22 @@ let parseExpr(lexer) =
 
     parseExprClimb(lexer, head, 0, start)
 
+let isBlockTerminator(lexeme) =
+    match lexeme with
+    | LexEOF
+    | LexCloseBrace
+    | LexCloseBracket
+    | LexComma
+        -> true
+    | _ -> false
+
 let parseBlock(lexer) =
     let start = lexcurrentoff(lexer)
 
     let head = parseExpr(lexer)
     let exprs = ref([head])
 
-    while lexcurrent(lexer) != LexEOF and not islower(lexcurrentoff(lexer), start) and not issameline(lexcurrentoff(lexer), start) do
+    while not isBlockTerminator(lexcurrent(lexer)) and not islower(lexcurrentoff(lexer), start) and not issameline(lexcurrentoff(lexer), start) do
         let expr = parseExpr(lexer)
 
         // $$$ N^2
