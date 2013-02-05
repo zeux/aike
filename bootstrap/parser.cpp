@@ -851,6 +851,9 @@ SynMatch* parseMatchPattern(Lexer& lexer)
 		if (elements.empty())
 			errorf(location, "unit cannot be matched");
 
+		if (elements.size() == 1)
+			return elements[0];
+
 		return new SynMatchTuple(location, elements);
 	}
 
