@@ -1481,6 +1481,23 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 					mustUnify(mtype, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
 				}
 			}
+			else if (TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype))
+			{
+				if (_->member_values.size() > 1)
+				{
+					PrettyPrintContext context;
+					std::string name = typeName(finalType(_->type), context);
+
+					errorf(_->member_values[1]->location, "Type %s has no members", name.c_str());
+				}
+
+				// This must be a union tag that is a type alias
+				assert(_->member_values.size() == 1);
+
+				Type* mtype = analyze(_->member_values[0], nongen);
+
+				mustUnify(mtype, inst_type, _->location);
+			}
 		}
 		else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
 		{
