@@ -1179,7 +1179,12 @@ SynBase* parseBlock(Lexer& lexer)
 
 	exprs.push_back(head);
 
-	while (lexer.current.type != LexEOF && !islower(lexer.current.location, start) && !issameline(lexer.current.location, start))
+	while (
+		lexer.current.type != LexEOF &&
+		lexer.current.type != LexCloseBrace &&
+		lexer.current.type != LexCloseBracket &&
+		lexer.current.type != LexComma &&
+		!islower(lexer.current.location, start) && !issameline(lexer.current.location, start))
 		exprs.push_back(parseExpr(lexer));
 	
 	return new SynBlock(start, exprs);
