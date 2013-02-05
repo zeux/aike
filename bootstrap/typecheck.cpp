@@ -1483,17 +1483,12 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 			}
 			else if (TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype))
 			{
-				if (_->member_values.size() > 1)
+				if (_->member_values.size() != 1)
 				{
-					PrettyPrintContext context;
-					std::string name = typeName(finalType(_->type), context);
-
-					errorf(_->member_values[1]->location, "Type %s has no members", name.c_str());
+					errorf(_->location, "Expected 1 arguments but given %d", _->member_values.size());
 				}
 
 				// This must be a union tag that is a type alias
-				assert(_->member_values.size() == 1);
-
 				Type* mtype = analyze(_->member_values[0], nongen);
 
 				mustUnify(mtype, inst_type, _->location);
@@ -1516,11 +1511,18 @@ Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
 		}
 		else
 		{
-			PrettyPrintContext context;
-			std::string name = typeName(finalType(_->type), context);
+			if (!_->member_names.empty())
+			{
+				PrettyPrintContext context;
+				std::string name = typeName(finalType(_->type), context);
 
-			if (!_->member_names.empty() || _->member_values.size() > 1)
-				errorf(_->location, "Type %s has no members", name.c_str());
+				errorf(_->location, "Type %s has no named members", name.c_str());
+			}
+
+			if (_->member_values.size() > 1)
+			{
+				errorf(_->location, "Expected 1 arguments but given %d", _->member_values.size());
+			}
 
 			if (_->member_values.size() == 1)
 			{
