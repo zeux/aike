@@ -24,8 +24,12 @@ enum DebugFlags
 	DebugAST = 2,
 	DebugTypedAST = 4,
 	DebugCode = 8,
-	DebugObject = 16,
-	DebugInfo = 32,
+};
+
+enum CompileFlags
+{
+    CompileObject = 1,
+    CompileDebugInfo = 2,
 };
 
 #if defined(__linux)
@@ -171,7 +175,7 @@ void compileModuleToObject(LLVMModuleRef module, const std::string& path, unsign
 		throw std::runtime_error(error);
 }
 
-bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
+bool runCode(const std::string& path, const std::string& data, std::ostream& output, std::ostream& errors, unsigned int compileFlags, unsigned int debugFlags, unsigned int optimizationLevel, bool outputErrorLocation)
 {
 	gOutput = &output;
 
@@ -204,7 +208,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
 		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
 
-		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (debugFlags & DebugInfo) != 0);
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (compileFlags & CompileDebugInfo) != 0);
 
 		LLVMExecutionEngineRef ee;
 		char* error;
@@ -220,14 +224,16 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 			LLVMDumpModule(module);
 		}
 
-		if (debugFlags & DebugObject)
+		if (compileFlags & CompileObject)
 		{
 			compileModuleToObject(module, "../output.obj", optimizationLevel);
 		}
+        else
+        {
+            LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
 
-		LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
-
-		output << (int)LLVMGenericValueToInt(gv, true) << "\n";
+            output << (int)LLVMGenericValueToInt(gv, true) << "\n";
+        }
 	}
 	catch (const ErrorAtLocation& e)
 	{
@@ -245,7 +251,7 @@ bool runCode(const std::string& path, const std::string& data, std::ostream& out
 	return result;
 }
 
-bool runTest(const std::string& path, unsigned int debugFlags, unsigned int optimizationLevel)
+bool runTest(const std::string& path, unsigned int compileFlags, unsigned int debugFlags, unsigned int optimizationLevel)
 {
 	std::string data = readFile(path);
 
@@ -257,7 +263,7 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 
 	std::ostringstream output, errors;
 
-	bool result = runCode(path, data, output, errors, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
+	bool result = runCode(path, data, output, errors, compileFlags, debugFlags, optimizationLevel, /* outputErrorLocation= */ false);
 
 	if (output.str() != expectedOutput || errors.str() != expectedErrors || result != expectedErrors.empty())
 	{
@@ -277,7 +283,7 @@ bool runTest(const std::string& path, unsigned int debugFlags, unsigned int opti
 	return true;
 }
 
-void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlags, unsigned int optimizationLevel)
+void runCompiler(const std::vector<std::string>& sources, unsigned int compileFlags, unsigned int debugFlags, unsigned int optimizationLevel)
 {
 	gOutput = &std::cout;
 
@@ -327,7 +333,7 @@ void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlag
 		LLVMFunctionRef malloc_func = LLVMAddFunction(module, "malloc", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), malloc_args, 1, false));
 		LLVMSetLinkage(malloc_func, LLVMExternalLinkage);
 
-		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (debugFlags & DebugInfo) != 0);
+		compile(context, module, LLVMCreateTargetData(LLVMGetDataLayout(module)), root, (compileFlags & CompileDebugInfo) != 0);
 
 		LLVMExecutionEngineRef ee;
 		char* error;
@@ -343,14 +349,16 @@ void runCompiler(const std::vector<std::string>& sources, unsigned int debugFlag
 			LLVMDumpModule(module);
 		}
 
-		if (debugFlags & DebugObject)
+		if (compileFlags & CompileObject)
 		{
 			compileModuleToObject(module, "../output.obj", optimizationLevel);
 		}
+        else
+        {
+            LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
 
-		LLVMGenericValueRef gv = LLVMRunFunction(ee, LLVMGetNamedFunction(module, "entrypoint"), 0, 0);
-
-		std::cout << (int)LLVMGenericValueToInt(gv, true) << "\n";
+            std::cout << (int)LLVMGenericValueToInt(gv, true) << "\n";
+        }
 	}
 	catch (const ErrorAtLocation& e)
 	{
@@ -402,12 +410,23 @@ unsigned int parseDebugFlags(int argc, char** argv)
 			result |= DebugTypedAST;
 		else if (strcmp(argv[i], "--debug-code") == 0)
 			result |= DebugCode;
-		else if (strcmp(argv[i], "--debug-object") == 0)
-			result |= DebugObject;
-		else if (strcmp(argv[i], "--debug-info") == 0)
-			result |= DebugInfo;
 		else if (strcmp(argv[i], "--debug") == 0)
 			result |= DebugParse | DebugAST | DebugTypedAST | DebugCode;
+	}
+
+	return result;
+}
+
+unsigned int parseCompileFlags(int argc, char** argv)
+{
+	unsigned int result = 0;
+
+	for (size_t i = 1; i < size_t(argc); ++i)
+	{
+		if (strcmp(argv[i], "-c") == 0)
+			result |= CompileObject;
+		else if (strcmp(argv[i], "-g") == 0)
+			result |= CompileDebugInfo;
 	}
 
 	return result;
@@ -436,6 +455,7 @@ int main(int argc, char** argv)
 	LLVMAikeInit();
 
 	unsigned int debugFlags = parseDebugFlags(argc, argv);
+	unsigned int compileFlags = parseCompileFlags(argc, argv);
 	unsigned int optimizationLevel = parseOptimizationLevel(argc, argv);
 	std::string testName = parseTestName(argc, argv);
 
@@ -454,7 +474,7 @@ int main(int argc, char** argv)
 			if (files[i].rfind(".aike") == files[i].length() - 5)
 			{
 				total++;
-				passed += runTest(files[i], debugFlags, optimizationLevel);
+				passed += runTest(files[i], compileFlags, debugFlags, optimizationLevel);
 			}
 
 		if (total == passed)
@@ -475,12 +495,12 @@ int main(int argc, char** argv)
 			if (!line.empty())
 				sources.push_back(line);
 
-		runCompiler(sources, debugFlags, optimizationLevel);
+        runCompiler(sources, compileFlags, debugFlags, optimizationLevel);
 	}
 	else
 	{
 		SetCurrentDirectoryA("../tests");
 
-		runCode(testName, readFile(testName), std::cout, std::cerr, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
+		runCode(testName, readFile(testName), std::cout, std::cerr, compileFlags, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 }
