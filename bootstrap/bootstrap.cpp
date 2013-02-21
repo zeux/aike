@@ -464,12 +464,12 @@ int main(int argc, char** argv)
 	unsigned int optimizationLevel = parseOptimizationLevel(argc, argv);
 	std::string testName = parseTestName(argc, argv);
 
+    SetCurrentDirectoryA("..");
+
 	if (testName.empty())
 	{
-		SetCurrentDirectoryA("../tests");
-
 		std::vector<std::string> files;
-		findFilesRecursive(files, ".", "");
+		findFilesRecursive(files, "tests", "tests/");
 
 		clock_t start = clock();
 
@@ -489,23 +489,21 @@ int main(int argc, char** argv)
 	}
 	else if (testName == "-")
 	{
-		SetCurrentDirectoryA("../compiler");
-
 		std::vector<std::string> sources;
 
-		std::ifstream src("sources");
+		std::ifstream src("compiler/sources");
 
 		std::string line;
 		while (std::getline(src, line))
 			if (!line.empty())
-				sources.push_back(line);
+				sources.push_back("compiler/" + line);
 
         runCompiler(sources, compileFlags, debugFlags, optimizationLevel);
 	}
 	else
 	{
-		SetCurrentDirectoryA("../tests");
+        std::string fileName = "tests/" + testName;
 
-		runCode(testName, readFile(testName), std::cout, std::cerr, compileFlags, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
+		runCode(fileName, readFile(fileName), std::cout, std::cerr, compileFlags, debugFlags, optimizationLevel, /* outputErrorLocation= */ true);
 	}
 }
