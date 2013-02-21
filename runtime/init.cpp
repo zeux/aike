@@ -35,6 +35,15 @@ void print(AikeArray<char> value)
 }
 
 AIKE_EXTERN
+AikeArray<char> string(int value)
+{
+	char buf[128];
+	sprintf(buf, "%d", value);
+	AikeArray<char> ret = {strdup(buf), strlen(buf)};
+	return ret;
+}
+
+AIKE_EXTERN
 AikeArray<char> readfile(AikeArray<char> path)
 {
     char* cpath = static_cast<char*>(malloc(path.length + 1));

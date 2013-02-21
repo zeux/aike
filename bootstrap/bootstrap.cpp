@@ -64,6 +64,15 @@ void print(AikeArray<char> value)
 	gOutput->write(value.data, value.length);
 }
 
+AIKE_EXTERN
+AikeArray<char> string(int value)
+{
+	std::string result = std::to_string(value);
+
+	AikeArray<char> ret = {strdup(result.c_str()), result.length()};
+	return ret;
+}
+
 std::string readFile(const std::string& path);
 
 AIKE_EXTERN
@@ -159,15 +168,11 @@ LLVMCodeGenOptLevel getCodeGenOptLevel(unsigned int optimizationLevel)
 
 void compileModuleToObject(LLVMModuleRef module, const std::string& path, unsigned int optimizationLevel)
 {
-	const char* triple = LLVMAikeGetHostTriple();
-	const char* cpu = LLVMAikeGetHostCPU();
-	const char* features = "";
-
 	LLVMTargetRef target = LLVMGetNextTarget(LLVMGetFirstTarget());
 
 	LLVMCodeGenOptLevel codeGenOptLevel = getCodeGenOptLevel(optimizationLevel);
 
-	LLVMTargetMachineRef tm = LLVMCreateTargetMachine(target, const_cast<char*>(triple), const_cast<char*>(cpu), const_cast<char*>(features), codeGenOptLevel, LLVMRelocDefault, LLVMCodeModelDefault);
+	LLVMTargetMachineRef tm = LLVMAikeCreateTargetMachine(target, codeGenOptLevel);
 
 	char* error;
 

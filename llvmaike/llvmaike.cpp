@@ -5,7 +5,9 @@
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Target/TargetOptions.h"
 
 LLVMTypeRef LLVMGetContainedType(LLVMTypeRef type, size_t index)
 {
@@ -158,18 +160,34 @@ const char* LLVMAikeGetTypeName(LLVMTypeRef type)
 	return strdup(result.c_str());
 }
 
-const char* LLVMAikeGetHostTriple()
+LLVMTargetMachineRef LLVMAikeCreateTargetMachine(LLVMTargetRef T, LLVMCodeGenOptLevel Level)
 {
-	std::string result = llvm::sys::getDefaultTargetTriple();
+	llvm::CodeGenOpt::Level OL;
 
-	return strdup(result.c_str());
-}
+	switch (Level) {
+	case LLVMCodeGenLevelNone:
+		OL = llvm::CodeGenOpt::None;
+		break;
+	case LLVMCodeGenLevelLess:
+		OL = llvm::CodeGenOpt::Less;
+		break;
+	case LLVMCodeGenLevelAggressive:
+		OL = llvm::CodeGenOpt::Aggressive;
+		break;
+	default:
+		OL = llvm::CodeGenOpt::Default;
+		break;
+	}
 
-const char* LLVMAikeGetHostCPU()
-{
- 	std::string result = llvm::sys::getHostCPUName();
+	std::string triple = llvm::sys::getDefaultTargetTriple();
+ 	std::string cpu = llvm::sys::getHostCPUName();
+    std::string features = "";
 
-	return strdup(result.c_str());
+	llvm::TargetOptions opt;
+    opt.NoFramePointerElim = true;
+    opt.NoFramePointerElimNonLeaf = true;
+
+	return llvm::wrap(llvm::unwrap(T)->createTargetMachine(triple, cpu, features, opt, llvm::Reloc::Default, llvm::CodeModel::Default, OL));
 }
 
 void LLVMAikeInit()

@@ -21,8 +21,7 @@ EXPORTS
     LLVMAddSCCPPass
     LLVMAddTailCallEliminationPass
     LLVMAddTargetData
-    LLVMAikeGetHostCPU
-    LLVMAikeGetHostTriple
+    LLVMAikeCreateTargetMachine
     LLVMAikeGetTypeName
     LLVMAikeInit
     LLVMAikeIsInstruction

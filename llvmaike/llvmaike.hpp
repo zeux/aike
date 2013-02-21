@@ -44,8 +44,7 @@ int LLVMAikeVerifyFunction(LLVMValueRef function);
 const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module);
 const char* LLVMAikeGetTypeName(LLVMTypeRef type);
 
-const char* LLVMAikeGetHostTriple();
-const char* LLVMAikeGetHostCPU();
+LLVMTargetMachineRef LLVMAikeCreateTargetMachine(LLVMTargetRef T, LLVMCodeGenOptLevel Level);
 
 void LLVMAikeInit();
 
