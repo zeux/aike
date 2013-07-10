@@ -122,7 +122,7 @@ void dumpError(std::ostream& os, const std::string& path, const Location& locati
 
 std::string readFile(const std::string& path)
 {
-	std::ifstream in(path);
+	std::ifstream in(path, std::ios::in | std::ios::binary);
 	in.unsetf(std::ios::skipws);
 	std::string data;
 	std::copy(std::istream_iterator<char>(in), std::istream_iterator<char>(), std::back_inserter(data));
@@ -155,6 +155,8 @@ std::string extractCommentBlock(const std::string& data, const std::string& name
 			break;
 		}
 	}
+
+    result.erase(std::remove(result.begin(), result.end(), '\r'), result.end());
 
 	return result;
 }
