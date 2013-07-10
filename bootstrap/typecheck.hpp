@@ -359,9 +359,9 @@ struct MatchCaseArray: MatchCase
 
 struct MatchCaseMembers: MatchCase
 {
+	std::vector<MatchCase*> member_values;
 	std::vector<std::string> member_names;
 	std::vector<Location> member_locations;
-	std::vector<MatchCase*> member_values;
 
 	MatchCaseMembers(Type* type, const Location& location, const std::vector<MatchCase*>& member_values, const std::vector<std::string>& member_names, const std::vector<Location>& member_locations): MatchCase(type, location), member_values(member_values), member_names(member_names), member_locations(member_locations)
 	{

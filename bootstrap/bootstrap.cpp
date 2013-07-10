@@ -6,6 +6,7 @@
 #include <string>
 #include <ctime>
 #include <iterator>
+#include <stdexcept>
 
 #include "lexer.hpp"
 #include "parser.hpp"
@@ -15,8 +16,12 @@
 #include "dump.hpp"
 #include "output.hpp"
 
-#define NOMINMAX
-#include <Windows.h>
+#ifdef _MSC_VER
+#   define NOMINMAX
+#   include <Windows.h>
+#else
+#   include <dirent.h>
+#endif
 
 enum DebugFlags
 {
@@ -377,9 +382,9 @@ void runCompiler(const std::vector<std::string>& sources, unsigned int compileFl
 	gOutput = NULL;
 }
 
-
 void findFilesRecursive(std::vector<std::string>& result, const std::string& path, const std::string& prefix)
 {
+#ifdef _MSC_VER
 	WIN32_FIND_DATAA data;
 	HANDLE h = FindFirstFileA((path + "/*").c_str(), &data);
 
@@ -399,6 +404,23 @@ void findFilesRecursive(std::vector<std::string>& result, const std::string& pat
 
 		FindClose(h);
 	}
+#else
+    if (DIR* dir = opendir(path.c_str()))
+    {
+        while (dirent* e = readdir(dir))
+        {
+            if (e->d_name[0] != '.')
+            {
+                if (e->d_type & DT_DIR)
+					findFilesRecursive(result, path + "/" + e->d_name, prefix + e->d_name + "/");
+				else
+					result.push_back(prefix + e->d_name);
+            }
+        }
+
+        closedir(dir);
+    }
+#endif
 }
 
 unsigned int parseDebugFlags(int argc, char** argv)
@@ -464,7 +486,9 @@ int main(int argc, char** argv)
 	unsigned int optimizationLevel = parseOptimizationLevel(argc, argv);
 	std::string testName = parseTestName(argc, argv);
 
+#ifdef _MSC_VER
     SetCurrentDirectoryA("..");
+#endif
 
 	if (testName.empty())
 	{

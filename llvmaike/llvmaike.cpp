@@ -1,6 +1,7 @@
 #include "llvmaike.hpp"
 
 #include <vector>
+#include <stdexcept>
 
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
@@ -61,7 +62,7 @@ int LLVMAikeIsInstruction(LLVMValueRef value)
 
 void LLVMAikeFatalErrorHandler(void *user_data, const std::string& reason)
 {
-	throw std::exception(reason.c_str());
+	throw std::runtime_error(reason.c_str());
 }
 
 int LLVMAikeVerifyFunction(LLVMValueRef function)
@@ -86,7 +87,7 @@ const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context
 
 	if (!llvm::ParseAssemblyString(text, (llvm::Module*)module, err, *(llvm::LLVMContext*)context))
 	{
-		std::string error = err.getMessage().str() + " at '" + err.getLineContents().str() + "'";
+		std::string error = err.getMessage() + " at '" + err.getLineContents() + "'";
 		return strdup(error.c_str());
 	}
 

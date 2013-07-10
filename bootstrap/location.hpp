@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 struct SourceFile
 {
 	const char* path;

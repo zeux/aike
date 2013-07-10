@@ -14,7 +14,11 @@ struct ErrorAtLocation: public std::exception
 	{
 	}
 
-	virtual const char* what() throw()
+    ~ErrorAtLocation() throw()
+    {
+    }
+
+	virtual const char* what() const throw()
 	{
 		return error.c_str();
 	}
