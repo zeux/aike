@@ -776,6 +776,17 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 	{
 		os << "llvm \"" << _->body << "\"\n";
 	}
+	else if (CASE(ExprBuiltin, root))
+	{
+		os << "builtin \"" << _->op << "\"\n";
+
+		for (size_t i = 0; i < _->args.size(); ++i)
+		{
+			indentout(os, indent);
+			os << "arg " << i << "\n";
+			dump(os, context, _->args[i], indent + 1);
+		}
+	}
 	else if (CASE(ExprLetFunc, root))
 	{
 		os << "let ";

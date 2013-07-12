@@ -2199,6 +2199,20 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 		return LLVMBuildCall(builder, LLVMGetNamedFunction(context.module, name.c_str()), arguments.data(), arguments.size(), "");
 	}
 
+	if (CASE(ExprBuiltin, node))
+	{
+        if (_->op == "arrayLength" && _->args.size() == 1)
+        {
+            LLVMValueRef value = compileExpr(context, builder, _->args[0]);
+
+            return LLVMBuildExtractValue(builder, value, 1, "");
+        }
+        else
+        {
+            errorf(_->location, "Unrecognized builtin %s(%d)", _->op.c_str(), (int)_->args.size());
+        }
+	}
+
 	if (CASE(ExprIfThenElse, node))
 	{
 		LLVMFunctionRef func = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));

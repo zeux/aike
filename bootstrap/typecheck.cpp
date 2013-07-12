@@ -791,44 +791,65 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 
 	if (CASE(SynCall, node))
 	{
-		Expr* function = resolveExpr(_->expr, env);
+        if (dynamic_cast<SynVariableReference*>(_->expr) && dynamic_cast<SynVariableReference*>(_->expr)->name == "builtin")
+        {
+            if (!_->arg_names.empty())
+                errorf(_->location, "Builtin expressions do not support named arguments");
 
-		std::vector<Expr*> args;
-		args.insert(args.begin(), _->arg_values.size(), 0);
+            if (_->arg_values.empty())
+                errorf(_->location, "Builtin expression is missing the identifier");
 
-		if (!_->arg_names.empty())
-		{
-			ExprBinding* expr_binding = dynamic_cast<ExprBinding*>(function);
-			BindingFunction* binding_function = expr_binding ? dynamic_cast<BindingFunction*>(expr_binding->binding) : 0;
+            if (!dynamic_cast<SynVariableReference*>(_->arg_values[0]))
+                errorf(_->location, "Builtin expression is missing the identifier");
 
-			if (!binding_function)
-				errorf(_->location, "Cannot match argument names to a value");
+            std::vector<Expr*> args(_->arg_values.size() - 1);
 
-			for (size_t i = 0; i < _->arg_names.size(); ++i)
-			{
-				// Find position of the function argument
-				bool found = false;
-				for (size_t k = 0; k < binding_function->arg_names.size() && !found; ++k)
-				{
-					if (_->arg_names[i].name == binding_function->arg_names[k])
-					{
-						if (args[k])
-							errorf(_->arg_names[i].location, "Value for argument '%s' is already defined", binding_function->arg_names[k].c_str());
-						args[k] = resolveExpr(_->arg_values[i], env);
-						found = true;
-					}
-				}
-				if (!found)
-					errorf(_->arg_names[i].location, "Function doesn't accept an argument named '%s'", _->arg_names[i].name.c_str());
-			}
-		}
-		else
-		{
-			for (size_t i = 0; i < _->arg_values.size(); ++i)
-				args[i] = resolveExpr(_->arg_values[i], env);
-		}
+            for (size_t i = 1; i < _->arg_values.size(); ++i)
+                args[i-1] = resolveExpr(_->arg_values[i], env);
 
-		return new ExprCall(new TypeGeneric(), _->location, function, args);
+            return new ExprBuiltin(new TypeGeneric(), _->location, dynamic_cast<SynVariableReference*>(_->arg_values[0])->name, args);
+        }
+        else
+        {
+            Expr* function = resolveExpr(_->expr, env);
+
+            std::vector<Expr*> args;
+            args.insert(args.begin(), _->arg_values.size(), 0);
+
+            if (!_->arg_names.empty())
+            {
+                ExprBinding* expr_binding = dynamic_cast<ExprBinding*>(function);
+                BindingFunction* binding_function = expr_binding ? dynamic_cast<BindingFunction*>(expr_binding->binding) : 0;
+
+                if (!binding_function)
+                    errorf(_->location, "Cannot match argument names to a value");
+
+                for (size_t i = 0; i < _->arg_names.size(); ++i)
+                {
+                    // Find position of the function argument
+                    bool found = false;
+                    for (size_t k = 0; k < binding_function->arg_names.size() && !found; ++k)
+                    {
+                        if (_->arg_names[i].name == binding_function->arg_names[k])
+                        {
+                            if (args[k])
+                                errorf(_->arg_names[i].location, "Value for argument '%s' is already defined", binding_function->arg_names[k].c_str());
+                            args[k] = resolveExpr(_->arg_values[i], env);
+                            found = true;
+                        }
+                    }
+                    if (!found)
+                        errorf(_->arg_names[i].location, "Function doesn't accept an argument named '%s'", _->arg_names[i].name.c_str());
+                }
+            }
+            else
+            {
+                for (size_t i = 0; i < _->arg_values.size(); ++i)
+                    args[i] = resolveExpr(_->arg_values[i], env);
+            }
+
+            return new ExprCall(new TypeGeneric(), _->location, function, args);
+        }
 	}
 
 	if (CASE(SynArrayIndex, node))
@@ -1842,6 +1863,14 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 	if (CASE(ExprLLVM, root))
 	{
 		return _->type;
+	}
+
+	if (CASE(ExprBuiltin, root))
+	{
+		for (size_t i = 0; i < _->args.size(); ++i)
+			analyze(_->args[i], nongen);
+
+        return _->type;
 	}
 
 	if (CASE(ExprIfThenElse, root))

@@ -249,6 +249,16 @@ struct ExprLLVM: Expr
 	}
 };
 
+struct ExprBuiltin: Expr
+{
+    std::string op;
+	std::vector<Expr*> args;
+
+	ExprBuiltin(Type* type, const Location& location, const std::string& op, const std::vector<Expr*>& args): Expr(type, location), op(op), args(args)
+	{
+	}
+};
+
 struct ExprIfThenElse: Expr
 {
 	Expr* cond;
