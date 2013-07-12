@@ -207,7 +207,7 @@ let readnext(lexer) =
         LexUnknown
 
 let skipws(lexer) =
-    while isspace(peekch(lexer)) do
+    while isspace(peekch(lexer)) or peekch(lexer) == char(13) do
         consume(lexer)
 
     if peekch(lexer) == '/' and peekchoff(lexer, 1) == '/' then

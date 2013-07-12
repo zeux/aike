@@ -1,5 +1,5 @@
 let length(x) =
-    llvm "extractvalue typeof(%x) %x, 1"
+    builtin(arrayLength, x)
 
 let sum(arr) =
     let loop(offset, acc) =

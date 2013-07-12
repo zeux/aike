@@ -1,5 +1,5 @@
-let length(x): int =
-    llvm "extractvalue typeof(%x) %x, 1"
+let length(x: 'a[]): int =
+    builtin(arrayLength, x)
 
 let x = "test"
 

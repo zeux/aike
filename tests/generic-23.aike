@@ -1,5 +1,5 @@
 let sizeof(x: 'a[]): int =
-    llvm "bitcast i32 sizeof('a) to i32"
+    builtin(sizeof, x[0])
 
 let f(x: 'a) =
     let g() =

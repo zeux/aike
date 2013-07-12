@@ -517,12 +517,16 @@ int main(int argc, char** argv)
 	{
 		std::vector<std::string> sources;
 
-		std::ifstream src("compiler/sources");
+		std::ifstream src("compiler/sources", std::ios::in | std::ios::binary);
 
 		std::string line;
 		while (std::getline(src, line))
+        {
+            line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+
 			if (!line.empty())
 				sources.push_back("compiler/" + line);
+        }
 
         runCompiler(sources, compileFlags, debugFlags, optimizationLevel);
 	}

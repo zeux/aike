@@ -1,27 +1,14 @@
 let length(x: 'a[]): int =
-    llvm "extractvalue typeof(%x) %x, 1"
+    builtin(arrayLength, x)
 
 let get_unsafe(x: 'a[], i: int): 'a =
-    llvm "
-    %r0 = extractvalue typeof(%x) %x, 0
-    %r1 = getelementptr typeof('a)* %r0, i32 %i
-    %out = load typeof('a)* %r1"
+    builtin(arrayGet, x, i)
 
 let set_unsafe(x: 'a[], i: int, v: 'a): unit =
-    llvm "
-    %r0 = extractvalue typeof(%x) %x, 0
-    %r1 = getelementptr typeof(%v)* %r0, i32 %i
-    store typeof(%v) %v, typeof(%v)* %r1
-    %out = bitcast i32 0 to i32"
+    builtin(arraySet, x, i, v)
 
 let newarr_unsafe(l: int): 'a[] =
-    llvm "
-    %r0 = mul i32 %l, sizeof('a)
-    %r1 = call i8* @malloc(i32 %r0)
-    %r2 = bitcast i8* %r1 to typeof('a)*
-    %r3 = insertvalue { typeof('a)*, i32 } zeroinitializer, typeof('a)* %r2, 0
-    %out = insertvalue { typeof('a)*, i32 } %r3, i32 %l, 1
-    "
+    builtin(arrayNew, l)
 
 let map(arr: 'a[], f) =
     if arr#length == 0 then

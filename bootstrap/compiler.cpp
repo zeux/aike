@@ -2203,9 +2203,59 @@ LLVMValueRef compileExpr(Context& context, LLVMBuilderRef builder, Expr* node)
 	{
         if (_->op == "arrayLength" && _->args.size() == 1)
         {
+            LLVMValueRef array = compileExpr(context, builder, _->args[0]);
+
+            return LLVMBuildExtractValue(builder, array, 1, "");
+        }
+        else if (_->op == "arrayGet" && _->args.size() == 2)
+        {
+            LLVMValueRef array = compileExpr(context, builder, _->args[0]);
+            LLVMValueRef index = compileExpr(context, builder, _->args[1]);
+
+			return LLVMBuildLoad(builder, LLVMBuildGEP(builder, LLVMBuildExtractValue(builder, array, 0, ""), &index, 1, ""), "");
+        }
+        else if (_->op == "arraySet" && _->args.size() == 3)
+        {
+            LLVMValueRef array = compileExpr(context, builder, _->args[0]);
+            LLVMValueRef index = compileExpr(context, builder, _->args[1]);
+            LLVMValueRef value = compileExpr(context, builder, _->args[2]);
+
+			LLVMBuildStore(builder, value, LLVMBuildGEP(builder, LLVMBuildExtractValue(builder, array, 0, ""), &index, 1, ""));
+
+            return compileUnit(context);
+        }
+        else if (_->op == "arrayNew" && _->args.size() == 1)
+        {
+            LLVMValueRef size = compileExpr(context, builder, _->args[0]);
+
+            LLVMTypeRef array_type = compileType(context, _->type, _->location);
+
+            LLVMTypeRef element_type = LLVMGetElementType(LLVMGetContainedType(array_type, 0));
+            size_t element_size = LLVMABISizeOfType(context.targetData, element_type);
+		
+            LLVMValueRef total_size = LLVMBuildMul(builder, size, LLVMConstInt(LLVMInt32TypeInContext(context.context), element_size, false), "");
+
+            LLVMValueRef arr = LLVMConstNull(array_type);
+
+            LLVMValueRef data = LLVMBuildBitCast(builder, LLVMBuildCall1(builder, LLVMGetNamedFunction(context.module, "malloc"), total_size), LLVMGetContainedType(array_type, 0), "");
+
+            return LLVMBuildInsertValue(builder, LLVMBuildInsertValue(builder, arr, data, 0, ""), size, 1, "");
+        }
+        else if (_->op == "castNumber" && _->args.size() == 1)
+        {
             LLVMValueRef value = compileExpr(context, builder, _->args[0]);
 
-            return LLVMBuildExtractValue(builder, value, 1, "");
+            LLVMTypeRef target_type = compileType(context, _->type, _->location);
+
+            // for now only handle integer signed casts
+            return LLVMBuildIntCast(builder, value, target_type, "");
+        }
+        else if (_->op == "sizeof" && _->args.size() == 1)
+        {
+            LLVMTypeRef type = compileType(context, _->args[0]->type, _->location);
+            size_t size = LLVMABISizeOfType(context.targetData, type);
+
+            return LLVMConstInt(LLVMInt32TypeInContext(context.context), size, false);
         }
         else
         {

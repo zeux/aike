@@ -1,4 +1,4 @@
-let path = "parser.aike"
+let path = "compiler/parser.aike"
 let source = readfile(path)
 let lexer = Lexer(LocFile(path, source), ref(LexerState(0, 0, 0, LocOffset(0, 0, 0), LocOffset(0, 0, 0), LexUnknown)))
 lexnext(lexer)

@@ -1,8 +1,8 @@
 let int(x: char): int =
-    llvm "zext i8 %x to i32"
+    builtin(castNumber, x)
 
 let char(x: int): char =
-    llvm "trunc i32 %x to i8"
+    builtin(castNumber, x)
 
 let inrange(x, min, max) =
     int(x) >= int(min) and int(x) <= int(max)

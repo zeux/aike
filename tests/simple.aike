@@ -1,7 +1,7 @@
 extern printint(x: int): unit
 
 let add(x: int, y: int): int =
-    llvm "add i32 %x, %y"
+    x + y
 
 let div2(n: int): int =
     if n == 0 then

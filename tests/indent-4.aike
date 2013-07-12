@@ -1,5 +1,5 @@
-let x = llvm "
-"
+let x = "
+" y
 
 // ERRORS:
-// (1,14): Failed to parse llvm inline code: instructions returning void cannot have a name at '%out = '
+// (2,3): Unresolved variable reference y
