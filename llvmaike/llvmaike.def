@@ -22,10 +22,8 @@ EXPORTS
     LLVMAddTailCallEliminationPass
     LLVMAddTargetData
     LLVMAikeCreateTargetMachine
-    LLVMAikeGetTypeName
     LLVMAikeInit
     LLVMAikeIsInstruction
-    LLVMAikeParseAssemblyString
     LLVMAikeVerifyFunction
     LLVMAppendBasicBlockInContext
     LLVMBuildAdd

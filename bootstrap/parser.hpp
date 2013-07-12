@@ -274,15 +274,6 @@ struct SynLetVars: SynBase
 	}
 };
 
-struct SynLLVM: SynBase
-{
-	std::string body;
-
-	SynLLVM(const Location& location, const std::string& body): SynBase(location), body(body)
-	{
-	}
-};
-
 struct SynLetFunc: SynBase
 {
 	SynIdentifier var;

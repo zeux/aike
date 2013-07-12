@@ -916,9 +916,6 @@ Expr* resolveExpr(SynBase* node, Environment& env)
 		return new ExprLetVars(new TypeUnit(), _->location, targets, body);
 	}
 
-	if (CASE(SynLLVM, node))
-		return new ExprLLVM(new TypeGeneric(), _->location, _->body);
-
 	if (CASE(SynLetFunc, node))
 	{
 		BindingFunction* binding = resolveFunctionDeclarationRec(_, env);
@@ -1856,11 +1853,6 @@ Type* analyze(Expr* root, std::vector<Type*>& nongen)
 	}
 
 	if (CASE(ExprUnionConstructorFunc, root))
-	{
-		return _->type;
-	}
-
-	if (CASE(ExprLLVM, root))
 	{
 		return _->type;
 	}

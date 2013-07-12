@@ -311,10 +311,6 @@ void dump(std::ostream& os, SynBase* root, int indent)
 		os << ") =\n";
 		dump(os, _->body, indent + 1);
 	}
-	else if (CASE(SynLLVM, root))
-	{
-		os << "llvm \"" << _->body << "\"\n";
-	}
 	else if (CASE(SynLetFunc, root))
 	{
 		bool anonymous = _->var.name.empty();
@@ -771,10 +767,6 @@ void dump(std::ostream& os, PrettyPrintContext& context, Expr* root, int indent)
 		}
 		os << ") =\n";
 		dump(os, context, _->body, indent + 1);
-	}
-	else if (CASE(ExprLLVM, root))
-	{
-		os << "llvm \"" << _->body << "\"\n";
 	}
 	else if (CASE(ExprBuiltin, root))
 	{

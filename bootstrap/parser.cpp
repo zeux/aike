@@ -590,20 +590,6 @@ SynBase* parseLet(Lexer& lexer)
 	return new SynLetVars(location, vars, parseBlock(lexer));
 }
 
-SynBase* parseLLVM(Lexer& lexer)
-{
-	assert(iskeyword(lexer, "llvm"));
-	movenext(lexer);
-
-	if (lexer.current.type != LexString) errorf(lexer.current.location, "Expected string after llvm keyword");
-
-	std::string body = lexer.current.contents;
-	Location location = lexer.current.location;
-	movenext(lexer);
-
-	return new SynLLVM(location, body);
-}
-
 SynBase* parseIfThenElse(Lexer& lexer)
 {
 	Location location = lexer.current.location;
@@ -980,9 +966,6 @@ SynBase* parsePrimary(Lexer& lexer)
 
 	if (iskeyword(lexer, "let"))
 		return parseLet(lexer);
-
-	if (iskeyword(lexer, "llvm"))
-		return parseLLVM(lexer);
 
 	if (iskeyword(lexer, "if"))
 		return parseIfThenElse(lexer);

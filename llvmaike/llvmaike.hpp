@@ -41,7 +41,6 @@ int LLVMAikeIsInstruction(LLVMValueRef value);
 
 int LLVMAikeVerifyFunction(LLVMValueRef function);
 
-const char* LLVMAikeParseAssemblyString(const char* text, LLVMContextRef context, LLVMModuleRef module);
 const char* LLVMAikeGetTypeName(LLVMTypeRef type);
 
 LLVMTargetMachineRef LLVMAikeCreateTargetMachine(LLVMTargetRef T, LLVMCodeGenOptLevel Level);

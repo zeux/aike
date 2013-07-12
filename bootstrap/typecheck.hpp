@@ -240,15 +240,6 @@ struct ExprUnionConstructorFunc: Expr
 	}
 };
 
-struct ExprLLVM: Expr
-{
-	std::string body;
-
-	ExprLLVM(Type* type, const Location& location, const std::string& body): Expr(type, location), body(body)
-	{
-	}
-};
-
 struct ExprBuiltin: Expr
 {
     std::string op;
