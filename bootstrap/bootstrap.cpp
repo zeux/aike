@@ -175,7 +175,7 @@ LLVMCodeGenOptLevel getCodeGenOptLevel(unsigned int optimizationLevel)
 
 void compileModuleToObject(LLVMModuleRef module, const std::string& path, unsigned int optimizationLevel)
 {
-	LLVMTargetRef target = LLVMGetNextTarget(LLVMGetFirstTarget());
+	LLVMTargetRef target = LLVMGetFirstTarget();
 
 	LLVMCodeGenOptLevel codeGenOptLevel = getCodeGenOptLevel(optimizationLevel);
 

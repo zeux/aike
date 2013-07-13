@@ -187,18 +187,22 @@ let parseLet(lexer) =
 
             parseLetVars(lexer, [SynTypedVar(name, ty)], start)
 
-let parseLLVM(lexer) =
+let parseBuiltin(lexer) =
     let start = lexcurrentoff(lexer)
 
-    lexskip(lexer, LexKeyword("llvm"))
+    lexskip(lexer, LexKeyword("builtin"))
+    lexskip(lexer, LexOpenBrace)
 
-    match lexcurrent(lexer) with
-    | LexString value ->
-        lexnext(lexer)
+    let op = parseIdentifier(lexer)
 
-        SynLLVM(lexloc(lexer, start), value)
-    | _ ->
-        error(lexcurrentloc(lexer), "Expected string after llvm keyword")
+    let args =
+        if lexcurrent(lexer) == LexComma then
+            parseList(lexer, LexComma, LexCloseBrace, fun -> parseExpr(lexer))
+        else
+            lexskip(lexer, LexCloseBrace)
+            []
+
+    SynBuiltin(lexloc(lexer, start), op, args)
 
 let parseIfThenElse(lexer) =
     let start = lexcurrentoff(lexer)
@@ -647,8 +651,8 @@ let parsePrimary(lexer) =
     | LexKeyword("type") ->
         parseTypeDefinition(lexer)
 
-    | LexKeyword("llvm") ->
-        parseLLVM(lexer)
+    | LexKeyword("builtin") ->
+        parseBuiltin(lexer)
 
     | LexKeyword("if") ->
         parseIfThenElse(lexer)

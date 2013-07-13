@@ -125,7 +125,7 @@ let readident(lexer) =
     let data = readwhile(lexer, isident)
 
     match data with
-    | "let" | "match" | "with" | "if" | "then" | "else" | "llvm" | "extern" | "fun" | "for" | "in" | "do" | "true" | "false" | "type" | "while" | "and" | "or" | "not" ->
+    | "let" | "match" | "with" | "if" | "then" | "else" | "builtin" | "extern" | "fun" | "for" | "in" | "do" | "true" | "false" | "type" | "while" | "and" | "or" | "not" ->
         LexKeyword(data)
     | _ ->
         LexIdentifier(data)

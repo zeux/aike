@@ -54,7 +54,7 @@ type SynNode =
     | SynMemberAccess { location: Location; expr: SynNode; member: SynIdentifier }
     | SynLetVar { location: Location; var: SynTypedVar; body: SynNode }
     | SynLetVars { location: Location; vars: SynTypedVar[]; body: SynNode }
-    | SynLLVM { location: Location; body: char[] }
+    | SynBuiltin { location: Location; op: SynIdentifier; args: SynNode[] }
     | SynLetFunc { location: Location; var: SynIdentifier; result: SynType; args: SynTypedVar[]; body: SynNode }
     | SynExternFunc { location: Location; var: SynIdentifier; result: SynType; args: SynTypedVar[] }
     | SynIfThenElse { location: Location; condition: SynNode; thenbody: SynNode; elsebody: SynNode }

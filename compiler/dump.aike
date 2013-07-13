@@ -287,11 +287,16 @@ let dumpSynNode(node, indent) =
         println()
         dumpSynNode(body, indent + 1)
 
-    | SynLLVM(_, body) ->
-        print("llvm {")
-        print(body)
-        print("}")
+    | SynBuiltin(_, op, args) ->
+        print("builtin ")
+        print(op.name)
         println()
+        for i in 0..args#length-1 do
+            printindent(indent)
+            print("arg ")
+            printi(i)
+            println()
+            dumpSynNode(args[i], indent + 1)
 
     | SynLetFunc(_, var, result, args, body) ->
         if var.name == [] then
