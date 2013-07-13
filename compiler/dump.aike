@@ -349,6 +349,7 @@ let dumpSynNode(node, indent) =
         print("from")
         println()
         dumpSynNode(range_start, indent + 1)
+        printindent(indent)
         print("to")
         println()
         dumpSynNode(range_end, indent + 1)
