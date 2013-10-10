@@ -1,0 +1,889 @@
+let x = 1
+// bool references(ExprLetFunc* lhs, ExprLetFunc* rhs)
+// {
+//  for (size_t i = 0; i < lhs->externals.size(); ++i)
+//      if (ExprBinding* binding = dynamic_cast<ExprBinding*>(lhs->externals[i]))
+//          if (BindingFunction* bindfun = dynamic_cast<BindingFunction*>(binding->binding))
+//              if (bindfun->target == rhs->target)
+//                  return true;
+
+//  return false;
+// }
+
+// Type* prune(Type* t)
+// {
+//  if (CASE(TypeGeneric, t))
+//  {
+//      if (_->instance)
+//      {
+//          _->instance = prune(_->instance);
+//          return _->instance;
+//      }
+
+//      return _;
+//  }
+
+//  return t;
+// }
+
+// bool occurs(Type* lhs, Type* rhs)
+// {
+//  rhs = prune(rhs);
+
+//  if (lhs == rhs)
+//      return true;
+
+//  if (CASE(TypeArray, rhs))
+//  {
+//      return occurs(lhs, _->contained);
+//  }
+
+//  if (CASE(TypeFunction, rhs))
+//  {
+//      if (occurs(lhs, _->result)) return true;
+
+//      for (size_t i = 0; i < _->args.size(); ++i)
+//          if (occurs(lhs, _->args[i]))
+//              return true;
+
+//      return false;
+//  }
+
+//  if (CASE(TypeInstance, rhs))
+//  {
+//      for (size_t i = 0; i < _->generics.size(); ++i)
+//          if (occurs(lhs, _->generics[i]))
+//              return true;
+
+//      return false;
+//  }
+
+//  if (CASE(TypeTuple, rhs))
+//  {
+//      for (size_t i = 0; i < _->members.size(); ++i)
+//          if (occurs(lhs, _->members[i]))
+//              return true;
+
+//      return false;
+//  }
+
+//  return false;
+// }
+
+// bool occurs(Type* lhs, const std::vector<Type*>& rhs)
+// {
+//  for (size_t i = 0; i < rhs.size(); ++i)
+//      if (occurs(lhs, rhs[i]))
+//          return true;
+
+//  return false;
+// }
+
+// Type* fresh(Type* t, const std::vector<Type*>& nongen, std::map<TypeGeneric*, TypeGeneric*>& genremap)
+// {
+//  t = prune(t);
+
+//  if (CASE(TypeGeneric, t))
+//  {
+//      if (occurs(t, nongen))
+//          return t;
+
+//      if (genremap.count(_))
+//          return genremap[_];
+
+//      return genremap[_] = new TypeGeneric();
+//  }
+
+//  if (CASE(TypeArray, t))
+//  {
+//      return new TypeArray(fresh(_->contained, nongen, genremap));
+//  }
+
+//  if (CASE(TypeFunction, t))
+//  {
+//      std::vector<Type*> args;
+//      for (size_t i = 0; i < _->args.size(); ++i)
+//          args.push_back(fresh(_->args[i], nongen, genremap));
+
+//      return new TypeFunction(fresh(_->result, nongen, genremap), args);
+//  }
+
+//  if (CASE(TypeInstance, t))
+//  {
+//      std::vector<Type*> generics;
+
+//      for (size_t i = 0; i < _->generics.size(); ++i)
+//          generics.push_back(fresh(_->generics[i], nongen, genremap));
+
+//      return new TypeInstance(_->prototype, generics);
+//  }
+
+//  if (CASE(TypeTuple, t))
+//  {
+//      std::vector<Type*> members;
+//      for (size_t i = 0; i < _->members.size(); ++i)
+//          members.push_back(fresh(_->members[i], nongen, genremap));
+
+//      return new TypeTuple(members);
+//  }
+
+//  return t;
+// }
+
+// Type* fresh(Type* t, const std::vector<Type*>& nongen)
+// {
+//  std::map<TypeGeneric*, TypeGeneric*> genremap;
+
+//  return fresh(t, nongen, genremap);
+// }
+
+// bool unify(Type* lhs, Type* rhs)
+// {
+//  if (lhs == rhs) return true;
+
+//  lhs = prune(lhs);
+//  rhs = prune(rhs);
+
+//  if (lhs == rhs) return true;
+
+//  if (CASE(TypeGeneric, lhs))
+//  {
+//      if (occurs(lhs, rhs))
+//          return false;
+
+//      assert(!_->frozen);
+//      _->instance = rhs;
+
+//      return true;
+//  }
+
+//  if (CASE(TypeGeneric, rhs))
+//  {
+//      return unify(rhs, lhs);
+//  }
+
+//  if (CASE(TypeUnit, lhs))
+//  {
+//      return dynamic_cast<TypeUnit*>(rhs) != 0;
+//  }
+
+//  if (CASE(TypeInt, lhs))
+//  {
+//      return dynamic_cast<TypeInt*>(rhs) != 0;
+//  }
+
+//  if (CASE(TypeChar, lhs))
+//  {
+//      return dynamic_cast<TypeChar*>(rhs) != 0;
+//  }
+
+//  if (CASE(TypeFloat, lhs))
+//  {
+//      return dynamic_cast<TypeFloat*>(rhs) != 0;
+//  }
+
+//  if (CASE(TypeBool, lhs))
+//  {
+//      return dynamic_cast<TypeBool*>(rhs) != 0;
+//  }
+
+//  if (CASE(TypeArray, lhs))
+//  {
+//      TypeArray* r = dynamic_cast<TypeArray*>(rhs);
+//      if (!r) return false;
+
+//      return unify(_->contained, r->contained);
+//  }
+
+//  if (CASE(TypeFunction, lhs))
+//  {
+//      TypeFunction* r = dynamic_cast<TypeFunction*>(rhs);
+//      if (!r) return false;
+
+//      if (_->args.size() != r->args.size()) return false;
+
+//      if (!unify(_->result, r->result)) return false;
+
+//      for (size_t i = 0; i < _->args.size(); ++i)
+//          if (!unify(_->args[i], r->args[i]))
+//              return false;
+
+//      return true;
+//  }
+
+//  if (CASE(TypeInstance, lhs))
+//  {
+//      TypeInstance* r = dynamic_cast<TypeInstance*>(rhs);
+//      if (!r) return false;
+
+//      if (*_->prototype != *r->prototype) return false;
+
+//      if (_->generics.size() != r->generics.size()) return false;
+
+//      for (size_t i = 0; i < _->generics.size(); ++i)
+//          if (!unify(_->generics[i], r->generics[i]))
+//              return false;
+
+//      return true;
+//  }
+
+//  if (CASE(TypeTuple, lhs))
+//  {
+//      TypeTuple* r = dynamic_cast<TypeTuple*>(rhs);
+//      if (!r) return false;
+
+//      if (_->members.size() != r->members.size()) return false;
+
+//      for (size_t i = 0; i < _->members.size(); ++i)
+//          if (!unify(_->members[i], r->members[i]))
+//              return false;
+
+//      return true;
+//  }
+
+//  return false;
+// }
+
+// void mustUnify(Type* actual, Type* expected, const Location& location)
+// {
+//  if (!unify(actual, expected))
+//  {
+//      PrettyPrintContext context;
+//      std::string expectedType = typeName(expected, context);
+//      std::string actualType = typeName(actual, context);
+
+//      errorf(location, "Type mismatch. Expecting a\n    %s\nbut given a\n    %s", expectedType.c_str(), actualType.c_str());
+//  }
+// }
+
+// Type* analyze(BindingBase* binding, const std::vector<Type*>& nongen)
+// {
+//  if (CASE(BindingFunction, binding))
+//  {
+//      return fresh(_->target->type, nongen);
+//  }
+
+//  if (CASE(BindingLocal, binding))
+//  {
+//      return _->target->type;
+//  }
+
+//  assert(!"Unknown binding type");
+//  return 0;
+// }
+
+// Type* analyze(Expr* root, std::vector<Type*>& nongen);
+
+// Type* analyze(MatchCase* case_, std::vector<Type*>& nongen)
+// {
+//  if (CASE(MatchCaseAny, case_))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseBoolean, case_))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseNumber, case_))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseCharacter, case_))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseValue, case_))
+//  {
+//      mustUnify(_->type, analyze(_->value, nongen), _->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseArray, case_))
+//  {
+//      if (!_->elements.empty())
+//      {
+//          Type* t0 = analyze(_->elements[0], nongen);
+
+//          for (size_t i = 1; i < _->elements.size(); ++i)
+//          {
+//              Type* ti = analyze(_->elements[i], nongen);
+
+//              mustUnify(ti, t0, _->elements[i]->location);
+//          }
+
+//          mustUnify(_->type, new TypeArray(t0), _->location);
+//      }
+//      else
+//      {
+//          mustUnify(_->type, new TypeArray(new TypeGeneric()), _->location);
+//      }
+
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseMembers, case_))
+//  {
+//      if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type)))
+//      {
+//          if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype))
+//          {
+//              // Resolve named arguments into unnamed arguments
+//              if (!_->member_names.empty())
+//              {
+//                  std::vector<MatchCase*> clone_members;
+
+//                  clone_members.insert(clone_members.begin(), record_type->member_types.size(), 0);
+
+//                  for (size_t i = 0; i < _->member_values.size(); ++i)
+//                  {
+//                      size_t member_index = getMemberIndexByName(record_type, _->member_names[i], _->location);
+//                      if (clone_members[member_index])
+//                          errorf(_->member_locations[i], "Member '%s' match is already specified", record_type->member_names[member_index].c_str());
+
+//                      clone_members[member_index] = _->member_values[i];
+//                  }
+
+//                  for (size_t i = 0; i < record_type->member_types.size(); ++i)
+//                  {
+//                      if (!clone_members[i])
+//                          clone_members[i] = new MatchCaseAny(new TypeGeneric(), Location(), 0);
+//                  }
+
+//                  _->member_values = clone_members;
+//                  _->member_names.clear();
+//              }
+
+//              if (_->member_values.size() != record_type->member_types.size())
+//                  errorf(_->location, "Type has %d members, but %d are specified", record_type->member_types.size(), _->member_values.size());
+
+//              for (size_t i = 0; i < _->member_values.size(); ++i)
+//              {
+//                  Type* mtype = analyze(_->member_values[i], nongen);
+
+//                  mustUnify(mtype, getMemberTypeByIndex(inst_type, record_type, i, _->location), _->member_values[i]->location);
+//              }
+//          }
+//          else if (TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype))
+//          {
+//              if (_->member_values.size() != 1)
+//              {
+//                  errorf(_->location, "Expected 1 arguments but given %d", _->member_values.size());
+//              }
+
+//              // This must be a union tag that is a type alias
+//              Type* mtype = analyze(_->member_values[0], nongen);
+
+//              mustUnify(mtype, inst_type, _->location);
+//          }
+//      }
+//      else if(TypeTuple* tuple_type = dynamic_cast<TypeTuple*>(finalType(_->type)))
+//      {
+//          if (!_->member_names.empty())
+//              errorf(_->location, "Type has no named members");
+
+//          if (_->member_values.size() != tuple_type->members.size())
+//              errorf(_->location, "Type has %d member(s), but %d is (are) specified", tuple_type->members.size(), _->member_values.size());
+
+//          for (size_t i = 0; i < _->member_values.size(); ++i)
+//          {
+//              Type* mtype = analyze(_->member_values[i], nongen);
+
+//              mustUnify(mtype, tuple_type->members[i], _->member_values[i]->location);
+//          }
+//      }
+//      else
+//      {
+//          if (!_->member_names.empty())
+//          {
+//              PrettyPrintContext context;
+//              std::string name = typeName(finalType(_->type), context);
+
+//              errorf(_->location, "Type %s has no named members", name.c_str());
+//          }
+
+//          if (_->member_values.size() > 1)
+//          {
+//              errorf(_->location, "Expected 1 arguments but given %d", _->member_values.size());
+//          }
+
+//          if (_->member_values.size() == 1)
+//          {
+//              Type* mtype = analyze(_->member_values[0], nongen);
+
+//              mustUnify(mtype, finalType(_->type), _->member_values[0]->location);
+//          }
+//      }
+
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseUnion, case_))
+//  {
+//      TypeInstance* inst_type = dynamic_cast<TypeInstance*>(finalType(_->type));
+//      TypePrototypeUnion* union_type = dynamic_cast<TypePrototypeUnion*>(*inst_type->prototype);
+
+//      // Unify should be before analyze since analyze has to know the union type to resolve field names
+//      mustUnify(_->pattern->type, getMemberTypeByIndex(inst_type, union_type, _->tag, _->location), _->location);
+
+//      analyze(_->pattern, nongen);
+
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseOr, case_))
+//  {
+//      for (size_t i = 0; i < _->options.size(); ++i)
+//          analyze(_->options[i], nongen);
+
+//      for (size_t i = 0; i < _->binding_actual.size(); ++i)
+//      {
+//          for (size_t k = 0; k < _->binding_alternatives.size(); ++k)
+//              mustUnify(_->binding_alternatives[k][i]->type, _->binding_actual[i]->type, _->binding_alternatives[k][i]->location);
+//      }
+
+//      return _->type;
+//  }
+
+//  if (CASE(MatchCaseIf, case_))
+//  {
+//      Type* tmatch = analyze(_->match, nongen);
+//      Type* tcond = analyze(_->condition, nongen);
+
+//      mustUnify(tcond, new TypeBool(), _->condition->location);
+
+//      return _->type = tmatch;
+//  }
+
+//  assert(!"Unknown match case type");
+//  return 0;
+// }
+
+// Type* analyze(Expr* root, std::vector<Type*>& nongen)
+// {
+//  if (CASE(ExprUnit, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprNumberLiteral, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprCharacterLiteral, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprBooleanLiteral, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprArrayLiteral, root))
+//  {
+//      if (!_->elements.empty())
+//      {
+//          Type* t0 = analyze(_->elements[0], nongen);
+
+//          for (size_t i = 1; i < _->elements.size(); ++i)
+//          {
+//              Type* ti = analyze(_->elements[i], nongen);
+
+//              mustUnify(ti, t0, _->elements[i]->location);
+//          }
+
+//          mustUnify(_->type, new TypeArray(t0), _->location);
+//      }
+//      else
+//      {
+//          mustUnify(_->type, new TypeArray(new TypeGeneric()), _->location);
+//      }
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprTupleLiteral, root))
+//  {
+//      std::vector<Type*> types;
+
+//      for (size_t i = 0; i < _->elements.size(); ++i)
+//          types.push_back(analyze(_->elements[i], nongen));
+
+//      mustUnify(_->type, new TypeTuple(types), _->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprBinding, root))
+//  {
+//      return _->type = analyze(_->binding, nongen);
+//  }
+
+//  if (CASE(ExprBindingExternal, root))
+//  {
+//      return _->type = analyze(_->binding, nongen);
+//  }
+
+//  if (CASE(ExprUnaryOp, root))
+//  {
+//      Type* te = analyze(_->expr, nongen);
+
+//      switch (_->op)
+//      {
+//      case SynUnaryOpPlus:
+//      case SynUnaryOpMinus:
+//          mustUnify(te, new TypeInt(), _->expr->location);
+//          return _->type = new TypeInt();
+            
+//      case SynUnaryOpRefGet:
+//          mustUnify(te, _->refty, _->expr->location);
+//          return _->type = dynamic_cast<TypeInstance*>(_->refty)->generics[0];
+
+//      case SynUnaryOpNot:
+//          mustUnify(te, new TypeBool(), _->expr->location);
+//          return _->type = new TypeBool();
+
+//      default: assert(!"Unknown unary op");
+//      }
+//  }
+
+//  if (CASE(ExprBinaryOp, root))
+//  {
+//      Type* tl = analyze(_->left, nongen);
+//      Type* tr = analyze(_->right, nongen);
+
+//      switch (_->op)
+//      {
+//      case SynBinaryOpAdd:
+//      case SynBinaryOpSubtract:
+//      case SynBinaryOpMultiply:
+//      case SynBinaryOpDivide:
+//          mustUnify(tl, new TypeInt(), _->left->location);
+//          mustUnify(tr, new TypeInt(), _->right->location);
+//          return _->type = new TypeInt();
+
+//      case SynBinaryOpLess:
+//      case SynBinaryOpLessEqual:
+//      case SynBinaryOpGreater:
+//      case SynBinaryOpGreaterEqual:
+//          mustUnify(tl, new TypeInt(), _->left->location);
+//          mustUnify(tr, new TypeInt(), _->right->location);
+//          return _->type = new TypeBool();
+
+//      case SynBinaryOpEqual:
+//      case SynBinaryOpNotEqual:
+//          mustUnify(tr, tl, _->right->location);
+//          return _->type = new TypeBool();
+
+//      case SynBinaryOpRefSet:
+//          mustUnify(tl, _->refty, _->left->location);
+//          mustUnify(tr, dynamic_cast<TypeInstance*>(_->refty)->generics[0], _->right->location);
+//          return _->type = new TypeUnit();
+
+//      case SynBinaryOpAnd:
+//      case SynBinaryOpOr:
+//          mustUnify(tl, new TypeBool(), _->left->location);
+//          mustUnify(tr, new TypeBool(), _->right->location);
+//          return _->type = new TypeBool();
+
+//      default: assert(!"Unknown binary op");
+//      }
+//  }
+
+//  if (CASE(ExprCall, root))
+//  {
+//      Type* te = analyze(_->expr, nongen);
+
+//      std::vector<Type*> argtys;
+//      for (size_t i = 0; i < _->args.size(); ++i)
+//          argtys.push_back(analyze(_->args[i], nongen));
+
+//      // this if/else is really only needed for nicer error messages
+//      if (TypeFunction* funty = dynamic_cast<TypeFunction*>(finalType(te)))
+//      {
+//          if (funty->args.size() != argtys.size())
+//              errorf(_->location, "Expected %d arguments but given %d", funty->args.size(), argtys.size());
+
+//          for (size_t i = 0; i < argtys.size(); ++i)
+//              mustUnify(argtys[i], funty->args[i], _->args[i]->location);
+
+//          return _->type = funty->result;
+//      }
+//      else
+//      {
+//          funty = new TypeFunction(new TypeGeneric(), argtys);
+
+//          mustUnify(te, funty, _->expr->location);
+
+//          return _->type = funty->result;
+//      }
+//  }
+
+//  if (CASE(ExprArrayIndex, root))
+//  {
+//      Type* ta = analyze(_->arr, nongen);
+//      Type* ti = analyze(_->index, nongen);
+
+//      TypeArray* tn = new TypeArray(new TypeGeneric());
+
+//      mustUnify(ta, tn, _->arr->location);
+//      mustUnify(ti, new TypeInt(), _->index->location);
+
+//      return _->type = tn->contained;
+//  }
+
+//  if (CASE(ExprArraySlice, root))
+//  {
+//      Type* ta = analyze(_->arr, nongen);
+//      Type* ts = analyze(_->index_start, nongen);
+//      Type* te = _->index_end ? analyze(_->index_end, nongen) : 0;
+
+//      TypeArray* tn = new TypeArray(new TypeGeneric());
+
+//      mustUnify(ta, tn, _->arr->location);
+//      mustUnify(ts, new TypeInt(), _->index_start->location);
+
+//      if (te)
+//          mustUnify(te, new TypeInt(), _->index_end->location);
+
+//      return _->type = ta;
+//  }
+
+//  if (CASE(ExprMemberAccess, root))
+//  {
+//      Type* ta = finalType(analyze(_->aggr, nongen));
+
+//      if (TypeInstance* inst_type = dynamic_cast<TypeInstance*>(ta))
+//      if (TypePrototypeRecord* record_type = dynamic_cast<TypePrototypeRecord*>(*inst_type->prototype))
+//      {
+//          size_t index = getMemberIndexByName(record_type, _->member_name, _->location);
+
+//          Type* tm = getMemberTypeByIndex(inst_type, record_type, index, _->location);
+
+//          return _->type = tm;
+//      }
+
+//      errorf(_->aggr->location, "Expected a record type");
+//  }
+
+//  if (CASE(ExprLetVar, root))
+//  {
+//      Type* tb = analyze(_->body, nongen);
+
+//      mustUnify(tb, _->target->type, _->body->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprLetVars, root))
+//  {
+//      Type* tb = analyze(_->body, nongen);
+
+//      std::vector<Type*> types;
+//      for (size_t i = 0; i < _->targets.size(); ++i)
+//          types.push_back(_->targets[i] ? _->targets[i]->type : new TypeGeneric());
+
+//      mustUnify(tb, new TypeTuple(types), _->body->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprLetFunc, root))
+//  {
+//      size_t nongen_count = nongen.size();
+
+//      nongen.push_back(_->type);
+
+//      Type* tb = analyze(_->body, nongen);
+
+//      nongen.resize(nongen_count);
+
+//      TypeFunction* funty = dynamic_cast<TypeFunction*>(_->type);
+
+//      mustUnify(tb, funty->result, _->body->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprExternFunc, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprStructConstructorFunc, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprUnionConstructorFunc, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprLLVM, root))
+//  {
+//      return _->type;
+//  }
+
+//  if (CASE(ExprIfThenElse, root))
+//  {
+//      Type* tcond = analyze(_->cond, nongen);
+//      Type* tthen = analyze(_->thenbody, nongen);
+//      Type* telse = analyze(_->elsebody, nongen);
+
+//      mustUnify(tcond, new TypeBool(), _->cond->location);
+
+//      // this if/else is really only needed for nicer error messages
+//      if (dynamic_cast<ExprUnit*>(_->elsebody))
+//          mustUnify(tthen, new TypeUnit(), _->thenbody->location);
+//      else
+//          mustUnify(telse, tthen, _->elsebody->location);
+
+//      return _->type = tthen;
+//  }
+
+//  if (CASE(ExprForInDo, root))
+//  {
+//      // order of analyze calls is important for knowing type of index variable in body (important if it's a record)
+//      Type* tarr = analyze(_->arr, nongen);
+
+//      TypeArray* ta = new TypeArray(_->target->type);
+
+//      mustUnify(tarr, ta, _->arr->location);
+
+//      Type* tbody = analyze(_->body, nongen);
+
+//      mustUnify(tbody, new TypeUnit(), _->body->location);
+
+//      return _->type = new TypeUnit();
+//  }
+
+//  if (CASE(ExprForInRangeDo, root))
+//  {
+//      Type* tbody = analyze(_->body, nongen);
+
+//      Type* tstart = analyze(_->start, nongen);
+//      Type* tend = analyze(_->end, nongen);
+
+//      mustUnify(_->target->type, new TypeInt(), _->location);
+//      mustUnify(tstart, new TypeInt(), _->start->location);
+//      mustUnify(tend, new TypeInt(), _->end->location);
+
+//      mustUnify(tbody, new TypeUnit(), _->body->location);
+
+//      return _->type = new TypeUnit();
+//  }
+
+//  if (CASE(ExprWhileDo, root))
+//  {
+//      Type* tcondition = analyze(_->condition, nongen);
+//      Type* tbody = analyze(_->body, nongen);
+
+//      mustUnify(tcondition, new TypeBool(), _->location);
+//      mustUnify(tbody, new TypeUnit(), _->location);
+
+//      return _->type;
+//  }
+
+//  if (CASE(ExprMatchWith, root))
+//  {
+//      Type* tvar = analyze(_->variable, nongen);
+//      Type* t0 = 0;
+
+//      for (size_t i = 0; i < _->cases.size(); ++i)
+//      {
+//          Type* tci = analyze(_->cases[i], nongen);
+
+//          mustUnify(tci, tvar, _->cases[i]->location);
+
+//          Type* ti = analyze(_->expressions[i], nongen);
+
+//          if (i == 0)
+//              t0 = ti;
+//          else
+//              mustUnify(ti, t0, _->expressions[i]->location);
+//      }
+
+//      return _->type = t0;
+//  }
+
+//  if (CASE(ExprBlock, root))
+//  {
+//      if (_->expressions.empty())
+//          return new TypeUnit();
+
+//      for (size_t i = 0; i < _->expressions.size(); )
+//      {
+//          if (ExprLetFunc* __ = dynamic_cast<ExprLetFunc*>(_->expressions[i]))
+//          {
+//              size_t count = 0;
+
+//              for (; i + count < _->expressions.size(); ++count)
+//              {
+//                  if (ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + count]))
+//                      ;
+//                  else
+//                      break;
+//              }
+
+//              for (size_t j = 0; j < count; ++j)
+//              {
+//                  size_t nongen_count = nongen.size();
+
+//                  ExprLetFunc* func = dynamic_cast<ExprLetFunc*>(_->expressions[i + j]);
+
+//                  // fix types for functions that are in the same scope and follow after this expressions
+//                  // this allows generalization for backward references (i.e. no recursion), but should properly infer types
+//                  // for mutually recursive definitions
+//                  for (size_t k = j + 1; k < count; ++k)
+//                  {
+//                      ExprLetFunc* nextfunc = dynamic_cast<ExprLetFunc*>(_->expressions[i + k]);
+
+//                      if (references(func, nextfunc))
+//                      {
+//                          nongen.push_back(nextfunc->type);
+//                      }
+//                  }
+
+//                  Type* te = analyze(_->expressions[i + j], nongen);
+
+//                  nongen.resize(nongen_count);
+//              }
+
+//              i += count;
+//          }
+//          else
+//          {
+//              Type* te = analyze(_->expressions[i], nongen);
+
+//              if (i + 1 < _->expressions.size() && dynamic_cast<ExprLetVar*>(_->expressions[i]) == 0 && dynamic_cast<ExprLetFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprExternFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprStructConstructorFunc*>(_->expressions[i]) == 0 && dynamic_cast<ExprUnionConstructorFunc*>(_->expressions[i]) == 0)
+//              {
+//                  mustUnify(te, new TypeUnit(), _->expressions[i]->location);
+//              }
+
+//              i++;
+//          }
+//      }
+
+//      return _->type = _->expressions.back()->type;
+//  }
+
+//  assert(!"Unknown expression type");
+//  return 0;
+// }
+
+// Type* typecheck(Expr* root)
+// {
+//  std::vector<Type*> nongen;
+//  Type* result = analyze(root, nongen);
+
+//  assert(nongen.empty());
+
+//  return result;
+// }

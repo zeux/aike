@@ -1,0 +1,199 @@
+type Type =
+    { kind: TypeKind }
+
+type TypeKind =
+    | TypeGeneric { id: int; name: char[]; instance: ref<option<Type>> }
+    | TypePrimitive { name: char[] }
+    | TypeArray { contained: Type }
+    | TypeFunction { result: Type; args: Type[] }
+    | TypeTuple { members: Type[] }
+    | TypeInstance { prototype: ref<TypePrototype>; generics: Type[] }
+    | TypeClosureContext { members: (Type, char[])[] }
+
+type TypePrototype =
+    | TypePrototypeRecord { name: char[]; generics: Type[]; members: (Type, char[])[] }
+    | TypePrototypeUnion { name: char[]; generics: Type[]; members: (Type, char[])[] }
+
+let typeUnit = Type(TypePrimitive("unit"))
+let typeInt = Type(TypePrimitive("int"))
+let typeChar = Type(TypePrimitive("char"))
+let typeFloat = Type(TypePrimitive("float"))
+let typeBool = Type(TypePrimitive("bool"))
+
+let typeRepr(ty: Type) =
+    match ty.kind with
+    | TypeGeneric tg ->
+        match !tg.instance with
+        | Some inst -> typeRepr(inst)
+        | None -> ty.kind
+    | t -> t
+
+let typeNameMangled(ty: Type) =
+    match typeRepr(ty) with
+    | TypeGeneric(id, name, _) ->
+        // $$$ No instance of generic type
+        assert(false)
+        ""
+    | TypePrimitive(name) ->
+        name
+    | TypeArray(contained) ->
+        concat("A", typeNameMangled(contained))
+    | TypeFunction(result, args) ->
+        ["F", string(args#length)]
+        #concat(args#map(typeNameMangled))
+        #concat([typeNameMangled(result)])
+        #join("")
+    | TypeTuple(members) ->
+        ["T", string(members#length)]
+        #concat(members#map(typeNameMangled))
+        #join("")
+    | TypeInstance(ref(prototype), generics) ->
+        let name =
+            match prototype with
+            | TypePrototypeRecord p -> p.name
+            | TypePrototypeUnion p -> p.name
+        ["I", string(name#length), name, string(generics#length)]
+        #concat(generics#map(typeNameMangled))
+        #join("")
+    | TypeClosureContext _ ->
+        // $$$ Can't mangle closure context type
+        assert(false)
+        ""
+
+let typeName(ty: Type) =
+    match typeRepr(ty) with
+    | TypeGeneric(id, name, _) ->
+        match name with
+        | "" -> concat("'", string(id))
+        | v -> concat("'", v)
+    | TypePrimitive(name) ->
+        name
+    | TypeArray(contained) ->
+        match typeRepr(contained) with
+        | TypeFunction _ ->
+            ["(", typeName(contained), ")[]"]
+            #join("")
+        | _ -> concat(typeName(contained), "[]")
+    | TypeFunction(result, args) ->
+        ["(", args#map(typeName)#join(", "), ") -> ", typeName(result)]
+        #join("")
+    | TypeTuple(members) ->
+        ["(", members#map(typeName)#join(", "), ")"]
+        #join("")
+    | TypeInstance(ref(prototype), generics) ->
+        let name =
+            match prototype with
+            | TypePrototypeRecord p -> p.name
+            | TypePrototypeUnion p -> p.name
+        [name, "<", generics#map(typeName)#join(", "), ">"]
+        #join("")
+    | TypeClosureContext(members) ->
+        let field(p) =
+            let (ty, name) = p
+            concat(name, concat(": ", typeName(ty)))
+
+        ["context {", members#map(field)#join("; "), "}"]
+        #join("")
+
+// size_t getMemberIndexByName(TypePrototypeRecord* proto, const std::string& name, const Location& location)
+// {
+//  for (size_t i = 0; i < proto->member_names.size(); ++i)
+//      if (proto->member_names[i] == name)
+//          return i;
+
+//  errorf(location, "Type %s doesn't have a member named '%s'", proto->name.c_str(), name.c_str());
+// }
+
+// const std::vector<Type*>& getGenericTypes(TypePrototype* proto)
+// {
+//  if (CASE(TypePrototypeRecord, proto))
+//  {
+//      return _->generics;
+//  }
+
+//  if (CASE(TypePrototypeUnion, proto))
+//  {
+//      return _->generics;
+//  }
+
+//  assert(!"Unknown prototype type");
+
+//  static std::vector<Type*> dummy;
+//  return dummy;
+// }
+
+// Type* fresh(Type* t, std::map<Type*, Type*>& genremap, const Location& location)
+// {
+//  t = finalType(t);
+
+//  if (CASE(TypeGeneric, t))
+//  {
+//      if (genremap.count(_))
+//          return genremap[_];
+
+//      errorf(location, "Unable to instantiate generic type %s", _->name.c_str());
+//  }
+
+//  if (CASE(TypeArray, t))
+//  {
+//      return new TypeArray(fresh(_->contained, genremap, location));
+//  }
+
+//  if (CASE(TypeFunction, t))
+//  {
+//      std::vector<Type*> args;
+//      for (size_t i = 0; i < _->args.size(); ++i)
+//          args.push_back(fresh(_->args[i], genremap, location));
+
+//      return new TypeFunction(fresh(_->result, genremap, location), args);
+//  }
+
+//  if (CASE(TypeInstance, t))
+//  {
+//      std::vector<Type*> generics;
+
+//      for (size_t i = 0; i < _->generics.size(); ++i)
+//          generics.push_back(fresh(_->generics[i], genremap, location));
+
+//      return new TypeInstance(_->prototype, generics);
+//  }
+
+//  if (CASE(TypeTuple, t))
+//  {
+//      std::vector<Type*> members;
+//      for (size_t i = 0; i < _->members.size(); ++i)
+//          members.push_back(fresh(_->members[i], genremap, location));
+
+//      return new TypeTuple(members);
+//  }
+
+//  return t;
+// }
+
+// Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeRecord* proto, size_t index, const Location& location)
+// {
+//  assert(*instance->prototype == proto);
+//  assert(instance->generics.size() == proto->generics.size());
+//  assert(index < proto->member_types.size());
+
+//  std::map<Type*, Type*> genremap;
+
+//  for (size_t i = 0; i < instance->generics.size(); ++i)
+//      genremap[proto->generics[i]] = instance->generics[i];
+
+//  return fresh(proto->member_types[index], genremap, location);
+// }
+
+// Type* getMemberTypeByIndex(TypeInstance* instance, TypePrototypeUnion* proto, size_t index, const Location& location)
+// {
+//  assert(*instance->prototype == proto);
+//  assert(instance->generics.size() == proto->generics.size());
+//  assert(index < proto->member_types.size());
+
+//  std::map<Type*, Type*> genremap;
+
+//  for (size_t i = 0; i < instance->generics.size(); ++i)
+//      genremap[proto->generics[i]] = instance->generics[i];
+
+//  return fresh(proto->member_types[index], genremap, location);
+// }

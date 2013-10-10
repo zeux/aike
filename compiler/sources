@@ -3,12 +3,18 @@ assert.aike
 option.aike
 array.aike
 char.aike
+string.aike
 io.aike
 
 location.aike
 output.aike
 lexer.aike
 ast.aike
+types.aike
+tast.aike
 dump.aike
 parser.aike
+match.aike
+resolve.aike
+typecheck.aike
 main.aike

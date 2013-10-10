@@ -21,3 +21,12 @@ let map(arr, f) =
 
 let concat(lhs, rhs) =
     array(lhs#length + rhs#length, fun i -> if i < lhs#length then lhs[i] else rhs[i - lhs#length])
+
+let reduce(arr, f) =
+    let loop(res, offset) =
+        if offset < arr#length then
+            loop(f(res, arr[offset]), offset + 1)
+        else
+            res
+
+    loop(arr[0], 1)
