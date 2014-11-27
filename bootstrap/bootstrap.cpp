@@ -5,8 +5,10 @@
 #include <sstream>
 #include <string>
 #include <ctime>
+#include <cstring>
 #include <iterator>
 #include <stdexcept>
+#include <algorithm>
 
 #include "lexer.hpp"
 #include "parser.hpp"
