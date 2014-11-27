@@ -8,7 +8,11 @@ LDFLAGS=
 
 CXXFLAGS+=-Illvmaike
 
+ifeq ($(shell uname),Darwin)
 LLVMCONFIG=/usr/local/opt/llvm/bin/llvm-config
+else
+LLVMCONFIG=llvm-config
+endif
 
 CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
 LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
