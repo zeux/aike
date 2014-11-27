@@ -514,6 +514,8 @@ int main(int argc, char** argv)
 			std::cout << "Success: " << total << " tests passed in " << ((clock() - start) * 1000 / CLOCKS_PER_SEC) << " ms.\n";
 		else
 			std::cout << "FAILURE: " << (total - passed) << " out of " << total << " tests failed.\n";
+
+		return total != passed;
 	}
 	else if (testName == "-")
 	{

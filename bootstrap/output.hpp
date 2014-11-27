@@ -26,5 +26,7 @@ struct ErrorAtLocation: public std::exception
 
 #ifdef _MSC_VER
 __declspec(noreturn)
+#else
+__attribute__((noreturn))
 #endif
 void errorf(const Location& location, const char* format, ...);
