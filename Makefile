@@ -4,7 +4,7 @@ SOURCES=$(wildcard bootstrap/*.cpp) $(wildcard llvmaike/*.cpp)
 EXECUTABLE=$(BUILD)/aike
 
 CXXFLAGS=-c -g -std=c++11
-LDFLAGS=
+LDFLAGS=-rdynamic
 
 CXXFLAGS+=-Illvmaike
 
