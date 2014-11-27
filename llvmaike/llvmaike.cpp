@@ -3,12 +3,14 @@
 #include <vector>
 #include <stdexcept>
 
-#include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/Support/Casting.h"
 
 LLVMTypeRef LLVMGetContainedType(LLVMTypeRef type, size_t index)
 {
@@ -54,13 +56,10 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef builder, LLVMContextRef context, LLV
 
 int LLVMAikeIsInstruction(LLVMValueRef value)
 {
-	if(llvm::isa<llvm::Instruction>((llvm::Value*)value))
-		return 1;
-
-	return 0;
+	return llvm::isa<llvm::Instruction>(reinterpret_cast<llvm::Value*>(value));
 }
 
-void LLVMAikeFatalErrorHandler(void *user_data, const std::string& reason)
+void LLVMAikeFatalErrorHandler(void *user_data, const std::string& reason, bool gen_crash_diag)
 {
 	throw std::runtime_error(reason.c_str());
 }
@@ -106,9 +105,10 @@ LLVMTargetMachineRef LLVMAikeCreateTargetMachine(LLVMTargetRef T, LLVMCodeGenOpt
 
 	llvm::TargetOptions opt;
     opt.NoFramePointerElim = true;
-    opt.NoFramePointerElimNonLeaf = true;
 
-	return llvm::wrap(llvm::unwrap(T)->createTargetMachine(triple, cpu, features, opt, llvm::Reloc::Default, llvm::CodeModel::Default, OL));
+	return reinterpret_cast<LLVMTargetMachineRef>(
+		reinterpret_cast<llvm::Target*>(T)->
+			createTargetMachine(triple, cpu, features, opt, llvm::Reloc::Default, llvm::CodeModel::Default, OL));
 }
 
 void LLVMAikeInit()

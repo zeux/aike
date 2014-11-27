@@ -4,7 +4,7 @@
 
 extern "C" int entrypoint();
 
-#if defined(__linux)
+#ifndef _WIN32
 	#define AIKE_EXTERN extern "C" __attribute__ ((visibility("default")))
 #else
 	#define AIKE_EXTERN extern "C" __declspec(dllexport)
@@ -39,7 +39,7 @@ AikeArray<char> string(int value)
 {
 	char buf[128];
 	sprintf(buf, "%d", value);
-	AikeArray<char> ret = {strdup(buf), strlen(buf)};
+	AikeArray<char> ret = {strdup(buf), int(strlen(buf))};
 	return ret;
 }
 
@@ -69,7 +69,7 @@ AikeArray<char> readfile(AikeArray<char> path)
     fread(result, length, 1, file);
     fclose(file);
 
-	AikeArray<char> ret = {result, length};
+	AikeArray<char> ret = {result, int(length)};
 	return ret;
 }
 

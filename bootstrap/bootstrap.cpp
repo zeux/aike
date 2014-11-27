@@ -37,7 +37,7 @@ enum CompileFlags
     CompileDebugInfo = 2,
 };
 
-#if defined(__linux)
+#ifndef _WIN32
 	#define AIKE_EXTERN extern "C" __attribute__ ((visibility("default")))
 #else
 	#define AIKE_EXTERN extern "C" __declspec(dllexport)
@@ -74,7 +74,7 @@ AikeArray<char> string(int value)
 {
 	std::string result = std::to_string(value);
 
-	AikeArray<char> ret = {strdup(result.c_str()), result.length()};
+	AikeArray<char> ret = {strdup(result.c_str()), int(result.length())};
 	return ret;
 }
 
@@ -85,7 +85,7 @@ AikeArray<char> readfile(AikeArray<char> path)
 {
 	std::string result = readFile(std::string(path.data, path.data + path.length));
 
-	AikeArray<char> ret = {strdup(result.c_str()), result.length()};
+	AikeArray<char> ret = {strdup(result.c_str()), int(result.length())};
 	return ret;
 }
 
