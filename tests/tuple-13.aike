@@ -1,8 +1,0 @@
-type A = A (int, int) | B int
-
-match A(1, 2) with
-| B(x, y) -> x
-| A(x, y) -> x + y
-
-// ERRORS:
-// (4,3): Expected 1 arguments but given 2

@@ -1,9 +1,0 @@
-let y = 5
-let x = 6
-let z =
-    let w = 1
-    w + x
-z + y
-
-// OUTPUT:
-// 12

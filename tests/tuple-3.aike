@@ -1,8 +1,0 @@
-let x = (true, 3)
-
-let (x, y) = x
-
-if x then y else 0
-
-// OUTPUT:
-// 3

@@ -1,9 +1,0 @@
-let x = [1, true]
-
-x[0]
-
-// ERRORS:
-// (1,13): Type mismatch. Expecting a
-//     int
-// but given a
-//     bool

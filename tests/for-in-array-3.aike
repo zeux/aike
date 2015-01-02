@@ -1,5 +1,0 @@
-for i in [2, 3] do 2
-i
-
-// ERRORS:
-// (2,1): Unresolved variable reference i

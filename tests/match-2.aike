@@ -1,8 +1,0 @@
-let y1 = 3
-
-match y1 with
-| 1 -> 1
-| x -> x * 2
-
-// OUTPUT:
-// 6

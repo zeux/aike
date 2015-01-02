@@ -1,9 +1,0 @@
-let foo(f) = f()
-let bar() = 5
-
-foo(fun ->
-    ()
-    bar())
-
-// OUTPUT:
-// 5

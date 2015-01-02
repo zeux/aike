@@ -1,6 +1,0 @@
-type test = A int | B
-
-match (A(3), A(4)) with (A a, A b) -> a + b | _ -> 0
-
-// OUTPUT:
-// 7

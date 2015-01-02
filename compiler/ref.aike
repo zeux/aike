@@ -1,1 +1,0 @@
-type ref<'a> = ref 'a

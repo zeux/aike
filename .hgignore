@@ -1,7 +1,0 @@
-syntax:regexp
-
-# build artefacts
-^build/
-
-# LLVM
-^extern/llvm/

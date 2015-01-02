@@ -1,6 +1,0 @@
-extern string(x: int): char[]
-
-let join(arr, sep) =
-    match sep with
-    | "" -> reduce(arr, concat)
-    | _ -> reduce(arr, fun (a, b) -> concat(a, concat(sep, b)))

@@ -1,9 +1,0 @@
-let x = 2
-
-match x with
-| 1 | 2 -> 10
-| 2 | 3 -> 20
-| _ -> 0
-
-// ERRORS:
-// (5,3): This case is already covered

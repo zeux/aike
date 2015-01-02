@@ -1,6 +1,0 @@
-let boo(x: ()->int) = -x()
-
-boo(fun -> 4)
-
-// OUTPUT:
-// -4

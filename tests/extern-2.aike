@@ -1,4 +1,0 @@
-extern printint(x)
-
-// ERRORS:
-// (1,17): Extern function 'printint': type declaration missing for argument 'x'

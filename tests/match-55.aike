@@ -1,6 +1,0 @@
-match "test" with
-| "test" -> 1
-| _ -> 0
-
-// OUTPUT:
-// 1

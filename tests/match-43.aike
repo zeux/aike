@@ -1,9 +1,0 @@
-let f(x) =
-    match x with
-    | _ if x > 1 -> 0
-    | _ -> 1
-
-f(2)
-
-// OUTPUT:
-// 0

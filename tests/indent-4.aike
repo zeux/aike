@@ -1,5 +1,0 @@
-let x = "
-" y
-
-// ERRORS:
-// (2,3): Unresolved variable reference y

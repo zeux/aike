@@ -1,6 +1,0 @@
-type refcell<'T> = { contents: 'T }
-
-refcell(1).contents
-
-// OUTPUT:
-// 1

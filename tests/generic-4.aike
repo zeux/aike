@@ -1,6 +1,0 @@
-let foo(x) = x
-
-if foo(true) then foo(1) else 0
-
-// OUTPUT:
-// 1

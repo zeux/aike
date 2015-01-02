@@ -1,8 +1,0 @@
-type test = A int | B int
-
-match A(3) with
-| A(value = x) -> x
-| B(value = y) -> y
-
-// ERRORS:
-// (4,3): Type int has no named members

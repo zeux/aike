@@ -1,9 +1,0 @@
-let y1 = 3
-
-match y1 with
-| 0 -> 1
-| x -> -x
-| _ -> 2
-
-// ERRORS:
-// (6,3): This case is already covered

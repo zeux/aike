@@ -1,7 +1,0 @@
-let foo(x: 'V[], y: 'K) =
-    x[y]
-
-foo([1, 2], 0)
-
-// OUTPUT:
-// 1

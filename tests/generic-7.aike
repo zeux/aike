@@ -1,8 +1,0 @@
-type refcell<'T> = { contents: 'T }
-
-let value(x: refcell<'a>) = x.contents
-
-value(refcell(1))
-
-// OUTPUT:
-// 1

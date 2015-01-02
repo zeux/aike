@@ -1,6 +1,0 @@
-let foo(x, y) = x / y
-
-foo(y = 2, x = 8)
-
-// OUTPUT:
-// 4

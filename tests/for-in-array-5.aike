@@ -1,9 +1,0 @@
-for i: int in [] do
-    if true then
-        ()
-    else
-        ()
-0
-
-// OUTPUT:
-// 0

@@ -1,8 +1,0 @@
-1
-2
-
-// ERRORS:
-// (1,1): Type mismatch. Expecting a
-//     unit
-// but given a
-//     int

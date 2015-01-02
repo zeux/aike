@@ -1,6 +1,0 @@
-let foo(x, y) = x / y
-
-foo(y = 2, 8)
-
-// ERRORS:
-// (3,12): Named and unnamed function arguments are not allowed to be mixed in a single call

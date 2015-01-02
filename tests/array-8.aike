@@ -1,9 +1,0 @@
-let length(x: 'a[]): int =
-    builtin(arrayLength, x)
-
-let x = "test"
-
-x#length
-
-// OUTPUT:
-// 4

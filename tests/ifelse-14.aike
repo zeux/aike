@@ -1,7 +1,0 @@
-type a = { x: b[] }
-type b = { x: a[] }
-
-if (a([]), b([])) == (a([b([])]), b([])) then 1 else 0
-
-// OUTPUT:
-// 0

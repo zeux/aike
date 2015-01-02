@@ -1,9 +1,0 @@
-let y2 = true
-
-match y2 with
-| true -> 3
-| false -> 4
-| _ -> 5
-
-// ERRORS:
-// (6,3): This case is already covered

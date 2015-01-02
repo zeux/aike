@@ -1,6 +1,0 @@
-extern printint(value: int): unit
-
-0
-
-// OUTPUT:
-// 0

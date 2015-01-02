@@ -1,7 +1,0 @@
-let x = fun -> 4
-let y = fun -> 5
-
-x() + y()
-
-// OUTPUT:
-// 9

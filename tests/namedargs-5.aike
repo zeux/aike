@@ -1,6 +1,0 @@
-let foo(x, y) = x / y
-
-foo(y = 2, x = 8, y = 4)
-
-// ERRORS:
-// (3,19): Value for argument 'y' is already defined

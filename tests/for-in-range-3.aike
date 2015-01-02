@@ -1,9 +1,0 @@
-for i in -1..1 do
-    if true then
-        ()
-    else
-        ()
-0
-
-// OUTPUT:
-// 0

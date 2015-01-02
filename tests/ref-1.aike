@@ -1,8 +1,0 @@
-type ref<'a> = ref 'a
-
-let x = ref(5)
-x := 6
-1 + !x
-
-// OUTPUT:
-// 7
