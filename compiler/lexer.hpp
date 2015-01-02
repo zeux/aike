@@ -2,6 +2,8 @@
 
 #include "string.hpp"
 
+namespace lexer {
+
 struct Token
 {
 	enum Type
@@ -13,14 +15,27 @@ struct Token
 	};
 
 	Type type;
-	StringPiece data;
+	Str data;
+};
+
+struct Line
+{
+	unsigned int indent;
+
+	size_t offset;
+};
+
+struct Lines
+{
+	vector<Line> lines;
 };
 
 struct Tokens
 {
-	unique_ptr<char[]> data;
-
 	vector<Token> tokens;
 };
 
-Tokens tokenize(const string& data);
+Lines lines(const Str& data);
+Tokens tokenize(const Str& data);
+
+}
