@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstdint>
+#include <cassert>
+
 #include <vector>
 #include <string>
 #include <memory>
-#include <cstdint>
 
 using namespace std;
 

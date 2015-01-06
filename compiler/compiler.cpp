@@ -15,7 +15,7 @@ Options parseOptions(int argc, const char** argv)
 	{
 		Str arg = argv[i];
 
-		if (arg.size > 0 && arg.data[0] == '-')
+		if (arg.size > 0 && arg[0] == '-')
 		{
 			if (arg == "-o" && i + 1 < argc)
 				result.output = argv[++i];
@@ -58,6 +58,9 @@ int main(int argc, const char** argv)
 		Str contents = readFile(file.c_str());
 
 		lexer::Lines lines = lexer::lines(contents);
-		lexer::Tokens tokens = lexer::tokenize(contents);
+		lexer::Tokens tokens = lexer::tokenize(contents, lines);
+
+		for (auto t: tokens.tokens)
+			printf("{%s}, ", t.data.str().c_str());
 	}
 }

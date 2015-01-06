@@ -37,6 +37,12 @@ struct Str
 		return !(*this == other);
 	}
 
+	char operator[](size_t i) const
+	{
+		assert(i < size);
+		return data[i];
+	}
+
 	string str() const
 	{
 		return string(data, size);

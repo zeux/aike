@@ -11,6 +11,7 @@ struct Token
 		TypeAtom,
 		TypeIdent,
 		TypeString,
+		TypeCharacter,
 		TypeNumber,
 	};
 
@@ -22,7 +23,7 @@ struct Line
 {
 	unsigned int indent;
 
-	size_t offset;
+	size_t start, end;
 };
 
 struct Lines
@@ -36,6 +37,8 @@ struct Tokens
 };
 
 Lines lines(const Str& data);
-Tokens tokenize(const Str& data);
+pair<int, int> getLocation(const Lines& lines, size_t offset);
+
+Tokens tokenize(const Str& data, const Lines& lines);
 
 }

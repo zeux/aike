@@ -1,49 +1,49 @@
 Position :: struct
-	line, column: int
+    line, column: int
 
 Location :: struct
-	begin, end: Position
+    begin, end: Position
 
 Token :: enum
-	Atom :: char
-	Number :: string
-	Ident :: string
-	Eof
+    Atom :: char
+    Number :: string
+    Ident :: string
+    Eof
 
 Lexer :: struct
-	path: string
-	tokens: Token[]
-	offset := 0 // wart: spacing is inconsistent
+    path: string
+    tokens: Token[]
+    offset := 0 // wart: spacing is inconsistent
 
 Ast :: enum
-	If :: struct
-		loc: Location
-		cond: Ast&
-		ifexpr: Ast&
-		elseexpr: Ast&?
+    If :: struct
+        loc: Location
+        cond: Ast&
+        ifexpr: Ast&
+        elseexpr: Ast&?
 
 is_space :: (ch: char): bool
-	ch == ' ' or ch == '\r' or ch == '\n'
+    ch == ' ' or ch == '\r' or ch == '\n'
 
 dump :: (tok: Token)
-	print("%0", tok)
+    print("%0", tok)
 
 scan :: (data: string, offset: int, pred: (char): bool): int
-	end := offset
+    end := offset
 
-	while end < data.length and pred(data[end])
-		end = end + 1
+    while end < data.length and pred(data[end])
+        end = end + 1
 
-	end
+    end
 
 read_next :: (data: string, offset: int): (Token, int)
-	start := scan(data, offset, |ch| ch.is_space)
+    start := scan(data, offset, |ch| ch.is_space)
 
-	if start == data.length
-		return (.Eof, start)
+    if start == data.length
+        return (.Eof, start)
 
-	match data[start]
-		ch if ch >= 'a' ->
-			(.Ident("test"), start + 1)
-		ch ->
-			fail("Unknown character %0", int(ch))
+    match data[start]
+        ch if ch >= 'a' ->
+            (.Ident("test"), start + 1)
+        ch ->
+            fail("Unknown character %0", int(ch))
