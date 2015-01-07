@@ -29,7 +29,9 @@ OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
 all: $(COMPILER_BIN) $(RUNTIME_BIN)
 
 test: all
-	$(COMPILER_BIN) tests/simple.aike
+	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple.obj
+	$(CC) $(BUILD)/simple.obj $(RUNTIME_BIN) -o $(BUILD)/simple
+	./$(BUILD)/simple
 
 clean:
 	rm -rf $(BUILD)
