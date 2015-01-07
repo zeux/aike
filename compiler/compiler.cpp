@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "lexer.hpp"
+#include "output.hpp"
 
 struct Options
 {
@@ -52,12 +53,17 @@ Str readFile(const char* path)
 int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
+	Output output;
 
 	for (auto& file: options.inputs)
 	{
-		Str contents = readFile(file.c_str());
+		const char* source = strdup(file.c_str());
 
-		lexer::Tokens tokens = lexer::tokenize(file.c_str(), contents);
+		Str contents = readFile(source);
+
+		output.sources[source] = contents;
+
+		lexer::Tokens tokens = lexer::tokenize(output, source, contents);
 
 		for (auto t: tokens.tokens)
 			printf("{%d,%d,%d %s}, ", t.location.line + 1, t.location.column + 1, int(t.location.length), t.data.str().c_str());

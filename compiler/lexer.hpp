@@ -3,6 +3,8 @@
 #include "string.hpp"
 #include "location.hpp"
 
+struct Output;
+
 namespace lexer {
 
 struct Line
@@ -34,6 +36,6 @@ struct Tokens
 	vector<Token> tokens;
 };
 
-Tokens tokenize(const char* source, const Str& data);
+Tokens tokenize(Output& output, const char* source, const Str& data);
 
 }

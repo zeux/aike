@@ -29,6 +29,7 @@ OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
 all: $(COMPILER_BIN) $(RUNTIME_BIN)
 
 test: all
+	$(COMPILER_BIN) tests/simple.aike
 
 clean:
 	rm -rf $(BUILD)

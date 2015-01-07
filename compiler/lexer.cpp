@@ -1,6 +1,8 @@
 #include "common.hpp"
 #include "lexer.hpp"
 
+#include "output.hpp"
+
 namespace lexer {
 
 static bool inrange(char ch, char min, char max)
@@ -48,7 +50,7 @@ static bool isatom(char ch)
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
-static vector<Line> lines(const char* source, const Str& data)
+static vector<Line> lines(Output& output, const char* source, const Str& data)
 {
 	vector<Line> result;
 
@@ -67,11 +69,13 @@ static vector<Line> lines(const char* source, const Str& data)
 			indent++;
 		}
 
-		if (offset < data.size && data[offset] == '\t')
-			panic("(%d, %d): Source files can't have tabs", int(result.size() + 1), indent + 1);
-
 		while (offset < data.size && data[offset] != '\n')
+		{
+			if (data[offset] == '\t')
+				output.panic(Location(source, result.size(), indent, offset, 1), "Source files can't have tabs");
+
 			offset++;
+		}
 
 		result.push_back({indent, start});
 
@@ -105,11 +109,11 @@ template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
 	return Str(data.data + start, end - start);
 }
 
-Tokens tokenize(const char* source, const Str& data)
+Tokens tokenize(Output& output, const char* source, const Str& data)
 {
 	Tokens result;
 
-	result.lines = lines(source, data);
+	result.lines = lines(output, source, data);
 
 	size_t offset = 0;
 
@@ -142,12 +146,12 @@ Tokens tokenize(const char* source, const Str& data)
 			}
 			else
 			{
-				auto loc = getLocation(source, result.lines, offset, 0);
+				Location loc = getLocation(source, result.lines, offset, 1);
 
 				if (inrange(data[offset], 0, 32))
-					panic("%s(%d, %d): Unknown character %d", source, loc.line + 1, loc.column + 1, data[offset]);
+					output.panic(loc, "Unknown character %d", data[offset]);
 				else
-					panic("%s(%d, %d): Unknown character '%c'", source, loc.line + 1, loc.column + 1, data[offset]);
+					output.panic(loc, "Unknown character '%c'", data[offset]);
 			}
 		}
 	}

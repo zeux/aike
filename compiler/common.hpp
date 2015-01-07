@@ -7,9 +7,14 @@
 #include <string>
 #include <memory>
 
+#include <unordered_map>
+
 using namespace std;
 
 #ifdef __GNUC__
-__attribute__((format(printf, 1, 2)))
+#define ATTR_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define ATTR_PRINTF(fmt, args)
 #endif
-void panic(const char* format, ...);
+
+ATTR_PRINTF(1, 2) void panic(const char* format, ...);
