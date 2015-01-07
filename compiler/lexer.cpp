@@ -48,9 +48,9 @@ static bool isatom(char ch)
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
-Lines lines(const Str& data)
+static vector<Line> lines(const char* source, const Str& data)
 {
-	Lines result;
+	vector<Line> result;
 
 	size_t offset = 0;
 
@@ -68,12 +68,12 @@ Lines lines(const Str& data)
 		}
 
 		if (offset < data.size && data[offset] == '\t')
-			panic("(%d, %d): Source files can't have tabs", int(result.lines.size() + 1), indent + 1);
+			panic("(%d, %d): Source files can't have tabs", int(result.size() + 1), indent + 1);
 
 		while (offset < data.size && data[offset] != '\n')
 			offset++;
 
-		result.lines.push_back({indent, start, offset});
+		result.push_back({indent, start});
 
 		if (offset < data.size)
 			offset++;
@@ -82,14 +82,14 @@ Lines lines(const Str& data)
 	return result;
 }
 
-pair<int, int> getLocation(const Lines& lines, size_t offset)
+static Location getLocation(const char* source, const vector<Line>& lines, size_t offset, size_t length)
 {
-	auto it = std::lower_bound(lines.lines.begin(), lines.lines.end(), offset, [](const Line& line, size_t offset) { return line.end < offset; });
+	auto it = std::lower_bound(lines.begin(), lines.end(), offset, [](const Line& line, size_t offset) { return line.offset <= offset; });
+	assert(it != lines.begin());
 
-	if (it != lines.lines.end())
-		return make_pair(it - lines.lines.begin(), offset - it->start);
-	else
-		return make_pair(lines.lines.size(), 0);
+	auto line = it - 1;
+
+	return Location(source, line - lines.begin(), offset - line->offset, offset, length);
 }
 
 template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
@@ -105,9 +105,11 @@ template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
 	return Str(data.data + start, end - start);
 }
 
-Tokens tokenize(const Str& data, const Lines& lines)
+Tokens tokenize(const char* source, const Str& data)
 {
 	Tokens result;
+
+	result.lines = lines(source, data);
 
 	size_t offset = 0;
 
@@ -140,15 +142,18 @@ Tokens tokenize(const Str& data, const Lines& lines)
 			}
 			else
 			{
-				auto loc = getLocation(lines, offset);
+				auto loc = getLocation(source, result.lines, offset, 0);
 
 				if (inrange(data[offset], 0, 32))
-					panic("(%d, %d): Unknown character %d", int(loc.first + 1), int(loc.second + 1), data[offset]);
+					panic("%s(%d, %d): Unknown character %d", source, loc.line + 1, loc.column + 1, data[offset]);
 				else
-					panic("(%d, %d): Unknown character '%c'", int(loc.first + 1), int(loc.second + 1), data[offset]);
+					panic("%s(%d, %d): Unknown character '%c'", source, loc.line + 1, loc.column + 1, data[offset]);
 			}
 		}
 	}
+
+	for (auto& t: result.tokens)
+		t.location = getLocation(source, result.lines, t.data.data - data.data, t.data.size);
 
 	return result;
 }

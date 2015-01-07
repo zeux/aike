@@ -57,10 +57,9 @@ int main(int argc, const char** argv)
 	{
 		Str contents = readFile(file.c_str());
 
-		lexer::Lines lines = lexer::lines(contents);
-		lexer::Tokens tokens = lexer::tokenize(contents, lines);
+		lexer::Tokens tokens = lexer::tokenize(file.c_str(), contents);
 
 		for (auto t: tokens.tokens)
-			printf("{%s}, ", t.data.str().c_str());
+			printf("{%d,%d,%d %s}, ", t.location.line + 1, t.location.column + 1, int(t.location.length), t.data.str().c_str());
 	}
 }

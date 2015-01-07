@@ -1,8 +1,16 @@
 #pragma once
 
 #include "string.hpp"
+#include "location.hpp"
 
 namespace lexer {
+
+struct Line
+{
+	unsigned int indent;
+
+	size_t offset;
+};
 
 struct Token
 {
@@ -17,28 +25,15 @@ struct Token
 
 	Type type;
 	Str data;
-};
-
-struct Line
-{
-	unsigned int indent;
-
-	size_t start, end;
-};
-
-struct Lines
-{
-	vector<Line> lines;
+	Location location;
 };
 
 struct Tokens
 {
+	vector<Line> lines;
 	vector<Token> tokens;
 };
 
-Lines lines(const Str& data);
-pair<int, int> getLocation(const Lines& lines, size_t offset);
-
-Tokens tokenize(const Str& data, const Lines& lines);
+Tokens tokenize(const char* source, const Str& data);
 
 }
