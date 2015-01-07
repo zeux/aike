@@ -90,14 +90,12 @@ TargetMachine* createTargetMachine()
 
 string generateModule(TargetMachine* machine, Module* module, TargetMachine::CodeGenFileType type)
 {
-	PassManager pm;
-
-	pm.add(new DataLayoutPass(*machine->getDataLayout()));
-
 	string result;
 
 	raw_string_ostream rs(result);
 	formatted_raw_ostream frs(rs);
+
+	PassManager pm;
 
 	machine->addPassesToEmitFile(pm, frs, type);
 
@@ -133,7 +131,7 @@ int main(int argc, const char** argv)
 
 	TargetMachine* machine = createTargetMachine();
 
-	LLVMContext& context = getGlobalContext();
+	LLVMContext context;
 	Module* module = new Module("main", context);
 
 	vector<Type*> args;
