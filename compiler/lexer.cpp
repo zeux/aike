@@ -50,7 +50,7 @@ static bool isatom(char ch)
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
-static vector<Line> lines(Output& output, const char* source, const Str& data)
+static vector<Line> parseLines(Output& output, const char* source, const Str& data)
 {
 	vector<Line> result;
 
@@ -109,11 +109,9 @@ template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
 	return Str(data.data + start, end - start);
 }
 
-Tokens tokenize(Output& output, const char* source, const Str& data)
+static vector<Token> parseTokens(Output& output, const char* source, const Str& data, const vector<Line>& lines)
 {
-	Tokens result;
-
-	result.lines = lines(output, source, data);
+	vector<Token> result;
 
 	size_t offset = 0;
 
@@ -125,28 +123,28 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 		if (offset < data.size)
 		{
 			if (isidentstart(data[offset]))
-				result.tokens.push_back({Token::TypeIdent, scan(data, offset, isident)});
+				result.push_back({Token::TypeIdent, scan(data, offset, isident)});
 			else if (isdigit(data[offset]))
-				result.tokens.push_back({Token::TypeNumber, scan(data, offset, isnumber)});
+				result.push_back({Token::TypeNumber, scan(data, offset, isnumber)});
 			else if (data[offset] == '"' || data[offset] == '\'')
 			{
 				char start = data[offset];
 				offset++;
-				result.tokens.push_back({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
+				result.push_back({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
 				offset++;
 			}
 			else if (isbracket(data[offset]))
 			{
-				result.tokens.push_back({Token::TypeAtom, Str(data.data + offset, 1)});
+				result.push_back({Token::TypeBracket, Str(data.data + offset, 1)});
 				offset++;
 			}
 			else if (isatom(data[offset]))
 			{
-				result.tokens.push_back({Token::TypeAtom, scan(data, offset, isatom)});
+				result.push_back({Token::TypeAtom, scan(data, offset, isatom)});
 			}
 			else
 			{
-				Location loc = getLocation(source, result.lines, offset, 1);
+				Location loc = getLocation(source, lines, offset, 1);
 
 				if (inrange(data[offset], 0, 32))
 					output.panic(loc, "Unknown character %d", data[offset]);
@@ -156,10 +154,65 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 		}
 	}
 
-	for (auto& t: result.tokens)
-		t.location = getLocation(source, result.lines, t.data.data - data.data, t.data.size);
-
 	return result;
+}
+
+static const char* getClosingBracket(const Str& open)
+{
+	assert(open == "{" || open == "(" || open == "[");
+
+	return (open == "{") ? "}" : (open == "(") ? ")" : "]";
+}
+
+static void matchBrackets(Output& output, vector<Token>& tokens)
+{
+	vector<size_t> brackets;
+
+	for (size_t i = 0; i < tokens.size(); ++i)
+	{
+		const Token& t = tokens[i];
+
+		if (t.type == Token::TypeBracket)
+		{
+			if (t.data == "{" || t.data == "(" || t.data == "[")
+				brackets.push_back(i);
+			else
+			{
+				if (brackets.empty())
+					output.panic(t.location, "Unmatched closing bracket %s", t.data.str().c_str());
+
+				const Token& open = tokens[brackets.back()];
+				const char* close = getClosingBracket(open.data);
+
+				if (t.data != close)
+					output.panic(t.location, "Mismatched closing bracket: expected %s to close bracket at (%d,%d)",
+						close, open.location.line + 1, open.location.column + 1);
+
+				brackets.pop_back();
+			}
+		}
+	}
+
+	if (!brackets.empty())
+	{
+		const Token& open = tokens[brackets.back()];
+		const char* close = getClosingBracket(open.data);
+
+		output.panic(open.location, "Unmatched opening bracket: expected %s to close but found end of file", close);
+	}
+}
+
+Tokens tokenize(Output& output, const char* source, const Str& data)
+{
+	auto lines = parseLines(output, source, data);
+	auto tokens = parseTokens(output, source, data, lines);
+
+	for (auto& t: tokens)
+		t.location = getLocation(source, lines, t.data.data - data.data, t.data.size);
+
+	matchBrackets(output, tokens);
+
+	return { lines, tokens };
 }
 
 }

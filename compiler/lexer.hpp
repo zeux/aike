@@ -19,6 +19,7 @@ struct Token
 	enum Type
 	{
 		TypeAtom,
+		TypeBracket,
 		TypeIdent,
 		TypeString,
 		TypeCharacter,
@@ -27,6 +28,7 @@ struct Token
 
 	Type type;
 	Str data;
+	size_t matching;
 	Location location;
 };
 
