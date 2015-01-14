@@ -24,7 +24,7 @@ endif
 
 $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
-$(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all) -lz -lcurses
+$(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all) -lz -lcurses -lpthread
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
 
