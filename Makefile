@@ -11,7 +11,7 @@ RUNTIME_SRC=$(wildcard runtime/*.cpp)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
-$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions
+$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC
 $(RUNTIME_BIN): LDFLAGS=-shared
 
 ifeq ($(shell uname),Darwin)
