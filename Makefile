@@ -14,10 +14,12 @@ RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 $(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC
 $(RUNTIME_BIN): LDFLAGS=-shared
 
+ifeq ($(LLVMCONFIG),)
 ifeq ($(shell uname),Darwin)
 LLVMCONFIG=/usr/local/opt/llvm/bin/llvm-config
 else
 LLVMCONFIG=llvm-config
+endif
 endif
 
 $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)

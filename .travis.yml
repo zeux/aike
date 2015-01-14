@@ -2,4 +2,5 @@ language: cpp
 compiler: clang
 script: make test -k -j2
 before_install:
- - sudo apt-get install -qq llvm-3.4-dev
+ - wget -qO- http://llvm.org/releases/3.5.0/clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xz
+ - export LLVMCONFIG=./clang+llvm-3.5.0-x86_64-linux-gnu/bin/llvm-config
