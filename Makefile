@@ -7,11 +7,11 @@ COMPILER_OBJ=$(COMPILER_SRC:%=$(BUILD)/%.o)
 $(COMPILER_OBJ): CXXFLAGS=-g -std=c++11
 $(COMPILER_BIN): LDFLAGS=
 
-RUNTIME_SRC=$(wildcard runtime/*.c)
+RUNTIME_SRC=$(wildcard runtime/*.cpp)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
-$(RUNTIME_OBJ): CFLAGS=-g
+$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions
 $(RUNTIME_BIN): LDFLAGS=-shared
 
 ifeq ($(shell uname),Darwin)
