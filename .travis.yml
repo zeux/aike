@@ -7,5 +7,5 @@ cache:
   directories:
     - clang+llvm-3.5.0-x86_64-linux-gnu
 before_install:
- - if [ ! -d "clang+llvm-3.5.0-x86_64-linux-gnu" ]; then wget -qO- http://llvm.org/releases/3.5.0/clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xf; fi
  - export LLVMCONFIG=./clang+llvm-3.5.0-x86_64-linux-gnu/bin/llvm-config
+ - if [ ! -f $(LLVMCONFIG) ]; then wget -O- http://llvm.org/releases/3.5.0/clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar x; fi
