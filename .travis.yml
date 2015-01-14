@@ -4,5 +4,6 @@ script: make test -k -j2
 
 sudo: false
 before_install:
- - export LLVMCONFIG=./clang+llvm-3.5.0-x86_64-linux-gnu/bin/llvm-config
- - if [ ! -f $LLVMCONFIG ]; then wget -qO- http://llvm.org/releases/3.5.0/clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xJ; fi
+ - export LLVM=3.5.1
+ - export LLVMCONFIG=./clang+llvm-$LLVM-x86_64-linux-gnu/bin/llvm-config
+ - if [ ! -f $LLVMCONFIG ]; then wget -qO- http://llvm.org/releases/$LLVM/clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xJ; fi
