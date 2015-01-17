@@ -42,7 +42,7 @@ $(COMPILER_BIN): $(COMPILER_OBJ)
 	$(CXX) $^ $(LDFLAGS) -o $@
 
 $(RUNTIME_BIN): $(RUNTIME_OBJ)
-	$(CC) $^ $(LDFLAGS) -o $@
+	$(CXX) $^ $(LDFLAGS) -o $@
 
 $(BUILD)/%.cpp.o: %.cpp
 	@mkdir -p $(dir $@)
