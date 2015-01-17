@@ -141,6 +141,11 @@ int main(int argc, const char** argv)
 	IRBuilder<> builder(context);
 	builder.SetInsertPoint(bb);
 
+	FunctionType* tyinit = FunctionType::get(Type::getVoidTy(context), args, false);
+	Constant* funinit = module->getOrInsertFunction("init", tyinit);
+
+	builder.CreateCall(funinit);
+
 	builder.CreateRet(ConstantInt::get(Type::getInt32Ty(context), 0));
 
 	if (options.emitLLVM)
