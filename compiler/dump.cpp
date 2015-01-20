@@ -14,6 +14,18 @@ static void dumpString(const Str& s)
 	printf("%.*s", int(s.size), s.data);
 }
 
+template <typename T, typename F> static void dumpList(const T& list, F pred)
+{
+	const char* sep = "";
+
+	for (auto& e: list)
+	{
+		printf("%s", sep);
+		pred(e);
+		sep = ", ";
+	}
+}
+
 static void dumpNode(Ast* root, int indent)
 {
 	if (UNION_CASE(LiteralString, n, root))
@@ -38,13 +50,7 @@ static void dumpNode(Ast* root, int indent)
 		dumpNode(n->expr, indent);
 
 		printf("(");
-
-		for (auto& c: n->arguments)
-		{
-			dumpNode(c, indent);
-			printf(", ");
-		}
-
+		dumpList(n->arguments, [&](Ast* c) { dumpNode(c, indent); });
 		printf(")");
 	}
 	else if (UNION_CASE(FnDecl, n, root))
@@ -57,15 +63,7 @@ static void dumpNode(Ast* root, int indent)
 		printf("fn ");
 		dumpString(n->name);
 		printf("(");
-
-		for (auto& arg: n->arguments)
-		{
-			dumpString(arg.first);
-			printf(": ");
-			dump(arg.second);
-			printf(", ");
-		}
-
+		dumpList(n->arguments, [&](pair<Str, Ty*> p) { dumpString(p.first); printf(": "); dump(p.second); });
 		printf(")\n");
 
 		if (n->body)
