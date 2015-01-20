@@ -2,6 +2,7 @@
 
 #include "backtrace.hpp"
 
+#ifdef AIKE_UNIX
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <unwind.h>
@@ -20,7 +21,7 @@ static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void*
 
 	fprintf(data->file, "#%02d: %016lx", data->frame, ip);
 
-	dl_info di;
+	Dl_info di;
 	if (dladdr(reinterpret_cast<void*>(ip), &di) && di.dli_fname && di.dli_sname)
 	{
 		const char* fname_slash = strrchr(di.dli_fname, '/');
@@ -48,3 +49,4 @@ void dumpBacktrace(FILE* file)
 	if (result != _URC_END_OF_STACK)
 		fprintf(file, "unwind failed: %d\n", result);
 }
+#endif
