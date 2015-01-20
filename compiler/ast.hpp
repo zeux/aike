@@ -1,29 +1,7 @@
 #pragma once
 
-#include "string.hpp"
+#define UD_AST(X) \
+	X(String, { Str value; }) \
+	X(Ident, { Str name; })
 
-struct Ast
-{
-	enum Kind
-	{
-		KindString,
-		KindIdent
-	} kind;
-
-	struct String
-	{
-		Str value;
-	};
-
-	struct Ident
-	{
-		Str name;
-	};
-
-	union
-	{
-		int dummy;
-		String dataString;
-		Ident dataIdent;
-	};
-};
+UNION_DECL(Ast, UD_AST)

@@ -2,13 +2,9 @@
 #include "parse.hpp"
 
 #include "ast.hpp"
-#include "dump.hpp"
+#include "tokenize.hpp"
 
-void parse()
+Ast* parse(const Tokens& tokens)
 {
-	auto f = UNION_MAKE(Ast, String, Str("foo"));
-	auto g = UNION_NEW(Ast, Ident, Str("foo"));
-
-	dump(&f);
-	dump(g);
+	return UNION_NEW(Ast, String, Str(""));
 }

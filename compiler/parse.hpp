@@ -1,3 +1,6 @@
 #pragma once
 
-void parse();
+struct Ast;
+struct Tokens;
+
+Ast* parse(const Tokens& tokens);

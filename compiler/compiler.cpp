@@ -4,6 +4,7 @@
 
 #include "tokenize.hpp"
 #include "parse.hpp"
+#include "dump.hpp"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -121,12 +122,9 @@ int main(int argc, const char** argv)
 		output.sources[source] = contents;
 
 		Tokens tokens = tokenize(output, source, contents);
+		Ast* root = parse(tokens);
 
-		for (auto t: tokens.tokens)
-			printf("{%d,%d,%d %s}, ", t.location.line + 1, t.location.column + 1, int(t.location.length), t.data.str().c_str());
-		printf("\n");
-
-		parse();
+		dump(root);
 	}
 
 	InitializeNativeTarget();
