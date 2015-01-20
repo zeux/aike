@@ -1,46 +1,44 @@
 #include "common.hpp"
-#include "lexer.hpp"
+#include "tokenize.hpp"
 
 #include "output.hpp"
 
-namespace lexer {
-
-static bool inrange(char ch, char min, char max)
+static bool inRange(char ch, char min, char max)
 {
 	return ch >= min && ch <= max;
 }
 
-static bool isspace(char ch)
+static bool isSpace(char ch)
 {
 	return ch == ' ' || ch == '\r' || ch == '\n';
 }
 
-static bool isdigit(char ch)
+static bool isDigit(char ch)
 {
-	return inrange(ch, '0', '9');
+	return inRange(ch, '0', '9');
 }
 
-static bool isnumber(char ch)
+static bool isNumber(char ch)
 {
-	return isdigit(ch) || ch == '_';
+	return isDigit(ch) || ch == '_';
 }
 
-static bool isidentstart(char ch)
+static bool isIdentStart(char ch)
 {
-	return inrange(ch, 'a', 'z') || inrange(ch, 'A', 'Z') || ch == '_';
+	return inRange(ch, 'a', 'z') || inRange(ch, 'A', 'Z') || ch == '_';
 }
 
-static bool isident(char ch)
+static bool isIdent(char ch)
 {
-	return isidentstart(ch) || isdigit(ch);
+	return isIdentStart(ch) || isDigit(ch);
 }
 
-static bool isbracket(char ch)
+static bool isBracket(char ch)
 {
 	return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
 }
 
-static bool isatom(char ch)
+static bool isAtom(char ch)
 {
 	return
 		ch == '!' ||
@@ -122,10 +120,10 @@ static vector<Token> parseTokens(Output& output, const char* source, const Str& 
 
 		if (offset < data.size)
 		{
-			if (isidentstart(data[offset]))
-				result.push_back({Token::TypeIdent, scan(data, offset, isident)});
+			if (isIdentStart(data[offset]))
+				result.push_back({Token::TypeIdent, scan(data, offset, isIdent)});
 			else if (isdigit(data[offset]))
-				result.push_back({Token::TypeNumber, scan(data, offset, isnumber)});
+				result.push_back({Token::TypeNumber, scan(data, offset, isNumber)});
 			else if (data[offset] == '"' || data[offset] == '\'')
 			{
 				char start = data[offset];
@@ -133,20 +131,20 @@ static vector<Token> parseTokens(Output& output, const char* source, const Str& 
 				result.push_back({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
 				offset++;
 			}
-			else if (isbracket(data[offset]))
+			else if (isBracket(data[offset]))
 			{
 				result.push_back({Token::TypeBracket, Str(data.data + offset, 1)});
 				offset++;
 			}
-			else if (isatom(data[offset]))
+			else if (isAtom(data[offset]))
 			{
-				result.push_back({Token::TypeAtom, scan(data, offset, isatom)});
+				result.push_back({Token::TypeAtom, scan(data, offset, isAtom)});
 			}
 			else
 			{
 				Location loc = getLocation(source, lines, offset, 1);
 
-				if (inrange(data[offset], 0, 32))
+				if (inRange(data[offset], 0, 32))
 					output.panic(loc, "Unknown character %d", data[offset]);
 				else
 					output.panic(loc, "Unknown character '%c'", data[offset]);
@@ -213,6 +211,4 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 	matchBrackets(output, tokens);
 
 	return { lines, tokens };
-}
-
 }

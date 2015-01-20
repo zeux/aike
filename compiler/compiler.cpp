@@ -1,7 +1,8 @@
 #include "common.hpp"
-#include "lexer.hpp"
+
 #include "output.hpp"
 
+#include "tokenize.hpp"
 #include "parse.hpp"
 
 #include "llvm/IR/IRBuilder.h"
@@ -119,7 +120,7 @@ int main(int argc, const char** argv)
 
 		output.sources[source] = contents;
 
-		lexer::Tokens tokens = lexer::tokenize(output, source, contents);
+		Tokens tokens = tokenize(output, source, contents);
 
 		for (auto t: tokens.tokens)
 			printf("{%d,%d,%d %s}, ", t.location.line + 1, t.location.column + 1, int(t.location.length), t.data.str().c_str());

@@ -5,8 +5,6 @@
 
 struct Output;
 
-namespace lexer {
-
 struct Line
 {
 	unsigned int indent;
@@ -39,5 +37,3 @@ struct Tokens
 };
 
 Tokens tokenize(Output& output, const char* source, const Str& data);
-
-}
