@@ -20,3 +20,22 @@ using namespace std;
 #endif
 
 ATTR_PRINTF(1, 2) void panic(const char* format, ...);
+
+#define UNION_CASE(kindname, var, value) \
+	auto var = ((value)->kind == (value)->Kind##kindname) \
+		? &(value)->data##kindname \
+		: nullptr
+
+#define UNION_MAKE(type, kindname, ...) \
+		([&]() -> type { \
+			type __result = { type::Kind##kindname, 0 }; \
+			__result.data##kindname = { __VA_ARGS__ }; \
+			return __result; \
+		})()
+
+#define UNION_NEW(type, kindname, ...) \
+		([&]() -> type* { \
+			type* __result = new type { type::Kind##kindname, 0 }; \
+			__result->data##kindname = { __VA_ARGS__ }; \
+			return __result; \
+		})()

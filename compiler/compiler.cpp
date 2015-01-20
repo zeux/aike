@@ -2,6 +2,8 @@
 #include "lexer.hpp"
 #include "output.hpp"
 
+#include "parse.hpp"
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -122,6 +124,8 @@ int main(int argc, const char** argv)
 		for (auto t: tokens.tokens)
 			printf("{%d,%d,%d %s}, ", t.location.line + 1, t.location.column + 1, int(t.location.length), t.data.str().c_str());
 		printf("\n");
+
+		parse();
 	}
 
 	InitializeNativeTarget();
