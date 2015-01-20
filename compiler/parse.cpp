@@ -18,9 +18,11 @@ struct TokenStream
 		return index + offset < tokens->tokens.size ? tokens->tokens[index + offset] : kEnd;
 	}
 
-	void move(size_t offset = 1)
+	void move()
 	{
-		index += offset;
+		assert(!is(Token::TypeEnd));
+
+		index++;
 	}
 
 	bool is(Token::Type type)
@@ -76,6 +78,11 @@ struct TokenStream
 	}
 };
 
+static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
+{
+	return loc.column == ts.tokens->lines[loc.line].indent;
+}
+
 static Ty* parseType(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "string"))
@@ -89,18 +96,49 @@ static Ty* parseType(TokenStream& ts)
 
 static Ast* parseExpr(TokenStream& ts);
 
-static Ast* parseBlock(TokenStream& ts)
+static Ast* parseBlock(TokenStream& ts, const Location* indent)
 {
 	Array<Ast*> body;
 
-	while (!ts.is(Token::TypeEnd))
+	if (isFirstOnLine(ts, ts.get().location))
+	{
+		int firstIndent = ts.tokens->lines[ts.get().location.line].indent;
+
+		if (indent && firstIndent <= ts.tokens->lines[indent->line].indent)
+			ts.output->panic(ts.get().location, "Invalid indentation: expected >%d, got %d", ts.tokens->lines[indent->line].indent, firstIndent);
+
+		while (!ts.is(Token::TypeEnd))
+		{
+			if (!isFirstOnLine(ts, ts.get().location))
+				ts.output->panic(ts.get().location, "Expected newline");
+
+			if (indent)
+			{
+				int startIndent = ts.tokens->lines[indent->line].indent;
+				int lineIndent = ts.tokens->lines[ts.get().location.line].indent;
+
+				if (lineIndent == startIndent)
+					break;
+
+				if (lineIndent != firstIndent)
+					ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", startIndent, lineIndent);
+			}
+
+			body.push(parseExpr(ts));
+		}
+	}
+	else
+	{
 		body.push(parseExpr(ts));
+	}
 
 	return UNION_NEW(Ast, Block, { body });
 }
 
 static Ast* parseFnDecl(TokenStream& ts)
 {
+	Location indent = ts.get().location;
+
 	unsigned attributes = 0;
 
 	if (ts.is(Token::TypeIdent, "extern"))
@@ -130,12 +168,22 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, ")");
 
+	Ty* ret;
+
+	if (ts.is(Token::TypeAtom, ":"))
+	{
+		ts.move();
+		ret = parseType(ts);
+	}
+	else
+		ret = UNION_NEW(Ty, Void, {});
+
 	Ast* body =
 		(attributes & FnAttributeExtern)
 		? nullptr
-		: parseBlock(ts);
+		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { name, arguments, attributes, body });
+	return UNION_NEW(Ast, FnDecl, { name, arguments, ret, attributes, body });
 }
 
 static Ast* parseCall(TokenStream& ts, Ast* expr)
@@ -187,7 +235,7 @@ Ast* parse(Output& output, const Tokens& tokens)
 {
 	TokenStream ts = { &output, &tokens, 0 };
 
-	Ast* result = parseBlock(ts);
+	Ast* result = parseBlock(ts, nullptr);
 
 	ts.expect(Token::TypeEnd);
 

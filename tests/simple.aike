@@ -1,5 +1,8 @@
 extern fn println(str: string)
 
+fn world()
+    "world"
+
 fn main()
     print("Hello, ")
-    print("world")
+    print(world())

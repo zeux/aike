@@ -128,8 +128,10 @@ static Array<Token> parseTokens(Output& output, const char* source, const Str& d
 			{
 				char start = data[offset];
 				offset++;
-				result.push({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
+				Str contents = scan(data, offset, [=](char ch) { return ch != start; });
 				offset++;
+
+				result.push({start == '"' ? Token::TypeString : Token::TypeCharacter, Str(contents.data - 1, contents.size + 2)});
 			}
 			else if (isBracket(data[offset]))
 			{

@@ -18,9 +18,7 @@ static void dumpNode(Ast* root, int indent)
 {
 	if (UNION_CASE(LiteralString, n, root))
 	{
-		printf("\"");
 		dumpString(n->value);
-		printf("\"");
 	}
 	else if (UNION_CASE(Ident, n, root))
 	{
