@@ -122,7 +122,7 @@ int main(int argc, const char** argv)
 		output.sources[source] = contents;
 
 		Tokens tokens = tokenize(output, source, contents);
-		Ast* root = parse(tokens);
+		Ast* root = parse(output, tokens);
 
 		dump(root);
 	}

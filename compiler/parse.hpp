@@ -2,5 +2,6 @@
 
 struct Ast;
 struct Tokens;
+struct Output;
 
-Ast* parse(const Tokens& tokens);
+Ast* parse(Output& output, const Tokens& tokens);

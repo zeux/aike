@@ -1,3 +1,5 @@
 #pragma once
 
-void dump(struct Ast* root);
+struct Ast;
+
+void dump(Ast* root);

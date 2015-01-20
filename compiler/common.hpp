@@ -18,8 +18,10 @@ using namespace std;
 
 #ifdef __GNUC__
 #define ATTR_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#define ATTR_NORETURN __attribute__((noreturn))
 #else
 #define ATTR_PRINTF(fmt, args)
+#define ATTR_NORETURN
 #endif
 
 ATTR_PRINTF(1, 2) void panic(const char* format, ...);

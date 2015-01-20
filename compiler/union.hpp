@@ -15,7 +15,7 @@
 #define UNION_NEW(type, kindname, ...) \
 		([&]() -> type* { \
 			type* __result = new type { type::Kind##kindname, 0 }; \
-			__result->data##kindname = { __VA_ARGS__ }; \
+			__result->data##kindname = __VA_ARGS__; \
 			return __result; \
 		})()
 

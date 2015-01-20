@@ -212,3 +212,18 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 
 	return { lines, tokens };
 }
+
+const char* tokenTypeName(Token::Type type)
+{
+	switch (type)
+	{
+	case Token::TypeAtom: return "atom";
+	case Token::TypeBracket: return "bracket";
+	case Token::TypeIdent: return "identifier";
+	case Token::TypeString: return "string";
+	case Token::TypeCharacter: return "character";
+	case Token::TypeNumber: return "number";
+	case Token::TypeEnd: return "end";
+	default: return "unknown";
+	}
+}
