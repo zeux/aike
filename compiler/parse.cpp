@@ -76,6 +76,17 @@ struct TokenStream
 	}
 };
 
+static Ty* parseType(TokenStream& ts)
+{
+	if (ts.is(Token::TypeIdent, "string"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, String, {});
+	}
+
+	ts.output->panic(ts.get().location, "Expected type");
+}
+
 static Ast* parseExpr(TokenStream& ts);
 
 static Ast* parseBlock(TokenStream& ts)
@@ -102,7 +113,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	Str name = ts.eat(Token::TypeIdent);
 
-	Array<Str> arguments;
+	Array<pair<Str, Ty*>> arguments;
 
 	ts.eat(Token::TypeBracket, "(");
 
@@ -112,9 +123,9 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 		ts.eat(Token::TypeAtom, ":");
 
-		Str argtype = ts.eat(Token::TypeIdent);
+		Ty* type = parseType(ts);
 
-		arguments.push(argname);
+		arguments.push(make_pair(argname, type));
 	}
 
 	ts.eat(Token::TypeBracket, ")");
@@ -176,5 +187,9 @@ Ast* parse(Output& output, const Tokens& tokens)
 {
 	TokenStream ts = { &output, &tokens, 0 };
 
-	return parseBlock(ts);
+	Ast* result = parseBlock(ts);
+
+	ts.expect(Token::TypeEnd);
+
+	return result;
 }

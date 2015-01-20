@@ -19,9 +19,9 @@
 			return __result; \
 		})()
 
-#define UNION_DECL_KIND(name, _) Kind##name,
-#define UNION_DECL_STRUCT(name, data) struct name data;
-#define UNION_DECL_FIELD(name, _) name data##name;
+#define UNION_DECL_KIND(name, ...) Kind##name,
+#define UNION_DECL_STRUCT(name, ...) struct name __VA_ARGS__;
+#define UNION_DECL_FIELD(name, ...) name data##name;
 
 #define UNION_DECL(name, def) \
 	struct name { \

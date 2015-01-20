@@ -62,7 +62,9 @@ static void dumpNode(Ast* root, int indent)
 
 		for (auto& arg: n->arguments)
 		{
-			dumpString(arg);
+			dumpString(arg.first);
+			printf(": ");
+			dump(arg.second);
 			printf(", ");
 		}
 
@@ -71,6 +73,20 @@ static void dumpNode(Ast* root, int indent)
 		if (n->body)
 			dumpNode(n->body, indent + 1);
 	}
+	else
+	{
+		assert(false);
+	}
+}
+
+void dump(Ty* type)
+{
+	if (UNION_CASE(String, t, type))
+		printf("string");
+	else if (UNION_CASE(Unknown, t, type))
+		printf("_");
+	else
+		assert(false);
 }
 
 void dump(Ast* root)
