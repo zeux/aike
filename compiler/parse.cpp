@@ -78,6 +78,11 @@ struct TokenStream
 	}
 };
 
+static int getLineIndent(const TokenStream& ts, const Location& loc)
+{
+	return ts.tokens->lines[loc.line].indent;
+}
+
 static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
 {
 	return loc.column == ts.tokens->lines[loc.line].indent;
@@ -102,10 +107,11 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 
 	if (isFirstOnLine(ts, ts.get().location))
 	{
-		int firstIndent = ts.tokens->lines[ts.get().location.line].indent;
+		int startIndent = indent ? getLineIndent(ts, *indent) : 0;
+		int firstIndent = getLineIndent(ts, ts.get().location);
 
-		if (indent && firstIndent <= ts.tokens->lines[indent->line].indent)
-			ts.output->panic(ts.get().location, "Invalid indentation: expected >%d, got %d", ts.tokens->lines[indent->line].indent, firstIndent);
+		if (indent && firstIndent <= startIndent)
+			ts.output->panic(ts.get().location, "Invalid indentation: expected >%d, got %d", startIndent, firstIndent);
 
 		while (!ts.is(Token::TypeEnd))
 		{
@@ -114,8 +120,7 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 
 			if (indent)
 			{
-				int startIndent = ts.tokens->lines[indent->line].indent;
-				int lineIndent = ts.tokens->lines[ts.get().location.line].indent;
+				int lineIndent = getLineIndent(ts, ts.get().location);
 
 				if (lineIndent == startIndent)
 					break;
