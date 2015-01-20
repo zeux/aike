@@ -126,7 +126,7 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 					break;
 
 				if (lineIndent != firstIndent)
-					ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", startIndent, lineIndent);
+					ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", firstIndent, lineIndent);
 			}
 
 			body.push(parseExpr(ts));
