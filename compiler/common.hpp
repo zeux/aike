@@ -6,10 +6,13 @@
 
 #include <vector>
 #include <string>
-#include <memory>
-#include <algorithm>
-
 #include <unordered_map>
+
+#include <memory>
+#include <utility>
+
+#include <algorithm>
+#include <functional>
 
 using namespace std;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "array.hpp"
 #include "string.hpp"
 #include "location.hpp"
 
@@ -32,8 +33,8 @@ struct Token
 
 struct Tokens
 {
-	vector<Line> lines;
-	vector<Token> tokens;
+	Array<Line> lines;
+	Array<Token> tokens;
 };
 
 Tokens tokenize(Output& output, const char* source, const Str& data);

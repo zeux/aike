@@ -48,9 +48,9 @@ static bool isAtom(char ch)
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
-static vector<Line> parseLines(Output& output, const char* source, const Str& data)
+static Array<Line> parseLines(Output& output, const char* source, const Str& data)
 {
-	vector<Line> result;
+	Array<Line> result;
 
 	size_t offset = 0;
 
@@ -70,12 +70,12 @@ static vector<Line> parseLines(Output& output, const char* source, const Str& da
 		while (offset < data.size && data[offset] != '\n')
 		{
 			if (data[offset] == '\t')
-				output.panic(Location(source, result.size(), indent, offset, 1), "Source files can't have tabs");
+				output.panic(Location(source, result.size, indent, offset, 1), "Source files can't have tabs");
 
 			offset++;
 		}
 
-		result.push_back({indent, start});
+		result.push({indent, start});
 
 		if (offset < data.size)
 			offset++;
@@ -84,7 +84,7 @@ static vector<Line> parseLines(Output& output, const char* source, const Str& da
 	return result;
 }
 
-static Location getLocation(const char* source, const vector<Line>& lines, size_t offset, size_t length)
+static Location getLocation(const char* source, const Array<Line>& lines, size_t offset, size_t length)
 {
 	auto it = std::lower_bound(lines.begin(), lines.end(), offset, [](const Line& line, size_t offset) { return line.offset <= offset; });
 	assert(it != lines.begin());
@@ -107,9 +107,9 @@ template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
 	return Str(data.data + start, end - start);
 }
 
-static vector<Token> parseTokens(Output& output, const char* source, const Str& data, const vector<Line>& lines)
+static Array<Token> parseTokens(Output& output, const char* source, const Str& data, const Array<Line>& lines)
 {
-	vector<Token> result;
+	Array<Token> result;
 
 	size_t offset = 0;
 
@@ -121,24 +121,24 @@ static vector<Token> parseTokens(Output& output, const char* source, const Str& 
 		if (offset < data.size)
 		{
 			if (isIdentStart(data[offset]))
-				result.push_back({Token::TypeIdent, scan(data, offset, isIdent)});
+				result.push({Token::TypeIdent, scan(data, offset, isIdent)});
 			else if (isdigit(data[offset]))
-				result.push_back({Token::TypeNumber, scan(data, offset, isNumber)});
+				result.push({Token::TypeNumber, scan(data, offset, isNumber)});
 			else if (data[offset] == '"' || data[offset] == '\'')
 			{
 				char start = data[offset];
 				offset++;
-				result.push_back({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
+				result.push({start == '"' ? Token::TypeString : Token::TypeCharacter, scan(data, offset, [=](char ch) { return ch != start; })});
 				offset++;
 			}
 			else if (isBracket(data[offset]))
 			{
-				result.push_back({Token::TypeBracket, Str(data.data + offset, 1)});
+				result.push({Token::TypeBracket, Str(data.data + offset, 1)});
 				offset++;
 			}
 			else if (isAtom(data[offset]))
 			{
-				result.push_back({Token::TypeAtom, scan(data, offset, isAtom)});
+				result.push({Token::TypeAtom, scan(data, offset, isAtom)});
 			}
 			else
 			{
@@ -162,11 +162,11 @@ static const char* getClosingBracket(const Str& open)
 	return (open == "{") ? "}" : (open == "(") ? ")" : "]";
 }
 
-static void matchBrackets(Output& output, vector<Token>& tokens)
+static void matchBrackets(Output& output, Array<Token>& tokens)
 {
 	vector<size_t> brackets;
 
-	for (size_t i = 0; i < tokens.size(); ++i)
+	for (size_t i = 0; i < tokens.size; ++i)
 	{
 		const Token& t = tokens[i];
 

@@ -9,7 +9,7 @@ struct Str
 	{
 	}
 
-	Str(const char* string): data(string), size(strlen(string))
+	explicit Str(const char* string): data(string), size(strlen(string))
 	{
 	}
 

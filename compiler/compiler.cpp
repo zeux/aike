@@ -33,7 +33,7 @@ Options parseOptions(int argc, const char** argv)
 
 	for (int i = 1; i < argc; ++i)
 	{
-		Str arg = argv[i];
+		Str arg = Str(argv[i]);
 
 		if (arg.size > 0 && arg[0] == '-')
 		{
