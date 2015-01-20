@@ -12,7 +12,7 @@ RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
 $(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC
-$(RUNTIME_BIN): LDFLAGS=-shared
+$(RUNTIME_BIN): LDFLAGS=-shared -ldl
 
 ifeq ($(LLVMCONFIG),)
 ifeq ($(shell uname),Darwin)
