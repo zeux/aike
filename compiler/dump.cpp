@@ -41,7 +41,7 @@ static void dumpNode(Ast* root, int indent)
 		for (auto& c: n->body)
 		{
 			dumpIndent(indent);
-			dumpNode(c, indent + 1);
+			dumpNode(c, indent);
 			printf("\n");
 		}
 	}
@@ -55,8 +55,6 @@ static void dumpNode(Ast* root, int indent)
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
-		dumpIndent(indent);
-
 		if (n->attributes & FnAttributeExtern)
 			printf("extern ");
 
@@ -70,6 +68,15 @@ static void dumpNode(Ast* root, int indent)
 
 		if (n->body)
 			dumpNode(n->body, indent + 1);
+	}
+	else if (UNION_CASE(VarDecl, n, root))
+	{
+		printf("var ");
+		dumpString(n->name);
+		printf(": ");
+		dump(n->type);
+		printf(" = ");
+		dump(n->expr);
 	}
 	else
 	{

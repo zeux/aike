@@ -17,6 +17,7 @@ enum FnAttribute
 	X(Ident, { Str name; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> arguments; }) \
-	X(FnDecl, { Str name; Array<pair<Str, Ty*>> arguments; Ty* ret; unsigned attributes; Ast* body; })
+	X(FnDecl, { Str name; Array<pair<Str, Ty*>> arguments; Ty* ret; unsigned attributes; Ast* body; }) \
+	X(VarDecl, { Str name; Ty* type; Ast* expr; })
 
 UNION_DECL(Ast, UD_AST)

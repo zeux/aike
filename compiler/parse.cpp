@@ -197,6 +197,29 @@ static Ast* parseFnDecl(TokenStream& ts)
 	return UNION_NEW(Ast, FnDecl, { name, arguments, ret, attributes, body });
 }
 
+static Ast* parseVarDecl(TokenStream& ts)
+{
+	ts.eat(Token::TypeIdent, "var");
+
+	Str name = ts.eat(Token::TypeIdent);
+
+	Ty* type;
+
+	if (ts.is(Token::TypeAtom, ":"))
+	{
+		ts.move();
+		type = parseType(ts);
+	}
+	else
+		type = UNION_NEW(Ty, Unknown, {});
+
+	ts.eat(Token::TypeAtom, "=");
+
+	Ast* expr = parseExpr(ts);
+
+	return UNION_NEW(Ast, VarDecl, { name, type, expr });
+}
+
 static Ast* parseCall(TokenStream& ts, Ast* expr)
 {
 	ts.eat(Token::TypeBracket, "(");
@@ -233,6 +256,9 @@ static Ast* parseExpr(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "fn"))
 		return parseFnDecl(ts);
+
+	if (ts.is(Token::TypeIdent, "var"))
+		return parseVarDecl(ts);
 
 	Ast* term = parseTerm(ts);
 

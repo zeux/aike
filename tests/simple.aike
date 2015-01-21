@@ -1,8 +1,10 @@
 extern fn println(str: string)
 
-fn world()
+fn world(dbg: string)
+    print(dbg)
     "world"
 
 fn main(): void
-    print("Hello, ")
-    print(world())
+    var hello: string = "Hello, "
+    print(hello)
+    print(world("test"))
