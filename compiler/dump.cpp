@@ -59,9 +59,9 @@ static void dumpNode(Ast* root, int indent)
 			printf("extern ");
 
 		printf("fn ");
-		dumpString(n->name);
+		dumpString(n->var->name);
 		printf("(");
-		dumpList(n->arguments, [&](pair<Str, Ty*> p) { dumpString(p.first); printf(": "); dump(p.second); });
+		dumpList(n->arguments, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
 		printf("): ");
 		dump(n->ret);
 		printf("\n");
@@ -72,9 +72,9 @@ static void dumpNode(Ast* root, int indent)
 	else if (UNION_CASE(VarDecl, n, root))
 	{
 		printf("var ");
-		dumpString(n->name);
+		dumpString(n->var->name);
 		printf(": ");
-		dump(n->type);
+		dump(n->var->type);
 		printf(" = ");
 		dump(n->expr);
 	}

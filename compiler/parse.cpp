@@ -59,11 +59,11 @@ struct TokenStream
 		}
 	}
 
-	Str eat(Token::Type type)
+	Token eat(Token::Type type)
 	{
 		expect(type);
 
-		Str result = get().data;
+		Token result = get();
 
 		move();
 
@@ -160,21 +160,21 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	ts.eat(Token::TypeIdent, "fn");
 
-	Str name = ts.eat(Token::TypeIdent);
+	auto name = ts.eat(Token::TypeIdent);
 
-	Array<pair<Str, Ty*>> arguments;
+	Array<Variable*> arguments;
 
 	ts.eat(Token::TypeBracket, "(");
 
 	while (!ts.is(Token::TypeBracket, ")"))
 	{
-		Str argname = ts.eat(Token::TypeIdent);
+		auto argname = ts.eat(Token::TypeIdent);
 
 		ts.eat(Token::TypeAtom, ":");
 
 		Ty* type = parseType(ts);
 
-		arguments.push(make_pair(argname, type));
+		arguments.push(new Variable { argname.data, type, argname.location });
 	}
 
 	ts.eat(Token::TypeBracket, ")");
@@ -194,14 +194,14 @@ static Ast* parseFnDecl(TokenStream& ts)
 		? nullptr
 		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { name, arguments, ret, attributes, body });
+	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, UNION_NEW(Ty, Unknown, {}), name.location }, arguments, ret, attributes, body });
 }
 
 static Ast* parseVarDecl(TokenStream& ts)
 {
 	ts.eat(Token::TypeIdent, "var");
 
-	Str name = ts.eat(Token::TypeIdent);
+	auto name = ts.eat(Token::TypeIdent);
 
 	Ty* type;
 
@@ -217,7 +217,7 @@ static Ast* parseVarDecl(TokenStream& ts)
 
 	Ast* expr = parseExpr(ts);
 
-	return UNION_NEW(Ast, VarDecl, { name, type, expr });
+	return UNION_NEW(Ast, VarDecl, { new Variable { name.data, type, name.location }, expr });
 }
 
 static Ast* parseCall(TokenStream& ts, Ast* expr)
@@ -242,10 +242,14 @@ static Ast* parseCall(TokenStream& ts, Ast* expr)
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeString))
-		return UNION_NEW(Ast, LiteralString, { ts.eat(Token::TypeString) });
+		return UNION_NEW(Ast, LiteralString, { ts.eat(Token::TypeString).data });
 
 	if (ts.is(Token::TypeIdent))
-		return UNION_NEW(Ast, Ident, { ts.eat(Token::TypeIdent) });
+	{
+		auto name = ts.eat(Token::TypeIdent);
+
+		return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr });
+	}
 
 	auto t = ts.get();
 

@@ -1,11 +1,20 @@
 #pragma once
 
+#include "location.hpp"
+
 #define UD_TY(X) \
 	X(String, {}) \
 	X(Void, {}) \
 	X(Unknown, {})
 
 UNION_DECL(Ty, UD_TY)
+
+struct Variable
+{
+	Str name;
+	Ty* type;
+	Location location;
+};
 
 enum FnAttribute
 {
@@ -14,10 +23,10 @@ enum FnAttribute
 
 #define UD_AST(X) \
 	X(LiteralString, { Str value; }) \
-	X(Ident, { Str name; }) \
+	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> arguments; }) \
-	X(FnDecl, { Str name; Array<pair<Str, Ty*>> arguments; Ty* ret; unsigned attributes; Ast* body; }) \
-	X(VarDecl, { Str name; Ty* type; Ast* expr; })
+	X(FnDecl, { Variable* var; Array<Variable*> arguments; Ty* ret; unsigned attributes; Ast* body; }) \
+	X(VarDecl, { Variable* var; Ast* expr; })
 
 UNION_DECL(Ast, UD_AST)
