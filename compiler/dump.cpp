@@ -50,7 +50,7 @@ static void dumpNode(Ast* root, int indent)
 		dumpNode(n->expr, indent);
 
 		printf("(");
-		dumpList(n->arguments, [&](Ast* c) { dumpNode(c, indent); });
+		dumpList(n->args, [&](Ast* c) { dumpNode(c, indent); });
 		printf(")");
 	}
 	else if (UNION_CASE(FnDecl, n, root))
@@ -61,9 +61,14 @@ static void dumpNode(Ast* root, int indent)
 		printf("fn ");
 		dumpString(n->var->name);
 		printf("(");
-		dumpList(n->arguments, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
+		dumpList(n->args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
 		printf("): ");
-		dump(n->ret);
+
+		if (UNION_CASE(Function, f, n->var->type))
+			dump(f->ret);
+		else
+			ICE("FnDecl type is not Function");
+
 		printf("\n");
 
 		if (n->body)
@@ -80,20 +85,13 @@ static void dumpNode(Ast* root, int indent)
 	}
 	else
 	{
-		assert(false);
+		ICE("Unknown Ast kind %d", root->kind);
 	}
 }
 
 void dump(Ty* type)
 {
-	if (UNION_CASE(String, t, type))
-		printf("string");
-	else if (UNION_CASE(Void, t, type))
-		printf("void");
-	else if (UNION_CASE(Unknown, t, type))
-		printf("_");
-	else
-		assert(false);
+	printf("%s", typeName(type).c_str());
 }
 
 void dump(Ast* root)

@@ -162,7 +162,8 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	Array<Variable*> arguments;
+	Array<Variable*> args;
+	Array<Ty*> argtys;
 
 	ts.eat(Token::TypeBracket, "(");
 
@@ -174,7 +175,8 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 		Ty* type = parseType(ts);
 
-		arguments.push(new Variable { argname.data, type, argname.location });
+		args.push(new Variable { argname.data, type, argname.location });
+		argtys.push(type);
 	}
 
 	ts.eat(Token::TypeBracket, ")");
@@ -194,7 +196,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 		? nullptr
 		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, UNION_NEW(Ty, Unknown, {}), name.location }, arguments, ret, attributes, body });
+	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, UNION_NEW(Ty, Function, { argtys, ret }), name.location }, args, attributes, body });
 }
 
 static Ast* parseVarDecl(TokenStream& ts)
@@ -224,11 +226,11 @@ static Ast* parseCall(TokenStream& ts, Ast* expr)
 {
 	ts.eat(Token::TypeBracket, "(");
 
-	Array<Ast*> arguments;
+	Array<Ast*> args;
 
 	while (!ts.is(Token::TypeBracket, ")"))
 	{
-		arguments.push(parseExpr(ts));
+		args.push(parseExpr(ts));
 
 		if (!ts.is(Token::TypeBracket, ")"))
 			ts.eat(Token::TypeAtom, ",");
@@ -236,7 +238,7 @@ static Ast* parseCall(TokenStream& ts, Ast* expr)
 
 	ts.eat(Token::TypeBracket, ")");
 
-	return UNION_NEW(Ast, Call, { expr, arguments });
+	return UNION_NEW(Ast, Call, { expr, args });
 }
 
 static Ast* parseTerm(TokenStream& ts)
