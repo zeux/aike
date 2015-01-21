@@ -1,10 +1,13 @@
+extern fn init()
 extern fn println(str: string)
 
 fn world(dbg: string): string
     println(dbg)
     "world"
 
-fn main(): void
+fn main(): int
+    init()
     var hello: string = "Hello, "
     println(hello)
     println(world("test"))
+    0

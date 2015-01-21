@@ -32,6 +32,10 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->value);
 	}
+	else if (UNION_CASE(LiteralNumber, n, root))
+	{
+		dumpString(n->value);
+	}
 	else if (UNION_CASE(Ident, n, root))
 	{
 		dumpString(n->name);

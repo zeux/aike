@@ -31,6 +31,12 @@ static void typeName(string& buffer, Ty* type)
 		return;
 	}
 
+	if (UNION_CASE(Integer, t, type))
+	{
+		buffer += "int";
+		return;
+	}
+
 	if (UNION_CASE(String, t, type))
 	{
 		buffer += "string";

@@ -9,6 +9,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 	if (UNION_CASE(LiteralString, n, root))
 		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
+	if (UNION_CASE(LiteralNumber, n, root))
+		return make_pair(UNION_NEW(Ty, Integer, {}), n->location);
+
 	if (UNION_CASE(Ident, n, root))
 	{
 		assert(n->target);

@@ -142,22 +142,6 @@ int main(int argc, const char** argv)
 		codegen(output, root, &context, module);
 	}
 
-	vector<Type*> args;
-	FunctionType* ty = FunctionType::get(Type::getInt32Ty(context), args, false);
-	Function* fun = Function::Create(ty, Function::ExternalLinkage, "main", module);
-
-	BasicBlock* bb = BasicBlock::Create(context, "entry", fun);
-
-	IRBuilder<> builder(context);
-	builder.SetInsertPoint(bb);
-
-	FunctionType* tyinit = FunctionType::get(Type::getVoidTy(context), args, false);
-	Constant* funinit = module->getOrInsertFunction("init", tyinit);
-
-	builder.CreateCall(funinit);
-
-	builder.CreateRet(ConstantInt::get(Type::getInt32Ty(context), 0));
-
 	if (options.emitLLVM)
 	{
 		module->dump();

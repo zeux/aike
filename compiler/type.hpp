@@ -2,6 +2,7 @@
 
 #define UD_TY(X) \
 	X(String, {}) \
+	X(Integer, {}) \
 	X(Void, {}) \
 	X(Function, { Array<Ty*> args; Ty* ret; }) \
 	X(Unknown, {})

@@ -96,6 +96,12 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, String, {});
 	}
 
+	if (ts.is(Token::TypeIdent, "int"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, Integer, {});
+	}
+
 	if (ts.is(Token::TypeIdent, "void"))
 	{
 		ts.move();
@@ -250,6 +256,13 @@ static Ast* parseTerm(TokenStream& ts)
 		auto value = ts.eat(Token::TypeString);
 
 		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
+	}
+
+	if (ts.is(Token::TypeNumber))
+	{
+		auto value = ts.eat(Token::TypeNumber);
+
+		return UNION_NEW(Ast, LiteralNumber, { value.data, value.location });
 	}
 
 	if (ts.is(Token::TypeIdent))

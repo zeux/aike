@@ -17,6 +17,7 @@ enum FnAttribute
 
 #define UD_AST(X) \
 	X(LiteralString, { Str value; Location location; }) \
+	X(LiteralNumber, { Str value; Location location; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \

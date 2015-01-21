@@ -26,7 +26,9 @@ using namespace std;
 
 ATTR_NORETURN ATTR_PRINTF(1, 2) void panic(const char* format, ...);
 
-#define ICE(...) panic("Internal compiler error: " __VA_ARGS__)
+#define ICE_STRINGIFY_IMPL(x) #x
+#define ICE_STRINGIFY(x) ICE_STRINGIFY_IMPL(x)
+#define ICE(...) panic(__FILE__ "(" ICE_STRINGIFY(__LINE__) "): Internal compiler error: " __VA_ARGS__)
 
 #include "string.hpp"
 #include "array.hpp"
