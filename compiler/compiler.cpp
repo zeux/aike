@@ -4,6 +4,9 @@
 
 #include "tokenize.hpp"
 #include "parse.hpp"
+#include "resolve.hpp"
+#include "typecheck.hpp"
+#include "codegen.hpp"
 #include "dump.hpp"
 
 #include "llvm/IR/IRBuilder.h"
@@ -113,6 +116,14 @@ int main(int argc, const char** argv)
 	Options options = parseOptions(argc, argv);
 	Output output;
 
+	InitializeNativeTarget();
+	InitializeNativeTargetAsmPrinter();
+
+	TargetMachine* machine = createTargetMachine();
+
+	LLVMContext context;
+	Module* module = new Module("main", context);
+
 	for (auto& file: options.inputs)
 	{
 		const char* source = strdup(file.c_str());
@@ -123,17 +134,13 @@ int main(int argc, const char** argv)
 
 		Tokens tokens = tokenize(output, source, contents);
 		Ast* root = parse(output, tokens);
+		resolve(output, root);
+		typecheck(output, root);
 
 		dump(root);
+
+		codegen(output, root, &context, module);
 	}
-
-	InitializeNativeTarget();
-	InitializeNativeTargetAsmPrinter();
-
-	TargetMachine* machine = createTargetMachine();
-
-	LLVMContext context;
-	Module* module = new Module("main", context);
 
 	vector<Type*> args;
 	FunctionType* ty = FunctionType::get(Type::getInt32Ty(context), args, false);
