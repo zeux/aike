@@ -40,12 +40,9 @@ static void pushVariable(Resolve& rs, Variable* var)
 	rs.stack.push_back(binding);
 }
 
-static void resolve(Resolve& rs, Ast* root)
+static bool resolveNode(Resolve& rs, Ast* root)
 {
-	if (UNION_CASE(LiteralString, n, root))
-	{
-	}
-	else if (UNION_CASE(Ident, n, root))
+	if (UNION_CASE(Ident, n, root))
 	{
 		auto it = rs.bindings.find(n->name.str());
 
@@ -58,17 +55,9 @@ static void resolve(Resolve& rs, Ast* root)
 	{
 		size_t scope = rs.stack.size();
 
-		for (auto& c: n->body)
-			resolve(rs, c);
+		visitAstInner(root, resolveNode, rs);
 
 		popScope(rs, scope);
-	}
-	else if (UNION_CASE(Call, n, root))
-	{
-		resolve(rs, n->expr);
-
-		for (auto& c: n->args)
-			resolve(rs, c);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
@@ -81,26 +70,26 @@ static void resolve(Resolve& rs, Ast* root)
 			for (auto& a: n->args)
 				pushVariable(rs, a);
 
-			resolve(rs, n->body);
+			resolveNode(rs, n->body);
 
 			popScope(rs, scope);
 		}
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{
-		resolve(rs, n->expr);
+		resolveNode(rs, n->expr);
 
 		pushVariable(rs, n->var);
 	}
 	else
-	{
-		ICE("Unknown Ast kind %d", root->kind);
-	}
+		return false;
+
+	return true;
 }
 
 void resolve(Output& output, Ast* root)
 {
 	Resolve rs = { &output };
 
-	resolve(rs, root);
+	visitAst(root, resolveNode, rs);
 }
