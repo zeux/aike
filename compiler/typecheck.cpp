@@ -4,21 +4,21 @@
 #include "ast.hpp"
 #include "output.hpp"
 
-static Ty* type(Output& output, Ast* root)
+static pair<Ty*, Location> type(Output& output, Ast* root)
 {
 	if (UNION_CASE(LiteralString, n, root))
-		return UNION_NEW(Ty, String, {});
+		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
 	if (UNION_CASE(Ident, n, root))
 	{
 		assert(n->target);
-		return n->target->type;
+		return make_pair(n->target->type, n->location);
 	}
 
 	if (UNION_CASE(Block, n, root))
 	{
 		if (n->body.size == 0)
-			return UNION_NEW(Ty, Void, {});
+			return make_pair(UNION_NEW(Ty, Void, {}), Location());
 
 		for (size_t i = 0; i < n->body.size - 1; ++i)
 			type(output, n->body[i]);
@@ -28,26 +28,26 @@ static Ty* type(Output& output, Ast* root)
 
 	if (UNION_CASE(Call, n, root))
 	{
-		Ty* ty = type(output, n->expr);
+		auto expr = type(output, n->expr);
 
-		if (UNION_CASE(Function, fnty, ty))
+		if (UNION_CASE(Function, fnty, expr.first))
 		{
 			if (fnty->args.size != n->args.size)
-				output.panic(Location(/*TODO*/), "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
+				output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
 
 			for (size_t i = 0; i < n->args.size; ++i)
 			{
-				Ty* arg = type(output, n->args[i]);
+				auto arg = type(output, n->args[i]);
 
-				if (!typeEquals(arg, fnty->args[i]))
-					output.panic(Location(/*TODO*/), "Type mismatch: expected %s but given %s", typeName(fnty->args[i]).c_str(), typeName(arg).c_str());
+				if (!typeEquals(arg.first, fnty->args[i]))
+					output.panic(arg.second, "Type mismatch: expected %s but given %s", typeName(fnty->args[i]).c_str(), typeName(arg.first).c_str());
 			}
 
-			return fnty->ret;
+			return make_pair(fnty->ret, n->location);
 		}
 		else
 		{
-			output.panic(Location(/*TODO*/), "Expression does not evaluate to a function");
+			output.panic(expr.second, "Expression does not evaluate to a function");
 		}
 	}
 
@@ -55,24 +55,24 @@ static Ty* type(Output& output, Ast* root)
 	{
 		if (n->body)
 		{
-			Ty* ret = type(output, n->body);
+			auto ret = type(output, n->body);
 
 			if (UNION_CASE(Function, fnty, n->var->type))
 			{
-				if (fnty->ret->kind != Ty::KindVoid && !typeEquals(ret, fnty->ret))
-					output.panic(Location(/*TODO*/), "Type mismatch: expected %s but given %s", typeName(fnty->ret).c_str(), typeName(ret).c_str());
+				if (fnty->ret->kind != Ty::KindVoid && !typeEquals(ret.first, fnty->ret))
+					output.panic(ret.second, "Type mismatch: expected %s but given %s", typeName(fnty->ret).c_str(), typeName(ret.first).c_str());
 			}
 			else
 				ICE("FnDecl type is not Function");
 		}
 
-		return UNION_NEW(Ty, Void, {});
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 
 	if (UNION_CASE(VarDecl, n, root))
 	{
 		type(output, n->expr);
-		return UNION_NEW(Ty, Void, {});
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 
 	ICE("Unknown Ast kind %d", root->kind);

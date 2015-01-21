@@ -222,7 +222,7 @@ static Ast* parseVarDecl(TokenStream& ts)
 	return UNION_NEW(Ast, VarDecl, { new Variable { name.data, type, name.location }, expr });
 }
 
-static Ast* parseCall(TokenStream& ts, Ast* expr)
+static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 {
 	ts.eat(Token::TypeBracket, "(");
 
@@ -236,15 +236,21 @@ static Ast* parseCall(TokenStream& ts, Ast* expr)
 			ts.eat(Token::TypeAtom, ",");
 	}
 
+	Location end = ts.get().location;
+
 	ts.eat(Token::TypeBracket, ")");
 
-	return UNION_NEW(Ast, Call, { expr, args });
+	return UNION_NEW(Ast, Call, { expr, args, Location(start, end) });
 }
 
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeString))
-		return UNION_NEW(Ast, LiteralString, { ts.eat(Token::TypeString).data });
+	{
+		auto value = ts.eat(Token::TypeString);
+
+		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
+	}
 
 	if (ts.is(Token::TypeIdent))
 	{
@@ -266,10 +272,12 @@ static Ast* parseExpr(TokenStream& ts)
 	if (ts.is(Token::TypeIdent, "var"))
 		return parseVarDecl(ts);
 
+	Location start = ts.get().location;
+
 	Ast* term = parseTerm(ts);
 
-	if (ts.is(Token::TypeBracket, "("))
-		return parseCall(ts, term);
+	while (ts.is(Token::TypeBracket, "("))
+		term = parseCall(ts, term, start);
 
 	return term;
 }

@@ -16,10 +16,10 @@ enum FnAttribute
 };
 
 #define UD_AST(X) \
-	X(LiteralString, { Str value; }) \
+	X(LiteralString, { Str value; Location location; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Block, { Array<Ast*> body; }) \
-	X(Call, { Ast* expr; Array<Ast*> args; }) \
+	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
 	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; })
 
