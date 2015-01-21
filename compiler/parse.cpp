@@ -96,6 +96,12 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, String, {});
 	}
 
+	if (ts.is(Token::TypeIdent, "void"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, Void, {});
+	}
+
 	ts.output->panic(ts.get().location, "Expected type");
 }
 

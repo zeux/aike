@@ -3,6 +3,6 @@ extern fn println(str: string)
 fn world()
     "world"
 
-fn main()
+fn main(): void
     print("Hello, ")
     print(world())

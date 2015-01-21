@@ -64,7 +64,9 @@ static void dumpNode(Ast* root, int indent)
 		dumpString(n->name);
 		printf("(");
 		dumpList(n->arguments, [&](pair<Str, Ty*> p) { dumpString(p.first); printf(": "); dump(p.second); });
-		printf(")\n");
+		printf("): ");
+		dump(n->ret);
+		printf("\n");
 
 		if (n->body)
 			dumpNode(n->body, indent + 1);
@@ -79,6 +81,8 @@ void dump(Ty* type)
 {
 	if (UNION_CASE(String, t, type))
 		printf("string");
+	else if (UNION_CASE(Void, t, type))
+		printf("void");
 	else if (UNION_CASE(Unknown, t, type))
 		printf("_");
 	else
