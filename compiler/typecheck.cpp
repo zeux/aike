@@ -11,9 +11,6 @@ static Ty* type(Output& output, Ast* root)
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		// todo: n->target
-		return UNION_NEW(Ty, Void, {});
-
 		assert(n->target);
 		return n->target->type;
 	}
@@ -50,16 +47,24 @@ static Ty* type(Output& output, Ast* root)
 		}
 		else
 		{
-			// TODO
-			// output.panic(Location(/*TODO*/), "Expression does not evaluate to a function");
-			return UNION_NEW(Ty, Void, {});
+			output.panic(Location(/*TODO*/), "Expression does not evaluate to a function");
 		}
 	}
 
 	if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->body)
-			type(output, n->body);
+		{
+			Ty* ret = type(output, n->body);
+
+			if (UNION_CASE(Function, fnty, n->var->type))
+			{
+				if (fnty->ret->kind != Ty::KindVoid && !typeEquals(ret, fnty->ret))
+					output.panic(Location(/*TODO*/), "Type mismatch: expected %s but given %s", typeName(fnty->ret).c_str(), typeName(ret).c_str());
+			}
+			else
+				ICE("FnDecl type is not Function");
+		}
 
 		return UNION_NEW(Ty, Void, {});
 	}
