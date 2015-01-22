@@ -1,9 +1,10 @@
 #pragma once
 
 #define UD_TY(X) \
-	X(String, {}) \
-	X(Integer, {}) \
 	X(Void, {}) \
+	X(Bool, {}) \
+	X(Integer, {}) \
+	X(String, {}) \
 	X(Function, { Array<Ty*> args; Ty* ret; }) \
 	X(Unknown, {})
 

@@ -4,13 +4,22 @@
 #include "ast.hpp"
 #include "output.hpp"
 
+static void typeMustEqual(Ty* type, Ty* expected, Output& output, const Location& location)
+{
+	if (!typeEquals(type, expected))
+		output.panic(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
+}
+
 static pair<Ty*, Location> type(Output& output, Ast* root)
 {
-	if (UNION_CASE(LiteralString, n, root))
-		return make_pair(UNION_NEW(Ty, String, {}), n->location);
+	if (UNION_CASE(LiteralBool, n, root))
+		return make_pair(UNION_NEW(Ty, Bool, {}), n->location);
 
 	if (UNION_CASE(LiteralNumber, n, root))
 		return make_pair(UNION_NEW(Ty, Integer, {}), n->location);
+
+	if (UNION_CASE(LiteralString, n, root))
+		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
 	if (UNION_CASE(Ident, n, root))
 	{
@@ -42,8 +51,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 			{
 				auto arg = type(output, n->args[i]);
 
-				if (!typeEquals(arg.first, fnty->args[i]))
-					output.panic(arg.second, "Type mismatch: expected %s but given %s", typeName(fnty->args[i]).c_str(), typeName(arg.first).c_str());
+				typeMustEqual(arg.first, fnty->args[i], output, arg.second);
 			}
 
 			return make_pair(fnty->ret, n->location);
@@ -62,8 +70,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 			if (UNION_CASE(Function, fnty, n->var->type))
 			{
-				if (fnty->ret->kind != Ty::KindVoid && !typeEquals(ret.first, fnty->ret))
-					output.panic(ret.second, "Type mismatch: expected %s but given %s", typeName(fnty->ret).c_str(), typeName(ret.first).c_str());
+				if (fnty->ret->kind != Ty::KindVoid)
+					typeMustEqual(ret.first, fnty->ret, output, ret.second);
 			}
 			else
 				ICE("FnDecl type is not Function");
@@ -74,7 +82,10 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 	if (UNION_CASE(VarDecl, n, root))
 	{
-		type(output, n->expr);
+		auto expr = type(output, n->expr);
+
+		typeMustEqual(expr.first, n->var->type, output, expr.second);
+
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 

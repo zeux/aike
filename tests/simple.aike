@@ -8,6 +8,7 @@ fn world(dbg: string): string
 fn main(): int
     init()
     var hello: string = "Hello, "
+    var foo: bool = false
     println(hello)
     println(world("test"))
     0

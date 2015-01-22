@@ -24,11 +24,14 @@ struct Codegen
 
 static Type* getType(Codegen& cg, Ty* type)
 {
-	if (UNION_CASE(String, t, type))
+	if (UNION_CASE(Void, t, type))
 	{
-		Type* fields[] = { Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context) };
+		return Type::getVoidTy(*cg.context);
+	}
 
-		return StructType::get(*cg.context, { fields, 2 });
+	if (UNION_CASE(Bool, t, type))
+	{
+		return Type::getInt8Ty(*cg.context);
 	}
 
 	if (UNION_CASE(Integer, t, type))
@@ -36,9 +39,11 @@ static Type* getType(Codegen& cg, Ty* type)
 		return Type::getInt32Ty(*cg.context);
 	}
 
-	if (UNION_CASE(Void, t, type))
+	if (UNION_CASE(String, t, type))
 	{
-		return Type::getVoidTy(*cg.context);
+		Type* fields[] = { Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context) };
+
+		return StructType::get(*cg.context, { fields, 2 });
 	}
 
 	if (UNION_CASE(Function, t, type))
@@ -65,6 +70,16 @@ static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 
 static Value* codegenExpr(Codegen& cg, Ast* node)
 {
+	if (UNION_CASE(LiteralBool, n, node))
+	{
+		return ConstantInt::get(Type::getInt8Ty(*cg.context), n->value);
+	}
+
+	if (UNION_CASE(LiteralNumber, n, node))
+	{
+		return ConstantInt::get(Type::getInt32Ty(*cg.context), atoi(n->value.str().c_str()));
+	}
+
 	if (UNION_CASE(LiteralString, n, node))
 	{
 		Type* type = getType(cg, UNION_NEW(Ty, String, {}));
@@ -83,11 +98,6 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		result = cg.builder->CreateInsertValue(result, ConstantInt::get(Type::getInt32Ty(*cg.context), n->value.size), 1);
 
 		return result;
-	}
-
-	if (UNION_CASE(LiteralNumber, n, node))
-	{
-		return ConstantInt::get(Type::getInt32Ty(*cg.context), atoi(n->value.str().c_str()));
 	}
 
 	if (UNION_CASE(Ident, n, node))

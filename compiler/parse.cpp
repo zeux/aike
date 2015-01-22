@@ -90,10 +90,16 @@ static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
 
 static Ty* parseType(TokenStream& ts)
 {
-	if (ts.is(Token::TypeIdent, "string"))
+	if (ts.is(Token::TypeIdent, "void"))
 	{
 		ts.move();
-		return UNION_NEW(Ty, String, {});
+		return UNION_NEW(Ty, Void, {});
+	}
+
+	if (ts.is(Token::TypeIdent, "bool"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, Bool, {});
 	}
 
 	if (ts.is(Token::TypeIdent, "int"))
@@ -102,10 +108,10 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, Integer, {});
 	}
 
-	if (ts.is(Token::TypeIdent, "void"))
+	if (ts.is(Token::TypeIdent, "string"))
 	{
 		ts.move();
-		return UNION_NEW(Ty, Void, {});
+		return UNION_NEW(Ty, String, {});
 	}
 
 	ts.output->panic(ts.get().location, "Expected type");
@@ -251,11 +257,18 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 
 static Ast* parseTerm(TokenStream& ts)
 {
-	if (ts.is(Token::TypeString))
+	if (ts.is(Token::TypeIdent, "true"))
 	{
-		auto value = ts.eat(Token::TypeString);
+		auto value = ts.eat(Token::TypeIdent);
 
-		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
+		return UNION_NEW(Ast, LiteralBool, { true, value.location });
+	}
+
+	if (ts.is(Token::TypeIdent, "false"))
+	{
+		auto value = ts.eat(Token::TypeIdent);
+
+		return UNION_NEW(Ast, LiteralBool, { false, value.location });
 	}
 
 	if (ts.is(Token::TypeNumber))
@@ -263,6 +276,13 @@ static Ast* parseTerm(TokenStream& ts)
 		auto value = ts.eat(Token::TypeNumber);
 
 		return UNION_NEW(Ast, LiteralNumber, { value.data, value.location });
+	}
+
+	if (ts.is(Token::TypeString))
+	{
+		auto value = ts.eat(Token::TypeString);
+
+		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
 	}
 
 	if (ts.is(Token::TypeIdent))

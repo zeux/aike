@@ -28,11 +28,15 @@ template <typename T, typename F> static void dumpList(const T& list, F pred)
 
 static void dumpNode(Ast* root, int indent)
 {
-	if (UNION_CASE(LiteralString, n, root))
+	if (UNION_CASE(LiteralBool, n, root))
+	{
+		printf("%s", n->value ? "true" : "false");
+	}
+	else if (UNION_CASE(LiteralNumber, n, root))
 	{
 		dumpString(n->value);
 	}
-	else if (UNION_CASE(LiteralNumber, n, root))
+	else if (UNION_CASE(LiteralString, n, root))
 	{
 		dumpString(n->value);
 	}
