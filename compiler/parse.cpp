@@ -45,7 +45,7 @@ struct TokenStream
 		{
 			const Token& t = get();
 
-			output->panic(t.location, "Expected %s, got '%.*s'", tokenTypeName(type), int(t.data.size), t.data.data);
+			output->panic(t.location, "Expected %s, got '%s'", tokenTypeName(type), t.data.str().c_str());
 		}
 	}
 
@@ -55,7 +55,7 @@ struct TokenStream
 		{
 			const Token& t = get();
 
-			output->panic(t.location, "Expected '%s', got '%.*s'", data, int(t.data.size), t.data.data);
+			output->panic(t.location, "Expected '%s', got '%s'", data, t.data.str().c_str());
 		}
 	}
 
@@ -274,7 +274,7 @@ static Ast* parseTerm(TokenStream& ts)
 
 	auto t = ts.get();
 
-	ts.output->panic(t.location, "Unexpected token '%.*s'", int(t.data.size), t.data.data);
+	ts.output->panic(t.location, "Unexpected token '%s'", t.data.str().c_str());
 }
 
 static Ast* parseExpr(TokenStream& ts)

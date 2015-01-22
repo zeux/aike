@@ -11,7 +11,7 @@ static void dumpIndent(int indent)
 
 static void dumpString(const Str& s)
 {
-	printf("%.*s", int(s.size), s.data);
+	printf("%s", s.str().c_str());
 }
 
 template <typename T, typename F> static void dumpList(const T& list, F pred)
