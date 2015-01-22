@@ -189,6 +189,9 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 		args.push(new Variable { argname.data, type, argname.location });
 		argtys.push(type);
+
+		if (!ts.is(Token::TypeBracket, ")"))
+			ts.eat(Token::TypeAtom, ",");
 	}
 
 	ts.eat(Token::TypeBracket, ")");

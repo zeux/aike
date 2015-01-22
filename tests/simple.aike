@@ -1,5 +1,6 @@
 extern fn init()
 extern fn println(str: string)
+extern fn printf(str: string, val: int, val: int)
 
 fn world(dbg: string): string
     println(dbg)
@@ -11,4 +12,5 @@ fn main(): int
     var foo: bool = false
     println(hello)
     println(world("test"))
+    printf("%d %d%c", 5, 10)
     0
