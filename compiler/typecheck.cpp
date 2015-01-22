@@ -62,6 +62,28 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 		}
 	}
 
+	if (UNION_CASE(If, n, root))
+	{
+		auto cond = type(output, n->cond);
+
+		typeMustEqual(cond.first, UNION_NEW(Ty, Bool, {}), output, cond.second);
+
+		auto thenty = type(output, n->thenbody);
+
+		if (n->elsebody)
+		{
+			auto elsety = type(output, n->elsebody);
+
+			typeMustEqual(elsety.first, UNION_NEW(Ty, Void, {}), output, elsety.second);
+		}
+		else
+		{
+			typeMustEqual(thenty.first, UNION_NEW(Ty, Void, {}), output, thenty.second);
+		}
+
+		return thenty;
+	}
+
 	if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->body)

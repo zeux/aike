@@ -258,6 +258,32 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 	return UNION_NEW(Ast, Call, { expr, args, Location(start, end) });
 }
 
+static Ast* parseIf(TokenStream& ts)
+{
+	Location start = ts.get().location;
+
+	ts.eat(Token::TypeIdent, "if");
+
+	Ast* cond = parseExpr(ts);
+	Ast* thenbody = parseBlock(ts, &start);
+	Ast* elsebody = nullptr;
+
+	if (ts.is(Token::TypeIdent, "else"))
+	{
+		int ifIndent = getLineIndent(ts, start);
+		int elseIndent = getLineIndent(ts, ts.get().location);
+
+		if (ifIndent != elseIndent)
+			ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", ifIndent, elseIndent);
+
+		ts.eat(Token::TypeIdent);
+
+		elsebody = parseBlock(ts, &start);
+	}
+
+	return UNION_NEW(Ast, If, { cond, thenbody, elsebody });
+}
+
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "true"))
@@ -307,6 +333,9 @@ static Ast* parseExpr(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent, "var"))
 		return parseVarDecl(ts);
+
+	if (ts.is(Token::TypeIdent, "if"))
+		return parseIf(ts);
 
 	Location start = ts.get().location;
 

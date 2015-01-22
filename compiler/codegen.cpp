@@ -31,7 +31,7 @@ static Type* getType(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Bool, t, type))
 	{
-		return Type::getInt8Ty(*cg.context);
+		return Type::getInt1Ty(*cg.context);
 	}
 
 	if (UNION_CASE(Integer, t, type))
@@ -72,7 +72,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 {
 	if (UNION_CASE(LiteralBool, n, node))
 	{
-		return ConstantInt::get(Type::getInt8Ty(*cg.context), n->value);
+		return ConstantInt::get(Type::getInt1Ty(*cg.context), n->value);
 	}
 
 	if (UNION_CASE(LiteralNumber, n, node))
@@ -141,6 +141,62 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			args.push_back(codegenExpr(cg, a));
 
 		return cg.builder->CreateCall(expr, args);
+	}
+
+	if (UNION_CASE(If, n, node))
+	{
+		Value* cond = codegenExpr(cg, n->cond);
+
+		Function* func = cg.builder->GetInsertBlock()->getParent();
+
+		if (n->elsebody)
+		{
+			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then", func);
+			BasicBlock* elsebb = BasicBlock::Create(*cg.context, "else");
+			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+
+			cg.builder->CreateCondBr(cond, thenbb, elsebb);
+
+			cg.builder->SetInsertPoint(thenbb);
+
+			Value* thenbody = codegenExpr(cg, n->thenbody);
+			cg.builder->CreateBr(endbb);
+			thenbb = cg.builder->GetInsertBlock();
+
+			func->getBasicBlockList().push_back(elsebb);
+
+			cg.builder->SetInsertPoint(elsebb);
+			Value* elsebody = codegenExpr(cg, n->elsebody);
+			cg.builder->CreateBr(endbb);
+			elsebb = cg.builder->GetInsertBlock();
+
+			func->getBasicBlockList().push_back(endbb);
+			cg.builder->SetInsertPoint(endbb);
+			PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
+
+			pn->addIncoming(thenbody, thenbb);
+			pn->addIncoming(elsebody, elsebb);
+
+			return pn;
+		}
+		else
+		{
+			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then", func);
+			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+
+			cg.builder->CreateCondBr(cond, thenbb, endbb);
+
+			cg.builder->SetInsertPoint(thenbb);
+
+			Value* thenbody = codegenExpr(cg, n->thenbody);
+			cg.builder->CreateBr(endbb);
+			thenbb = cg.builder->GetInsertBlock();
+
+			func->getBasicBlockList().push_back(endbb);
+			cg.builder->SetInsertPoint(endbb);
+
+			return nullptr;
+		}
 	}
 
 	if (UNION_CASE(FnDecl, n, node))

@@ -22,6 +22,7 @@ enum FnAttribute
 	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
+	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
 	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; })
 
@@ -42,6 +43,14 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 
 		for (auto& a: n->args)
 			visitAst(a, f, fc);
+	}
+	else if (UNION_CASE(If, n, node))
+	{
+		visitAst(n->cond, f, fc);
+		visitAst(n->thenbody, f, fc);
+
+		if (n->elsebody)
+			visitAst(n->elsebody, f, fc);
 	}
 	else if (UNION_CASE(FnDecl, n, node))
 	{

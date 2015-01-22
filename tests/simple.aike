@@ -2,8 +2,9 @@ extern fn init()
 extern fn println(str: string)
 extern fn printf(str: string, val: int, val: int)
 
-fn world(dbg: string): string
-    println(dbg)
+fn world(dbg: string, print: bool): string
+    if print
+        println(dbg)
     "world"
 
 fn main(): int
@@ -11,6 +12,6 @@ fn main(): int
     var hello: string = "Hello, "
     var foo: bool = false
     println(hello)
-    println(world("test"))
+    println(world("test", false))
     printf("%d %d%c", 5, 10)
     0

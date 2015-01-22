@@ -61,6 +61,19 @@ static void dumpNode(Ast* root, int indent)
 		dumpList(n->args, [&](Ast* c) { dumpNode(c, indent); });
 		printf(")");
 	}
+	else if (UNION_CASE(If, n, root))
+	{
+		printf("if ");
+		dumpNode(n->cond, indent);
+		printf("\n");
+		dumpNode(n->thenbody, indent + 1);
+
+		if (n->elsebody)
+		{
+			printf("\nelse\n");
+			dumpNode(n->elsebody, indent + 1);
+		}
+	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->attributes & FnAttributeExtern)
