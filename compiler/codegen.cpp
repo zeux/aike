@@ -55,7 +55,7 @@ static Type* getType(Codegen& cg, Ty* type)
 		for (auto& a: t->args)
 			args.push_back(getType(cg, a));
 
-		return FunctionType::get(ret, args, false);
+		return PointerType::get(FunctionType::get(ret, args, false), 0);
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
@@ -63,7 +63,7 @@ static Type* getType(Codegen& cg, Ty* type)
 
 static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 {
-	FunctionType* funty = cast<FunctionType>(getType(cg, var->type));
+	FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, var->type))->getElementType());
 
 	return cg.module->getOrInsertFunction(var->name.str(), funty);
 }

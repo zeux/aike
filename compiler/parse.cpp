@@ -114,6 +114,37 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, String, {});
 	}
 
+	if (ts.is(Token::TypeIdent, "fn"))
+	{
+		ts.move();
+
+		ts.eat(Token::TypeBracket, "(");
+
+		Array<Ty*> args;
+
+		while (!ts.is(Token::TypeBracket, ")"))
+		{
+			args.push(parseType(ts));
+
+			if (!ts.is(Token::TypeBracket, ")"))
+				ts.eat(Token::TypeAtom, ",");
+		}
+
+		ts.eat(Token::TypeBracket, ")");
+
+		Ty* ret;
+
+		if (ts.is(Token::TypeAtom, ":"))
+		{
+			ts.move();
+			ret = parseType(ts);
+		}
+		else
+			ret = UNION_NEW(Ty, Void, {});
+
+		return UNION_NEW(Ty, Function, { args, ret });
+	}
+
 	ts.output->panic(ts.get().location, "Expected type");
 }
 

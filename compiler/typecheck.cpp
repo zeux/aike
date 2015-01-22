@@ -74,7 +74,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 		{
 			auto elsety = type(output, n->elsebody);
 
-			typeMustEqual(elsety.first, UNION_NEW(Ty, Void, {}), output, elsety.second);
+			typeMustEqual(elsety.first, thenty.first, output, elsety.second);
 		}
 		else
 		{
