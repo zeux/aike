@@ -43,9 +43,9 @@ Options parseOptions(int argc, const char** argv)
 		{
 			if (arg == "-o" && i + 1 < argc)
 				result.output = argv[++i];
-			else if (arg == "-emit-llvm")
+			else if (arg == "--emit-llvm")
 				result.emitLLVM = true;
-			else if (arg == "-emit-asm")
+			else if (arg == "--emit-asm")
 				result.emitAsm = true;
 			else
 				panic("Unknown argument %s", arg.str().c_str());

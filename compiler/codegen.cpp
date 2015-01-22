@@ -172,12 +172,20 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 			func->getBasicBlockList().push_back(endbb);
 			cg.builder->SetInsertPoint(endbb);
-			PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
 
-			pn->addIncoming(thenbody, thenbb);
-			pn->addIncoming(elsebody, elsebb);
+			if (thenbody->getType()->isVoidTy())
+			{
+				return nullptr;
+			}
+			else
+			{
+				PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
 
-			return pn;
+				pn->addIncoming(thenbody, thenbb);
+				pn->addIncoming(elsebody, elsebb);
+
+				return pn;
+			}
 		}
 		else
 		{

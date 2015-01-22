@@ -14,6 +14,9 @@ fn main(): int
     init()
     var hello: string = "Hello, "
     var foo: bool = false
-    println(worldwrap(world, "test", false))
+    if foo
+        println("")
+    else
+        println(worldwrap(world, "test", false))
     printf("%d %d%c", 5, 10)
     0
