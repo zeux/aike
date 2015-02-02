@@ -26,6 +26,18 @@ template <typename T, typename F> static void dumpList(const T& list, F pred)
 	}
 }
 
+static void dumpSignature(Ty* ty, const Array<Variable*>& args)
+{
+	printf("(");
+	dumpList(args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
+	printf("): ");
+
+	if (UNION_CASE(Function, f, ty))
+		dump(f->ret);
+	else
+		ICE("Fn type is not Function");
+}
+
 static void dumpNode(Ast* root, int indent)
 {
 	if (UNION_CASE(LiteralBool, n, root))
@@ -76,6 +88,15 @@ static void dumpNode(Ast* root, int indent)
 			dumpNode(n->elsebody, indent + 1);
 		}
 	}
+	else if (UNION_CASE(Fn, n, root))
+	{
+		printf("fn ");
+		dumpSignature(n->type, n->args);
+		printf("\n");
+
+		if (n->body)
+			dumpNode(n->body, indent + 1);
+	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->attributes & FnAttributeExtern)
@@ -83,15 +104,7 @@ static void dumpNode(Ast* root, int indent)
 
 		printf("fn ");
 		dumpString(n->var->name);
-		printf("(");
-		dumpList(n->args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
-		printf("): ");
-
-		if (UNION_CASE(Function, f, n->var->type))
-			dump(f->ret);
-		else
-			ICE("FnDecl type is not Function");
-
+		dumpSignature(n->var->type, n->args);
 		printf("\n");
 
 		if (n->body)

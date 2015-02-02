@@ -189,22 +189,8 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 	return UNION_NEW(Ast, Block, { body });
 }
 
-static Ast* parseFnDecl(TokenStream& ts)
+static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts)
 {
-	Location indent = ts.get().location;
-
-	unsigned attributes = 0;
-
-	if (ts.is(Token::TypeIdent, "extern"))
-	{
-		attributes |= FnAttributeExtern;
-		ts.move();
-	}
-
-	ts.eat(Token::TypeIdent, "fn");
-
-	auto name = ts.eat(Token::TypeIdent);
-
 	Array<Variable*> args;
 	Array<Ty*> argtys;
 
@@ -237,12 +223,48 @@ static Ast* parseFnDecl(TokenStream& ts)
 	else
 		ret = UNION_NEW(Ty, Void, {});
 
+	Ty* ty = UNION_NEW(Ty, Function, { argtys, ret });
+
+	return make_pair(ty, args);
+}
+
+static Ast* parseFn(TokenStream& ts)
+{
+	Location indent = ts.get().location;
+
+	ts.eat(Token::TypeIdent, "fn");
+
+	auto sig = parseFnSignature(ts);
+
+	Ast* body = parseBlock(ts, &indent);
+
+	return UNION_NEW(Ast, Fn, { sig.first, indent, sig.second, body });
+}
+
+static Ast* parseFnDecl(TokenStream& ts)
+{
+	Location indent = ts.get().location;
+
+	unsigned attributes = 0;
+
+	if (ts.is(Token::TypeIdent, "extern"))
+	{
+		attributes |= FnAttributeExtern;
+		ts.move();
+	}
+
+	ts.eat(Token::TypeIdent, "fn");
+
+	auto name = ts.eat(Token::TypeIdent);
+
+	auto sig = parseFnSignature(ts);
+
 	Ast* body =
 		(attributes & FnAttributeExtern)
 		? nullptr
 		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, UNION_NEW(Ty, Function, { argtys, ret }), name.location }, args, attributes, body });
+	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, sig.first, name.location }, sig.second, attributes, body });
 }
 
 static Ast* parseVarDecl(TokenStream& ts)
@@ -359,8 +381,11 @@ static Ast* parseTerm(TokenStream& ts)
 
 static Ast* parseExpr(TokenStream& ts)
 {
-	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "fn"))
+	if (ts.is(Token::TypeIdent, "extern"))
 		return parseFnDecl(ts);
+
+	if (ts.is(Token::TypeIdent, "fn"))
+		return ts.get(1).type == Token::TypeIdent ? parseFnDecl(ts) : parseFn(ts);
 
 	if (ts.is(Token::TypeIdent, "var"))
 		return parseVarDecl(ts);

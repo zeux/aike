@@ -17,6 +17,7 @@ fn main(): int
     if foo
         println("")
     else
+        println(worldwrap(fn (a0: string, a1: bool): string a0, "test", false))
         println(worldwrap(world, "test", false))
     printf("%d %d%c", 5, 10)
     0

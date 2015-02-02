@@ -59,6 +59,17 @@ static bool resolveNode(Resolve& rs, Ast* root)
 
 		popScope(rs, scope);
 	}
+	else if (UNION_CASE(Fn, n, root))
+	{
+		size_t scope = rs.stack.size();
+
+		for (auto& a: n->args)
+			pushVariable(rs, a);
+
+		resolveNode(rs, n->body);
+
+		popScope(rs, scope);
+	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		pushVariable(rs, n->var);

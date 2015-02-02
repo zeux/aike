@@ -84,6 +84,21 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 		return thenty;
 	}
 
+	if (UNION_CASE(Fn, n, root))
+	{
+		auto ret = type(output, n->body);
+
+		if (UNION_CASE(Function, fnty, n->type))
+		{
+			if (fnty->ret->kind != Ty::KindVoid)
+				typeMustEqual(ret.first, fnty->ret, output, ret.second);
+		}
+		else
+			ICE("FnDecl type is not Function");
+
+		return make_pair(n->type, n->location);
+	}
+
 	if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->body)

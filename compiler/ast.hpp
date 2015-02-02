@@ -23,6 +23,7 @@ enum FnAttribute
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
+	X(Fn, { Ty* type; Location location; Array<Variable*> args; Ast* body; }) \
 	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; })
 

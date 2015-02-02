@@ -68,6 +68,8 @@ static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 	return cg.module->getOrInsertFunction(var->name.str(), funty);
 }
 
+static void codegenFunctionBody(Codegen& cg, Function* fun, const Array<Variable*>& args, Ast* body);
+
 static Value* codegenExpr(Codegen& cg, Ast* node)
 {
 	if (UNION_CASE(LiteralBool, n, node))
@@ -207,6 +209,21 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		}
 	}
 
+	if (UNION_CASE(Fn, n, node))
+	{
+		FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, n->type))->getElementType());
+
+		Function* fun = Function::Create(funty, GlobalValue::InternalLinkage, "anonymous", cg.module);
+
+		auto block = cg.builder->GetInsertBlock();
+
+		codegenFunctionBody(cg, fun, n->args, n->body);
+
+		cg.builder->SetInsertPoint(block);
+
+		return fun;
+	}
+
 	if (UNION_CASE(FnDecl, n, node))
 	{
 		cg.pendingFunctions.push_back(n);
@@ -229,6 +246,24 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	ICE("Unknown Ast kind %d", node->kind);
 }
 
+static void codegenFunctionBody(Codegen& cg, Function* fun, const Array<Variable*>& args, Ast* body)
+{
+	size_t argindex = 0;
+
+	for (Function::arg_iterator ait = fun->arg_begin(); ait != fun->arg_end(); ++ait, ++argindex)
+		cg.vars[args[argindex]] = ait;
+
+	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", fun);
+	cg.builder->SetInsertPoint(bb);
+
+	Value* ret = codegenExpr(cg, body);
+
+	if (ret)
+		cg.builder->CreateRet(ret);
+	else
+		cg.builder->CreateRetVoid();
+}
+
 static void codegenFunction(Codegen& cg, Ast::FnDecl* decl)
 {
 	Function* fun = cast<Function>(codegenFunctionValue(cg, decl->var));
@@ -238,20 +273,7 @@ static void codegenFunction(Codegen& cg, Ast::FnDecl* decl)
 
 	cg.vars[decl->var] = fun;
 
-	size_t argindex = 0;
-
-	for (Function::arg_iterator ait = fun->arg_begin(); ait != fun->arg_end(); ++ait, ++argindex)
-		cg.vars[decl->args[argindex]] = ait;
-
-	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", fun);
-	cg.builder->SetInsertPoint(bb);
-
-	Value* ret = codegenExpr(cg, decl->body);
-
-	if (ret)
-		cg.builder->CreateRet(ret);
-	else
-		cg.builder->CreateRetVoid();
+	codegenFunctionBody(cg, fun, decl->args, decl->body);
 }
 
 static bool codegenGatherToplevel(Codegen& cg, Ast* node)
