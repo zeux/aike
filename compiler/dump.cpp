@@ -70,7 +70,9 @@ static void dumpNode(Ast* root, int indent)
 
 		if (n->elsebody)
 		{
-			printf("\nelse\n");
+			printf("\n");
+			dumpIndent(indent);
+			printf("else\n");
 			dumpNode(n->elsebody, indent + 1);
 		}
 	}
