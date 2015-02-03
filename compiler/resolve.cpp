@@ -40,6 +40,12 @@ static void pushVariable(Resolve& rs, Variable* var)
 	rs.stack.push_back(binding);
 }
 
+static void resolveDecl(Resolve& rs, Ast* root)
+{
+	if (UNION_CASE(FnDecl, n, root))
+		pushVariable(rs, n->var);
+}
+
 static bool resolveNode(Resolve& rs, Ast* root)
 {
 	if (UNION_CASE(Ident, n, root))
@@ -54,6 +60,10 @@ static bool resolveNode(Resolve& rs, Ast* root)
 	else if (UNION_CASE(Block, n, root))
 	{
 		size_t scope = rs.stack.size();
+
+		// Bind all declarations from this scope to allow recursive references
+		for (auto& c: n->body)
+			resolveDecl(rs, c);
 
 		visitAstInner(root, resolveNode, rs);
 
@@ -72,8 +82,6 @@ static bool resolveNode(Resolve& rs, Ast* root)
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
-		pushVariable(rs, n->var);
-
 		if (n->body)
 		{
 			size_t scope = rs.stack.size();

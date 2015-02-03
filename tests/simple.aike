@@ -7,9 +7,6 @@ fn world(dbg: string, print: bool): string
         println(dbg)
     "world"
 
-fn worldwrap(f: fn(string, bool): string, arg0: string, arg1: bool): string
-    f(arg0, arg1)
-
 fn main(): int
     init()
     var hello: string = "Hello, "
@@ -22,3 +19,6 @@ fn main(): int
         println(worldwrap(world, "test", false))
     printf("%d %d%c", 5, 10)
     0
+
+fn worldwrap(f: fn(string, bool): string, arg0: string, arg1: bool): string
+    f(arg0, arg1)
