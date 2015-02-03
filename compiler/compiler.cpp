@@ -134,8 +134,19 @@ int main(int argc, const char** argv)
 
 		Tokens tokens = tokenize(output, source, contents);
 		Ast* root = parse(output, tokens);
+
 		resolve(output, root);
-		typecheck(output, root);
+
+		int fixpoint;
+
+		do
+		{
+			fixpoint = 0;
+			fixpoint += typeckPropagate(output, root);
+		}
+		while (fixpoint != 0);
+
+		typeckVerify(output, root);
 
 		dump(root);
 

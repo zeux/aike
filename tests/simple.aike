@@ -9,14 +9,17 @@ fn world(dbg: string, print: bool): string
 
 fn main(): int
     init()
-    var hello: string = "Hello, "
-    var foo: bool = false
+    var hello = "Hello, "
+    var foo = false
     if foo
         println("")
     else
+        fn test(a0: string, a1: bool): string
+            "inner"
         println(worldwrap(fn (a0: string, a1: bool): string a0, "test", false))
         println(worldwrap(fn (a0: string, a1: bool): string "x", "test", false))
         println(worldwrap(world, "test", false))
+        println(worldwrap(test, "test", false))
     printf("%d %d%c", 5, 10)
     0
 

@@ -4,13 +4,13 @@
 #include "ast.hpp"
 #include "output.hpp"
 
-static void typeMustEqual(Ty* type, Ty* expected, Output& output, const Location& location)
+static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, Output& output, const Location& location)
 {
-	if (!typeEquals(type, expected))
+	if (!typeUnify(type, expected, constraints) && !constraints)
 		output.panic(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
 }
 
-static pair<Ty*, Location> type(Output& output, Ast* root)
+static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* constraints)
 {
 	if (UNION_CASE(LiteralBool, n, root))
 		return make_pair(UNION_NEW(Ty, Bool, {}), n->location);
@@ -33,14 +33,14 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 			return make_pair(UNION_NEW(Ty, Void, {}), Location());
 
 		for (size_t i = 0; i < n->body.size - 1; ++i)
-			type(output, n->body[i]);
+			type(output, n->body[i], constraints);
 
-		return type(output, n->body[n->body.size - 1]);
+		return type(output, n->body[n->body.size - 1], constraints);
 	}
 
 	if (UNION_CASE(Call, n, root))
 	{
-		auto expr = type(output, n->expr);
+		auto expr = type(output, n->expr, constraints);
 
 		if (UNION_CASE(Function, fnty, expr.first))
 		{
@@ -49,14 +49,14 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 			for (size_t i = 0; i < n->args.size; ++i)
 			{
-				auto arg = type(output, n->args[i]);
+				auto arg = type(output, n->args[i], constraints);
 
-				typeMustEqual(arg.first, fnty->args[i], output, arg.second);
+				typeMustEqual(arg.first, fnty->args[i], constraints, output, arg.second);
 			}
 
 			return make_pair(fnty->ret, n->location);
 		}
-		else
+		else if (!constraints)
 		{
 			output.panic(expr.second, "Expression does not evaluate to a function");
 		}
@@ -64,21 +64,21 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 	if (UNION_CASE(If, n, root))
 	{
-		auto cond = type(output, n->cond);
+		auto cond = type(output, n->cond, constraints);
 
-		typeMustEqual(cond.first, UNION_NEW(Ty, Bool, {}), output, cond.second);
+		typeMustEqual(cond.first, UNION_NEW(Ty, Bool, {}), constraints, output, cond.second);
 
-		auto thenty = type(output, n->thenbody);
+		auto thenty = type(output, n->thenbody, constraints);
 
 		if (n->elsebody)
 		{
-			auto elsety = type(output, n->elsebody);
+			auto elsety = type(output, n->elsebody, constraints);
 
-			typeMustEqual(elsety.first, thenty.first, output, elsety.second);
+			typeMustEqual(elsety.first, thenty.first, constraints, output, elsety.second);
 		}
 		else
 		{
-			typeMustEqual(thenty.first, UNION_NEW(Ty, Void, {}), output, thenty.second);
+			typeMustEqual(thenty.first, UNION_NEW(Ty, Void, {}), constraints, output, thenty.second);
 		}
 
 		return thenty;
@@ -86,12 +86,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 	if (UNION_CASE(Fn, n, root))
 	{
-		auto ret = type(output, n->body);
+		auto ret = type(output, n->body, constraints);
 
 		if (UNION_CASE(Function, fnty, n->type))
 		{
 			if (fnty->ret->kind != Ty::KindVoid)
-				typeMustEqual(ret.first, fnty->ret, output, ret.second);
+				typeMustEqual(ret.first, fnty->ret, constraints, output, ret.second);
 		}
 		else
 			ICE("FnDecl type is not Function");
@@ -103,12 +103,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 	{
 		if (n->body)
 		{
-			auto ret = type(output, n->body);
+			auto ret = type(output, n->body, constraints);
 
 			if (UNION_CASE(Function, fnty, n->var->type))
 			{
 				if (fnty->ret->kind != Ty::KindVoid)
-					typeMustEqual(ret.first, fnty->ret, output, ret.second);
+					typeMustEqual(ret.first, fnty->ret, constraints, output, ret.second);
 			}
 			else
 				ICE("FnDecl type is not Function");
@@ -119,9 +119,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 
 	if (UNION_CASE(VarDecl, n, root))
 	{
-		auto expr = type(output, n->expr);
+		auto expr = type(output, n->expr, constraints);
 
-		typeMustEqual(expr.first, n->var->type, output, expr.second);
+		typeMustEqual(expr.first, n->var->type, constraints, output, expr.second);
 
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
@@ -129,7 +129,36 @@ static pair<Ty*, Location> type(Output& output, Ast* root)
 	ICE("Unknown Ast kind %d", root->kind);
 }
 
-void typecheck(Output& output, Ast* root)
+static bool propagate(TypeConstraints& constraints, Ast* root)
 {
-	type(output, root);
+	if (UNION_CASE(Fn, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(FnDecl, n, root))
+	{
+		n->var->type = constraints.rewrite(n->var->type);
+	}
+	else if (UNION_CASE(VarDecl, n, root))
+	{
+		n->var->type = constraints.rewrite(n->var->type);
+	}
+
+	return false;
+}
+
+int typeckPropagate(Output& output, Ast* root)
+{
+	TypeConstraints constraints;
+	type(output, root, &constraints);
+
+	if (!constraints.data.empty())
+		visitAst(root, propagate, constraints);
+
+	return constraints.data.size();
+}
+
+void typeckVerify(Output& output, Ast* root)
+{
+	type(output, root, nullptr);
 }

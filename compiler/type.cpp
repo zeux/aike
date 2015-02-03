@@ -1,8 +1,47 @@
 #include "common.hpp"
 #include "type.hpp"
 
-bool typeEquals(Ty* lhs, Ty* rhs)
+bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 {
+	assert(lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown);
+
+	if (lhs->kind == Ty::KindUnknown && data.count(lhs) == 0)
+		data[lhs] = rhs;
+	else if (rhs->kind == Ty::KindUnknown && data.count(rhs) == 0)
+		data[rhs] = lhs;
+	else
+		return false;
+
+	return true;
+}
+
+Ty* TypeConstraints::rewrite(Ty* type) const
+{
+	auto it = data.find(type);
+
+	if (it != data.end())
+		type = it->second;
+
+	if (UNION_CASE(Function, funty, type))
+	{
+		Array<Ty*> args;
+
+		for (Ty* arg: funty->args)
+			args.push(rewrite(arg));
+
+		Ty* ret = rewrite(funty->ret);
+
+		return UNION_NEW(Ty, Function, { args, ret });
+	}
+
+	return type;
+}
+
+bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
+{
+	if (constraints && (lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown))
+		return constraints->tryAdd(lhs, rhs);
+
 	if (lhs->kind != rhs->kind)
 		return false;
 
@@ -14,13 +53,18 @@ bool typeEquals(Ty* lhs, Ty* rhs)
 			return false;
 
 		for (size_t i = 0; i < lf->args.size; ++i)
-			if (!typeEquals(lf->args[i], rf->args[i]))
+			if (!typeUnify(lf->args[i], rf->args[i], constraints))
 				return false;
 
-		return typeEquals(lf->ret, rf->ret);
+		return typeUnify(lf->ret, rf->ret, constraints);
 	}
 
 	return true;
+}
+
+bool typeEquals(Ty* lhs, Ty* rhs)
+{
+	return typeUnify(lhs, rhs, nullptr);
 }
 
 static void typeName(string& buffer, Ty* type)

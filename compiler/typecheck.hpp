@@ -3,4 +3,6 @@
 struct Output;
 struct Ast;
 
-void typecheck(Output& output, Ast* root);
+int typeckPropagate(Output& output, Ast* root);
+
+void typeckVerify(Output& output, Ast* root);
