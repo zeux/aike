@@ -10,6 +10,14 @@
 
 using namespace llvm;
 
+struct FunctionInstance
+{
+	Function* value;
+
+	Array<Variable*> args;
+	Ast* body;
+};
+
 struct Codegen
 {
 	Output* output;
@@ -19,7 +27,7 @@ struct Codegen
 	IRBuilder<>* builder;
 	unordered_map<Variable*, Value*> vars;
 
-	vector<Ast::FnDecl*> pendingFunctions;
+	vector<FunctionInstance> pendingFunctions;
 };
 
 static Type* getType(Codegen& cg, Ty* type)
@@ -67,8 +75,6 @@ static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 
 	return cg.module->getOrInsertFunction(var->name.str(), funty);
 }
-
-static void codegenFunctionBody(Codegen& cg, Function* fun, const Array<Variable*>& args, Ast* body);
 
 static Value* codegenExpr(Codegen& cg, Ast* node)
 {
@@ -215,18 +221,16 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		Function* fun = Function::Create(funty, GlobalValue::InternalLinkage, "anonymous", cg.module);
 
-		auto block = cg.builder->GetInsertBlock();
-
-		codegenFunctionBody(cg, fun, n->args, n->body);
-
-		cg.builder->SetInsertPoint(block);
+		cg.pendingFunctions.push_back({ fun, n->args, n->body });
 
 		return fun;
 	}
 
 	if (UNION_CASE(FnDecl, n, node))
 	{
-		cg.pendingFunctions.push_back(n);
+		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
+
+		cg.pendingFunctions.push_back({ fun, n->args, n->body });
 
 		return nullptr;
 	}
@@ -246,17 +250,20 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	ICE("Unknown Ast kind %d", node->kind);
 }
 
-static void codegenFunctionBody(Codegen& cg, Function* fun, const Array<Variable*>& args, Ast* body)
+static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
+	if (!inst.body)
+		return;
+
 	size_t argindex = 0;
 
-	for (Function::arg_iterator ait = fun->arg_begin(); ait != fun->arg_end(); ++ait, ++argindex)
-		cg.vars[args[argindex]] = ait;
+	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait, ++argindex)
+		cg.vars[inst.args[argindex]] = ait;
 
-	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", fun);
+	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.builder->SetInsertPoint(bb);
 
-	Value* ret = codegenExpr(cg, body);
+	Value* ret = codegenExpr(cg, inst.body);
 
 	if (ret)
 		cg.builder->CreateRet(ret);
@@ -264,23 +271,15 @@ static void codegenFunctionBody(Codegen& cg, Function* fun, const Array<Variable
 		cg.builder->CreateRetVoid();
 }
 
-static void codegenFunction(Codegen& cg, Ast::FnDecl* decl)
-{
-	Function* fun = cast<Function>(codegenFunctionValue(cg, decl->var));
-
-	if (!decl->body)
-		return;
-
-	cg.vars[decl->var] = fun;
-
-	codegenFunctionBody(cg, fun, decl->args, decl->body);
-}
-
 static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 {
 	if (UNION_CASE(FnDecl, n, node))
 	{
-		cg.pendingFunctions.push_back(n);
+		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
+
+		cg.vars[n->var] = fun;
+
+		cg.pendingFunctions.push_back({ fun, n->args, n->body });
 
 		return true;
 	}
@@ -298,10 +297,10 @@ void codegen(Output& output, Ast* root, llvm::LLVMContext* context, llvm::Module
 
 	while (!cg.pendingFunctions.empty())
 	{
-		Ast::FnDecl* decl = cg.pendingFunctions.back();
+		FunctionInstance inst = cg.pendingFunctions.back();
 
 		cg.pendingFunctions.pop_back();
 
-		codegenFunction(cg, decl);
+		codegenFunction(cg, inst);
 	}
 }
