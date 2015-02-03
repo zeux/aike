@@ -8,6 +8,9 @@ static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, 
 {
 	if (!typeUnify(type, expected, constraints) && !constraints)
 		output.panic(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
+
+	if (!constraints && type->kind == Ty::KindUnknown)
+		output.panic(location, "Type mismatch: expected a known type");
 }
 
 static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* constraints)
@@ -65,9 +68,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 				for (auto& a: n->args)
 					args.push(UNION_NEW(Ty, Unknown, {}));
 
-				Ty* fnty = UNION_NEW(Ty, Function, { args, UNION_NEW(Ty, Unknown, {}) });
+				Ty* ret = UNION_NEW(Ty, Unknown, {});
 
-				return make_pair(fnty, Location());
+				typeMustEqual(expr.first, UNION_NEW(Ty, Function, { args, ret }), constraints, output, Location());
+
+				return make_pair(ret, Location());
 			}
 			else
 				output.panic(expr.second, "Expression does not evaluate to a function");
