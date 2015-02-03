@@ -61,21 +61,16 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		}
 		else
 		{
-			if (expr.first->kind == Ty::KindUnknown && constraints)
-			{
-				Array<Ty*> args;
+			Array<Ty*> args;
 
-				for (auto& a: n->args)
-					args.push(UNION_NEW(Ty, Unknown, {}));
+			for (auto& a: n->args)
+				args.push(type(output, a, constraints).first);
 
-				Ty* ret = UNION_NEW(Ty, Unknown, {});
+			Ty* ret = UNION_NEW(Ty, Unknown, {});
 
-				typeMustEqual(expr.first, UNION_NEW(Ty, Function, { args, ret }), constraints, output, Location());
+			typeMustEqual(expr.first, UNION_NEW(Ty, Function, { args, ret }), constraints, output, expr.second);
 
-				return make_pair(ret, Location());
-			}
-			else
-				output.panic(expr.second, "Expression does not evaluate to a function");
+			return make_pair(ret, expr.second);
 		}
 	}
 
