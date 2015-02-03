@@ -58,6 +58,10 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 		if (n->body)
 			visitAst(n->body, f, fc);
 	}
+	else if (UNION_CASE(Fn, n, node))
+	{
+		visitAst(n->body, f, fc);
+	}
 	else if (UNION_CASE(VarDecl, n, node))
 	{
 		visitAst(n->expr, f, fc);

@@ -76,7 +76,7 @@ static bool resolveNode(Resolve& rs, Ast* root)
 		for (auto& a: n->args)
 			pushVariable(rs, a);
 
-		resolveNode(rs, n->body);
+		visitAstInner(root, resolveNode, rs);
 
 		popScope(rs, scope);
 	}
@@ -89,14 +89,14 @@ static bool resolveNode(Resolve& rs, Ast* root)
 			for (auto& a: n->args)
 				pushVariable(rs, a);
 
-			resolveNode(rs, n->body);
+			visitAstInner(root, resolveNode, rs);
 
 			popScope(rs, scope);
 		}
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{
-		resolveNode(rs, n->expr);
+		visitAstInner(root, resolveNode, rs);
 
 		pushVariable(rs, n->var);
 	}
