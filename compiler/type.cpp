@@ -6,9 +6,9 @@ bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 	assert(lhs != rhs);
 	assert(lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown);
 
-	if (lhs->kind == Ty::KindUnknown && data.count(lhs) == 0)
+	if (lhs->kind == Ty::KindUnknown && data.count(lhs) == 0 && !typeOccurs(rhs, lhs))
 		data[lhs] = rhs;
-	else if (rhs->kind == Ty::KindUnknown && data.count(rhs) == 0)
+	else if (rhs->kind == Ty::KindUnknown && data.count(rhs) == 0 && !typeOccurs(lhs, rhs))
 		data[rhs] = lhs;
 	else
 		return false;
@@ -69,6 +69,23 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 bool typeEquals(Ty* lhs, Ty* rhs)
 {
 	return typeUnify(lhs, rhs, nullptr);
+}
+
+bool typeOccurs(Ty* lhs, Ty* rhs)
+{
+	if (lhs == rhs)
+		return true;
+
+	if (UNION_CASE(Function, lf, lhs))
+	{
+		for (auto& a: lf->args)
+			if (typeOccurs(a, rhs))
+				return true;
+
+		return typeOccurs(lf->ret, rhs);
+	}
+
+	return false;
 }
 
 static void typeName(string& buffer, Ty* type)
