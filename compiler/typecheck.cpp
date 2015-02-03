@@ -56,9 +56,21 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 			return make_pair(fnty->ret, n->location);
 		}
-		else if (!constraints)
+		else
 		{
-			output.panic(expr.second, "Expression does not evaluate to a function");
+			if (expr.first->kind == Ty::KindUnknown && constraints)
+			{
+				Array<Ty*> args;
+
+				for (auto& a: n->args)
+					args.push(UNION_NEW(Ty, Unknown, {}));
+
+				Ty* fnty = UNION_NEW(Ty, Function, { args, UNION_NEW(Ty, Unknown, {}) });
+
+				return make_pair(fnty, Location());
+			}
+			else
+				output.panic(expr.second, "Expression does not evaluate to a function");
 		}
 	}
 
@@ -134,10 +146,16 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	if (UNION_CASE(Fn, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
+
+		for (auto& arg: n->args)
+			arg->type = constraints.rewrite(arg->type);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		n->var->type = constraints.rewrite(n->var->type);
+
+		for (auto& arg: n->args)
+			arg->type = constraints.rewrite(arg->type);
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{

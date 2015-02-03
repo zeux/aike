@@ -3,6 +3,7 @@
 
 bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 {
+	assert(lhs != rhs);
 	assert(lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown);
 
 	if (lhs->kind == Ty::KindUnknown && data.count(lhs) == 0)
@@ -39,6 +40,9 @@ Ty* TypeConstraints::rewrite(Ty* type) const
 
 bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 {
+	if (lhs == rhs)
+		return true;
+
 	if (constraints && (lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown))
 		return constraints->tryAdd(lhs, rhs);
 

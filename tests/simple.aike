@@ -16,7 +16,7 @@ fn main(): int
     else
         fn test(a0: string, a1: bool): string
             "inner"
-        println(worldwrap(fn (a0: string, a1: bool): string a0, "test", false))
+        println(worldwrap(fn (a0, a1) a0, "test", false))
         println(worldwrap(fn (a0: string, a1: bool): string "x", "test", false))
         println(worldwrap(world, "test", false))
         println(worldwrap(test, "test", false))
