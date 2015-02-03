@@ -90,6 +90,12 @@ static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
 
 static Ty* parseType(TokenStream& ts)
 {
+	if (ts.is(Token::TypeIdent, "_"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, Unknown, {});
+	}
+
 	if (ts.is(Token::TypeIdent, "void"))
 	{
 		ts.move();
@@ -189,7 +195,7 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 	return UNION_NEW(Ast, Block, { body });
 }
 
-static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts)
+static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts, bool requireTypes)
 {
 	Array<Variable*> args;
 	Array<Ty*> argtys;
@@ -200,9 +206,16 @@ static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts)
 	{
 		auto argname = ts.eat(Token::TypeIdent);
 
-		ts.eat(Token::TypeAtom, ":");
+		Ty* type;
 
-		Ty* type = parseType(ts);
+		if (ts.is(Token::TypeAtom, ":") || requireTypes)
+		{
+			ts.eat(Token::TypeAtom, ":");
+
+			type = parseType(ts);
+		}
+		else
+			type = UNION_NEW(Ty, Unknown, {});
 
 		args.push(new Variable { argname.data, type, argname.location });
 		argtys.push(type);
@@ -220,8 +233,10 @@ static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts)
 		ts.move();
 		ret = parseType(ts);
 	}
-	else
+	else if (requireTypes)
 		ret = UNION_NEW(Ty, Void, {});
+	else
+		ret = UNION_NEW(Ty, Unknown, {});
 
 	Ty* ty = UNION_NEW(Ty, Function, { argtys, ret });
 
@@ -234,7 +249,7 @@ static Ast* parseFn(TokenStream& ts)
 
 	ts.eat(Token::TypeIdent, "fn");
 
-	auto sig = parseFnSignature(ts);
+	auto sig = parseFnSignature(ts, /* requireTypes= */ false);
 
 	Ast* body = parseBlock(ts, &indent);
 
@@ -257,7 +272,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	auto sig = parseFnSignature(ts);
+	auto sig = parseFnSignature(ts, /* requireTypes= */ true);
 
 	Ast* body =
 		(attributes & FnAttributeExtern)
