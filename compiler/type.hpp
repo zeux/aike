@@ -21,10 +21,11 @@ UNION_DECL(Ty, UD_TY)
 struct TypeConstraints
 {
 	unordered_map<Ty*, Ty*> data;
+	int rewrites = 0;
 
 	bool tryAdd(Ty* lhs, Ty* rhs);
 
-	Ty* rewrite(Ty* type) const;
+	Ty* rewrite(Ty* type);
 };
 
 bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints);

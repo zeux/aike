@@ -197,7 +197,7 @@ int typeckPropagate(Output& output, Ast* root)
 	if (!constraints.data.empty())
 		visitAst(root, propagate, constraints);
 
-	return constraints.data.size();
+	return constraints.rewrites;
 }
 
 void typeckVerify(Output& output, Ast* root)

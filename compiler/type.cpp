@@ -16,12 +16,15 @@ bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 	return true;
 }
 
-Ty* TypeConstraints::rewrite(Ty* type) const
+Ty* TypeConstraints::rewrite(Ty* type)
 {
 	auto it = data.find(type);
 
 	if (it != data.end())
+	{
+		rewrites++;
 		type = it->second;
+	}
 
 	if (UNION_CASE(Function, funty, type))
 	{
