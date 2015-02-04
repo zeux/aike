@@ -73,6 +73,13 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->value);
 	}
+	else if (UNION_CASE(LiteralStruct, n, root))
+	{
+		dumpString(n->name);
+		printf(" { ");
+		dumpList(n->fields, [&](const pair<Str, Ast*>& p) { dumpString(p.first); printf(" = "); dumpNode(p.second, indent); });
+		printf(" }");
+	}
 	else if (UNION_CASE(Ident, n, root))
 	{
 		dumpString(n->name);

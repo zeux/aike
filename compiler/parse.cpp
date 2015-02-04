@@ -393,6 +393,40 @@ static Ast* parseIf(TokenStream& ts)
 	return UNION_NEW(Ast, If, { cond, thenbody, elsebody });
 }
 
+static Ast* parseLiteralStruct(TokenStream& ts)
+{
+	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
+
+	Array<pair<Str, Ast*>> fields;
+
+	ts.eat(Token::TypeBracket, "{");
+
+	while (!ts.is(Token::TypeBracket, "}"))
+	{
+		auto fname = ts.eat(Token::TypeIdent);
+
+		Ast* expr;
+
+		if (ts.is(Token::TypeAtom, "="))
+		{
+			ts.move();
+
+			expr = parseExpr(ts);
+		}
+		else
+			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
+
+		fields.push(make_pair(fname.data, expr));
+
+		if (!ts.is(Token::TypeBracket, "}"))
+			ts.eat(Token::TypeAtom, ",");
+	}
+
+	ts.eat(Token::TypeBracket, "}");
+
+	return UNION_NEW(Ast, LiteralStruct, { name.data, name.location, UNION_NEW(Ty, Unknown, {}), fields });
+}
+
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "true"))
@@ -421,6 +455,11 @@ static Ast* parseTerm(TokenStream& ts)
 		auto value = ts.eat(Token::TypeString);
 
 		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
+	}
+
+	if (ts.is(Token::TypeBracket, "{") || (ts.is(Token::TypeIdent) && ts.get(1).type == Token::TypeBracket && ts.get(1).data == "{"))
+	{
+		return parseLiteralStruct(ts);
 	}
 
 	if (ts.is(Token::TypeIdent))
