@@ -181,7 +181,7 @@ static void parseIndent(TokenStream& ts, const Location* indent, bool allowSingl
 			{
 				int lineIndent = getLineIndent(ts, ts.get().location);
 
-				if (lineIndent == startIndent)
+				if (lineIndent <= startIndent)
 					break;
 
 				if (lineIndent != firstIndent)
