@@ -38,6 +38,27 @@ static void dumpSignature(Ty* ty, const Array<Variable*>& args)
 		ICE("Fn type is not Function");
 }
 
+static void dumpDef(const Str& name, TyDef* def, int indent)
+{
+	if (UNION_CASE(Struct, sd, def))
+	{
+		printf("struct ");
+		dumpString(name);
+		printf("\n");
+
+		for (auto& f: sd->fields)
+		{
+			dumpIndent(indent + 1);
+			dumpString(f.first);
+			printf(": ");
+			dump(f.second);
+			printf("\n");
+		}
+	}
+	else
+		ICE("Unknown TyDef kind %d", def->kind);
+}
+
 static void dumpNode(Ast* root, int indent)
 {
 	if (UNION_CASE(LiteralBool, n, root))
@@ -118,6 +139,10 @@ static void dumpNode(Ast* root, int indent)
 		dump(n->var->type);
 		printf(" = ");
 		dump(n->expr);
+	}
+	else if (UNION_CASE(TyDecl, n, root))
+	{
+		dumpDef(n->name, n->def, indent);
 	}
 	else
 	{

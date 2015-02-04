@@ -2,6 +2,10 @@ extern fn init()
 extern fn println(str: string)
 extern fn printf(str: string, val: int, val: int)
 
+struct Point
+    x: int
+    y: int
+
 fn world(dbg: string, print: bool): string
     if print
         println(dbg)

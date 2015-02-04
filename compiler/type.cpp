@@ -63,6 +63,15 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 		return typeUnify(lf->ret, rf->ret, constraints);
 	}
 
+	if (UNION_CASE(Instance, li, lhs))
+	{
+		UNION_CASE(Instance, ri, rhs);
+
+		assert(li->def && ri->def);
+
+		return li->def == ri->def;
+	}
+
 	return true;
 }
 
@@ -133,6 +142,12 @@ static void typeName(string& buffer, Ty* type)
 			buffer += ": ";
 			typeName(buffer, t->ret);
 		}
+		return;
+	}
+
+	if (UNION_CASE(Instance, t, type))
+	{
+		buffer += t->name.str();
 		return;
 	}
 

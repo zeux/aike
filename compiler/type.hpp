@@ -1,11 +1,19 @@
 #pragma once
 
+struct Ty;
+
+#define UD_TYDEF(X) \
+	X(Struct, { Array<pair<Str, Ty*>> fields; })
+
+UNION_DECL(TyDef, UD_TYDEF)
+
 #define UD_TY(X) \
 	X(Void, {}) \
 	X(Bool, {}) \
 	X(Integer, {}) \
 	X(String, {}) \
 	X(Function, { Array<Ty*> args; Ty* ret; }) \
+	X(Instance, { Str name; TyDef* def; }) \
 	X(Unknown, {})
 
 UNION_DECL(Ty, UD_TY)

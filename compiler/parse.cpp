@@ -151,15 +151,19 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, Function, { args, ret });
 	}
 
+	if (ts.is(Token::TypeIdent))
+	{
+		auto name = ts.eat(Token::TypeIdent);
+
+		return UNION_NEW(Ty, Instance, { name.data, nullptr });
+	}
+
 	ts.output->panic(ts.get().location, "Expected type");
 }
 
-static Ast* parseExpr(TokenStream& ts);
-
-static Ast* parseBlock(TokenStream& ts, const Location* indent)
+template <typename F>
+static void parseIndent(TokenStream& ts, const Location* indent, bool allowSingleLine, F f)
 {
-	Array<Ast*> body;
-
 	if (isFirstOnLine(ts, ts.get().location))
 	{
 		int startIndent = indent ? getLineIndent(ts, *indent) : 0;
@@ -184,13 +188,25 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 					ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", firstIndent, lineIndent);
 			}
 
-			body.push(parseExpr(ts));
+			f();
 		}
 	}
 	else
 	{
-		body.push(parseExpr(ts));
+		if (allowSingleLine)
+			f();
+		else
+			ts.output->panic(ts.get().location, "Expected newline");
 	}
+}
+
+static Ast* parseExpr(TokenStream& ts);
+
+static Ast* parseBlock(TokenStream& ts, const Location* indent)
+{
+	Array<Ast*> body;
+
+	parseIndent(ts, indent, /* allowSingleLine= */ true, [&]() { body.push(parseExpr(ts)); });
 
 	return UNION_NEW(Ast, Block, { body });
 }
@@ -305,6 +321,31 @@ static Ast* parseVarDecl(TokenStream& ts)
 	return UNION_NEW(Ast, VarDecl, { new Variable { name.data, type, name.location }, expr });
 }
 
+static Ast* parseStructDecl(TokenStream& ts)
+{
+	Location indent = ts.get().location;
+
+	ts.eat(Token::TypeIdent, "struct");
+
+	auto name = ts.eat(Token::TypeIdent);
+
+	Array<pair<Str, Ty*>> fields;
+
+	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
+		auto fname = ts.eat(Token::TypeIdent);
+
+		ts.eat(Token::TypeAtom, ":");
+
+		auto ty = parseType(ts);
+
+		fields.push(make_pair(fname.data, ty));
+	});
+
+	TyDef* def = UNION_NEW(TyDef, Struct, { fields });
+
+	return UNION_NEW(Ast, TyDecl, { name.data, name.location, def });
+}
+
 static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 {
 	ts.eat(Token::TypeBracket, "(");
@@ -404,6 +445,9 @@ static Ast* parseExpr(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent, "var"))
 		return parseVarDecl(ts);
+
+	if (ts.is(Token::TypeIdent, "struct"))
+		return parseStructDecl(ts);
 
 	if (ts.is(Token::TypeIdent, "if"))
 		return parseIf(ts);

@@ -138,6 +138,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 
+	if (UNION_CASE(TyDecl, n, root))
+	{
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+	}
+
 	ICE("Unknown Ast kind %d", root->kind);
 }
 
