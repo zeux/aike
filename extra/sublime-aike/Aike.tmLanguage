@@ -29,6 +29,23 @@
 		</dict>
 		<dict>
 			<key>match</key>
+			<string>(struct)\s+([A-Za-z0-9_]+)</string>
+			<key>captures</key>
+			<dict>
+				<key>1</key>
+				<dict>
+					<key>name</key>
+					<string>keyword.control.aike</string>
+				</dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>entity.name.type.aike</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>match</key>
 			<string>\b(extern|fn|var|if|else)\b</string>
 			<key>name</key>
 			<string>keyword.control.aike</string>
