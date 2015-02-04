@@ -10,56 +10,97 @@ struct Binding
 	Binding* shadow;
 };
 
+struct TyBinding
+{
+	TyDef* def;
+	TyBinding* shadow;
+};
+
+template <typename T>
+struct NameMap
+{
+	struct Binding
+	{
+		Str name;
+		T* value;
+		Binding* shadow;
+	};
+
+	unordered_map<Str, Binding*> data;
+	vector<Binding*> stack;
+
+	T* find(const Str& name) const
+	{
+		auto it = data.find(name);
+
+		return (it != data.end() && it->second) ? it->second->value : nullptr;
+	}
+
+	void push(const Str& name, T* value)
+	{
+		Binding*& binding = data[name];
+		binding = new Binding { name, value, binding };
+
+		stack.push_back(binding);
+	}
+
+	void pop(size_t offset)
+	{
+		assert(stack.size() >= offset);
+
+		while (stack.size() > offset)
+		{
+			Binding* b = stack.back();
+
+			data[b->name] = b->shadow;
+
+			stack.pop_back();
+		}
+	}
+
+	size_t top() const
+	{
+		return stack.size();
+	}
+};
+
 struct Resolve
 {
 	Output* output;
-	unordered_map<Str, Binding*> bindings;
-	vector<Binding*> stack;
-};
 
-static void popScope(Resolve& rs, size_t index)
-{
-	assert(rs.stack.size() >= index);
+	NameMap<Variable> variables;
+	NameMap<TyDef> typedefs;
 
-	while (rs.stack.size() > index)
+	pair<size_t, size_t> top() const
 	{
-		Binding* b = rs.stack.back();
-
-		rs.bindings[b->var->name] = b->shadow;
-
-		rs.stack.pop_back();
+		return make_pair(variables.top(), typedefs.top());
 	}
-}
 
-static void pushVariable(Resolve& rs, Variable* var)
-{
-	Binding*& binding = rs.bindings[var->name];
-
-	binding = new Binding { var, binding };
-
-	rs.stack.push_back(binding);
-}
+	void pop(const pair<size_t, size_t>& offset)
+	{
+		variables.pop(offset.first);
+		typedefs.pop(offset.second);
+	}
+};
 
 static void resolveDecl(Resolve& rs, Ast* root)
 {
 	if (UNION_CASE(FnDecl, n, root))
-		pushVariable(rs, n->var);
+		rs.variables.push(n->var->name, n->var);
 }
 
 static bool resolveNode(Resolve& rs, Ast* root)
 {
 	if (UNION_CASE(Ident, n, root))
 	{
-		auto it = rs.bindings.find(n->name);
-
-		if (it == rs.bindings.end() || !it->second)
+		if (Variable* var = rs.variables.find(n->name))
+			n->target = var;
+		else
 			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
-
-		n->target = it->second->var;
 	}
 	else if (UNION_CASE(Block, n, root))
 	{
-		size_t scope = rs.stack.size();
+		auto scope = rs.top();
 
 		// Bind all declarations from this scope to allow recursive references
 		for (auto& c: n->body)
@@ -67,38 +108,38 @@ static bool resolveNode(Resolve& rs, Ast* root)
 
 		visitAstInner(root, resolveNode, rs);
 
-		popScope(rs, scope);
+		rs.pop(scope);
 	}
 	else if (UNION_CASE(Fn, n, root))
 	{
-		size_t scope = rs.stack.size();
+		auto scope = rs.top();
 
 		for (auto& a: n->args)
-			pushVariable(rs, a);
+			rs.variables.push(a->name, a);
 
 		visitAstInner(root, resolveNode, rs);
 
-		popScope(rs, scope);
+		rs.pop(scope);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->body)
 		{
-			size_t scope = rs.stack.size();
+			auto scope = rs.top();
 
 			for (auto& a: n->args)
-				pushVariable(rs, a);
+				rs.variables.push(a->name, a);
 
 			visitAstInner(root, resolveNode, rs);
 
-			popScope(rs, scope);
+			rs.pop(scope);
 		}
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{
 		visitAstInner(root, resolveNode, rs);
 
-		pushVariable(rs, n->var);
+		rs.variables.push(n->var->name, n->var);
 	}
 	else
 		return false;
