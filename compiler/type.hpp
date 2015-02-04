@@ -31,4 +31,6 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints);
 bool typeEquals(Ty* lhs, Ty* rhs);
 bool typeOccurs(Ty* lhs, Ty* rhs);
 
+Ty* typeIndex(Ty* type, const Str& name);
+
 string typeName(Ty* type);

@@ -24,10 +24,25 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	if (UNION_CASE(LiteralString, n, root))
 		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
+	if (UNION_CASE(LiteralStruct, n, root))
+		return make_pair(n->type, n->location);
+
 	if (UNION_CASE(Ident, n, root))
 	{
 		assert(n->target);
 		return make_pair(n->target->type, n->location);
+	}
+
+	if (UNION_CASE(Index, n, root))
+	{
+		auto expr = type(output, n->expr, constraints);
+
+		if (Ty* ty = typeIndex(expr.first, n->name))
+			return make_pair(ty, n->location);
+		else if (constraints)
+			return make_pair(UNION_NEW(Ty, Unknown, {}), Location());
+		else
+			output.panic(expr.second, "%s does not have a field %s", typeName(expr.first).c_str(), n->name.str().c_str());
 	}
 
 	if (UNION_CASE(Block, n, root))
@@ -148,7 +163,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 static bool propagate(TypeConstraints& constraints, Ast* root)
 {
-	if (UNION_CASE(Fn, n, root))
+	if (UNION_CASE(LiteralStruct, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(Fn, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
 

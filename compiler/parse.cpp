@@ -367,6 +367,15 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 	return UNION_NEW(Ast, Call, { expr, args, Location(start, end) });
 }
 
+static Ast* parseIndex(TokenStream& ts, Ast* expr)
+{
+	ts.eat(Token::TypeAtom, ".");
+
+	auto name = ts.eat(Token::TypeIdent);
+
+	return UNION_NEW(Ast, Index, { expr, name.data, name.location });
+}
+
 static Ast* parseIf(TokenStream& ts)
 {
 	Location start = ts.get().location;
@@ -495,8 +504,15 @@ static Ast* parseExpr(TokenStream& ts)
 
 	Ast* term = parseTerm(ts);
 
-	while (ts.is(Token::TypeBracket, "("))
-		term = parseCall(ts, term, start);
+	for (;;)
+	{
+		if (ts.is(Token::TypeBracket, "("))
+			term = parseCall(ts, term, start);
+		else if (ts.is(Token::TypeAtom, "."))
+			term = parseIndex(ts, term);
+		else
+			break;
+	}
 
 	return term;
 }

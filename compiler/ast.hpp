@@ -21,6 +21,7 @@ enum FnAttribute
 	X(LiteralString, { Str value; Location location; }) \
 	X(LiteralStruct, { Str name; Location location; Ty* type; Array<pair<Str, Ast*>> fields; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
+	X(Index, { Ast* expr; Str name; Location location; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
@@ -39,6 +40,10 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 	{
 		for (auto& c: n->fields)
 			visitAst(c.second, f, fc);
+	}
+	else if (UNION_CASE(Index, n, node))
+	{
+		visitAst(n->expr, f, fc);
 	}
 	else if (UNION_CASE(Block, n, node))
 	{

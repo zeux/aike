@@ -97,6 +97,25 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 	return false;
 }
 
+Ty* typeIndex(Ty* type, const Str& name)
+{
+	if (UNION_CASE(Instance, i, type))
+	{
+		if (UNION_CASE(Struct, def, i->def))
+		{
+			for (auto& f: def->fields)
+				if (f.first == name)
+					return f.second;
+
+			return nullptr;
+		}
+
+		ICE("Unknown TyDef kind %d", i->def->kind);
+	}
+
+	return nullptr;
+}
+
 static void typeName(string& buffer, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))

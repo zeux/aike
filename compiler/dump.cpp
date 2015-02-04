@@ -84,6 +84,12 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->name);
 	}
+	else if (UNION_CASE(Index, n, root))
+	{
+		dumpNode(n->expr, indent);
+		printf(".");
+		dumpString(n->name);
+	}
 	else if (UNION_CASE(Block, n, root))
 	{
 		for (auto& c: n->body)
