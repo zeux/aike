@@ -338,6 +338,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 		auto ty = parseType(ts);
 
+		// TODO: verify name uniqueness
 		fields.push(make_pair(fname.data, ty));
 	});
 
@@ -425,6 +426,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 		else
 			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
 
+		// TODO: verify name uniqueness
 		fields.push(make_pair(fname.data, expr));
 
 		if (!ts.is(Token::TypeBracket, "}"))

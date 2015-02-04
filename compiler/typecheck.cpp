@@ -25,7 +25,18 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
 	if (UNION_CASE(LiteralStruct, n, root))
+	{
+		for (auto& f: n->fields)
+		{
+			auto expr = type(output, f.second, constraints);
+
+			if (Ty* ty = typeIndex(n->type, f.first))
+				typeMustEqual(expr.first, ty, constraints, output, expr.second);
+		}
+
+		// TODO: verify that all struct fields are initialized
 		return make_pair(n->type, n->location);
+	}
 
 	if (UNION_CASE(Ident, n, root))
 	{
