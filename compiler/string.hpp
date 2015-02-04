@@ -48,3 +48,19 @@ struct Str
 		return string(data, size);
 	}
 };
+
+namespace std
+{
+	template<> struct hash<Str>
+	{
+		size_t operator()(const Str& str) const
+		{
+			size_t seed = 0;
+
+			for (size_t i = 0; i < str.size; ++i)
+				seed ^= str.data[i] + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+			return seed;
+		}
+	};
+}

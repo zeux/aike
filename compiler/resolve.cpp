@@ -13,7 +13,7 @@ struct Binding
 struct Resolve
 {
 	Output* output;
-	unordered_map<string, Binding*> bindings;
+	unordered_map<Str, Binding*> bindings;
 	vector<Binding*> stack;
 };
 
@@ -25,7 +25,7 @@ static void popScope(Resolve& rs, size_t index)
 	{
 		Binding* b = rs.stack.back();
 
-		rs.bindings[b->var->name.str()] = b->shadow;
+		rs.bindings[b->var->name] = b->shadow;
 
 		rs.stack.pop_back();
 	}
@@ -33,7 +33,7 @@ static void popScope(Resolve& rs, size_t index)
 
 static void pushVariable(Resolve& rs, Variable* var)
 {
-	Binding*& binding = rs.bindings[var->name.str()];
+	Binding*& binding = rs.bindings[var->name];
 
 	binding = new Binding { var, binding };
 
@@ -50,7 +50,7 @@ static bool resolveNode(Resolve& rs, Ast* root)
 {
 	if (UNION_CASE(Ident, n, root))
 	{
-		auto it = rs.bindings.find(n->name.str());
+		auto it = rs.bindings.find(n->name);
 
 		if (it == rs.bindings.end() || !it->second)
 			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
