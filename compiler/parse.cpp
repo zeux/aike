@@ -374,7 +374,7 @@ static Ast* parseIndex(TokenStream& ts, Ast* expr)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	return UNION_NEW(Ast, Index, { expr, name.data, name.location });
+	return UNION_NEW(Ast, Index, { expr, name.data, name.location, -1 });
 }
 
 static Ast* parseIf(TokenStream& ts)

@@ -31,7 +31,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		{
 			auto expr = type(output, f.second, constraints);
 
-			if (Ty* ty = typeIndex(n->type, f.first))
+			if (Ty* ty = typeIndex(n->type, f.first).second)
 				typeMustEqual(expr.first, ty, constraints, output, expr.second);
 		}
 
@@ -49,8 +49,13 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	{
 		auto expr = type(output, n->expr, constraints);
 
-		if (Ty* ty = typeIndex(expr.first, n->name))
+		if (Ty* ty = typeIndex(expr.first, n->name).second)
+		{
+			// TODO: move to a separate resolve stage
+			n->field = typeIndex(expr.first, n->name).first;
+
 			return make_pair(ty, n->location);
+		}
 		else if (constraints)
 			return make_pair(UNION_NEW(Ty, Unknown, {}), Location());
 		else

@@ -67,6 +67,25 @@ static Type* getType(Codegen& cg, Ty* type)
 		return PointerType::get(FunctionType::get(ret, args, false), 0);
 	}
 
+	if (UNION_CASE(Instance, t, type))
+	{
+		assert(t->def);
+
+		if (UNION_CASE(Struct, d, t->def))
+		{
+			if (StructType* st = cg.module->getTypeByName(t->name.str()))
+				return st;
+
+			vector<Type*> fields;
+			for (auto& f: d->fields)
+				fields.push_back(getType(cg, f.second));
+
+			return StructType::create(*cg.context, fields, t->name.str());
+		}
+
+		ICE("Unknown TyDef kind %d", t->def->kind);
+	}
+
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
@@ -98,6 +117,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		auto constant = ConstantDataArray::getString(*cg.context, StringRef(n->value.data, n->value.size));
 		auto constantPtr = new GlobalVariable(*cg.module, constant->getType(), true, GlobalValue::InternalLinkage, constant);
 
+		// TODO: refactor
 		Constant* zero_32 = Constant::getNullValue(IntegerType::getInt32Ty(*cg.context));
 		Constant *gep_params[] = { zero_32, zero_32 };
 
@@ -105,6 +125,25 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		result = cg.builder->CreateInsertValue(result, msgptr, 0);
 		result = cg.builder->CreateInsertValue(result, ConstantInt::get(Type::getInt32Ty(*cg.context), n->value.size), 1);
+
+		return result;
+	}
+
+	if (UNION_CASE(LiteralStruct, n, node))
+	{
+		Type* type = getType(cg, n->type);
+
+		Value* result = UndefValue::get(type);
+
+		for (auto& f: n->fields)
+		{
+			pair<int, Ty*> p = typeIndex(n->type, f.first);
+			assert(p.first >= 0);
+
+			Value* expr = codegenExpr(cg, f.second);
+
+			result = cg.builder->CreateInsertValue(result, expr, p.first);
+		}
 
 		return result;
 	}
@@ -128,6 +167,15 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			return cg.vars[n->target] = codegenFunctionValue(cg, n->target);
 
 		ICE("No code generated for identifier %s", n->target->name.str().c_str());
+	}
+
+	if (UNION_CASE(Index, n, node))
+	{
+		assert(n->field >= 0);
+
+		Value* expr = codegenExpr(cg, n->expr);
+
+		return cg.builder->CreateExtractValue(expr, n->field);
 	}
 
 	if (UNION_CASE(Block, n, node))
