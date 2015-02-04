@@ -1,5 +1,7 @@
 #pragma once
 
+#include "location.hpp"
+
 struct Ty;
 
 #define UD_TYDEF(X) \
@@ -13,7 +15,7 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(Integer, {}) \
 	X(String, {}) \
 	X(Function, { Array<Ty*> args; Ty* ret; }) \
-	X(Instance, { Str name; TyDef* def; }) \
+	X(Instance, { Str name; Location location; TyDef* def; }) \
 	X(Unknown, {})
 
 UNION_DECL(Ty, UD_TY)

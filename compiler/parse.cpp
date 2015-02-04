@@ -155,7 +155,7 @@ static Ty* parseType(TokenStream& ts)
 	{
 		auto name = ts.eat(Token::TypeIdent);
 
-		return UNION_NEW(Ty, Instance, { name.data, nullptr });
+		return UNION_NEW(Ty, Instance, { name.data, name.location, nullptr });
 	}
 
 	ts.output->panic(ts.get().location, "Expected type");
@@ -405,6 +405,8 @@ static Ast* parseIf(TokenStream& ts)
 
 static Ast* parseLiteralStruct(TokenStream& ts)
 {
+	Location start = ts.get().location;
+
 	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
 
 	Array<pair<Str, Ast*>> fields;
@@ -435,7 +437,9 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, "}");
 
-	return UNION_NEW(Ast, LiteralStruct, { name.data, name.location, UNION_NEW(Ty, Unknown, {}), fields });
+	Ty* ty = name.data.size == 0 ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, nullptr });
+
+	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
 }
 
 static Ast* parseTerm(TokenStream& ts)

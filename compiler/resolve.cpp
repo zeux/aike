@@ -88,10 +88,32 @@ static void resolveDecl(Resolve& rs, Ast* root)
 {
 	if (UNION_CASE(FnDecl, n, root))
 		rs.variables.push(n->var->name, n->var);
+	else if (UNION_CASE(TyDecl, n, root))
+		rs.typedefs.push(n->name, n->def);
+}
+
+static void resolveTypeInstance(Resolve& rs, Ty* type)
+{
+	if (UNION_CASE(Instance, t, type))
+	{
+		assert(!t->def);
+
+		if (TyDef* def = rs.typedefs.find(t->name))
+			t->def = def;
+		else
+			rs.output->panic(t->location, "Unresolved type %s", t->name.str().c_str());
+	}
+}
+
+static void resolveType(Resolve& rs, Ty* type)
+{
+	visitType(type, resolveTypeInstance, rs);
 }
 
 static bool resolveNode(Resolve& rs, Ast* root)
 {
+	visitAstTypes(root, resolveType, rs);
+
 	if (UNION_CASE(Ident, n, root))
 	{
 		if (Variable* var = rs.variables.find(n->name))
