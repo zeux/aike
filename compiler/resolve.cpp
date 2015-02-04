@@ -2,6 +2,7 @@
 #include "resolve.hpp"
 
 #include "ast.hpp"
+#include "visit.hpp"
 #include "output.hpp"
 
 struct Binding

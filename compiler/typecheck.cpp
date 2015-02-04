@@ -2,6 +2,7 @@
 #include "typecheck.hpp"
 
 #include "ast.hpp"
+#include "visit.hpp"
 #include "output.hpp"
 
 static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, Output& output, const Location& location)

@@ -2,6 +2,7 @@
 #include "codegen.hpp"
 
 #include "ast.hpp"
+#include "visit.hpp"
 #include "output.hpp"
 
 #include "llvm/IR/IRBuilder.h"
