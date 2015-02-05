@@ -336,8 +336,10 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 	return false;
 }
 
-void codegen(Output& output, Ast* root, llvm::LLVMContext* context, llvm::Module* module)
+void codegen(Output& output, Ast* root, llvm::Module* module)
 {
+	llvm::LLVMContext* context = &module->getContext();
+	
 	IRBuilder<> builder(*context);
 
 	Codegen cg = { &output, context, module, &builder };

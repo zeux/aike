@@ -7,6 +7,7 @@
 #include "resolve.hpp"
 #include "typecheck.hpp"
 #include "codegen.hpp"
+#include "optimize.hpp"
 #include "dump.hpp"
 
 #include "llvm/IR/IRBuilder.h"
@@ -26,6 +27,8 @@ struct Options
 {
 	vector<string> inputs;
 	string output;
+
+	int optimize;
 
 	bool dumpParse;
 	bool dumpAst;
@@ -53,6 +56,8 @@ Options parseOptions(int argc, const char** argv)
 				result.dumpLLVM = true;
 			else if (arg == "--dump-asm")
 				result.dumpAsm = true;
+			else if (arg[0] == '-' && arg[1] == 'O')
+				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
 			else
 				panic("Unknown argument %s", arg.str().c_str());
 		}
@@ -85,7 +90,19 @@ Str readFile(const char* path)
 
 using namespace llvm;
 
-TargetMachine* createTargetMachine()
+CodeGenOpt::Level getCodeGenOptLevel(int optimize)
+{
+	if (optimize >= 3)
+		return CodeGenOpt::Aggressive;
+	else if (optimize >= 2)
+		return CodeGenOpt::Default;
+	else if (optimize >= 1)
+		return CodeGenOpt::Less;
+	else
+		return CodeGenOpt::None;
+}
+
+TargetMachine* createTargetMachine(int optimize)
 {
 	string triple = sys::getDefaultTargetTriple();
 	string error;
@@ -96,7 +113,7 @@ TargetMachine* createTargetMachine()
 
 	TargetOptions options;
 
-	return target->createTargetMachine(triple, "", "", options, Reloc::Default, CodeModel::Default, CodeGenOpt::Default);
+	return target->createTargetMachine(triple, "", "", options, Reloc::Default, CodeModel::Default, getCodeGenOptLevel(optimize));
 }
 
 string getModuleIR(Module* module)
@@ -135,7 +152,7 @@ int main(int argc, const char** argv)
 	InitializeNativeTarget();
 	InitializeNativeTargetAsmPrinter();
 
-	TargetMachine* machine = createTargetMachine();
+	TargetMachine* machine = createTargetMachine(options.optimize);
 
 	LLVMContext context;
 	Module* module = new Module("main", context);
@@ -174,8 +191,10 @@ int main(int argc, const char** argv)
 			dump(root);
 		}
 
-		codegen(output, root, &context, module);
+		codegen(output, root, module);
 	}
+
+	optimize(module, options.optimize);
 
 	if (options.dumpLLVM)
 	{
