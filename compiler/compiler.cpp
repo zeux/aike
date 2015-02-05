@@ -27,8 +27,10 @@ struct Options
 	vector<string> inputs;
 	string output;
 
-	bool emitLLVM;
-	bool emitAsm;
+	bool dumpParse;
+	bool dumpAst;
+	bool dumpLLVM;
+	bool dumpAsm;
 };
 
 Options parseOptions(int argc, const char** argv)
@@ -43,10 +45,14 @@ Options parseOptions(int argc, const char** argv)
 		{
 			if (arg == "-o" && i + 1 < argc)
 				result.output = argv[++i];
-			else if (arg == "--emit-llvm")
-				result.emitLLVM = true;
-			else if (arg == "--emit-asm")
-				result.emitAsm = true;
+			else if (arg == "--dump-parse")
+				result.dumpParse = true;
+			else if (arg == "--dump-ast")
+				result.dumpAst = true;
+			else if (arg == "--dump-llvm")
+				result.dumpLLVM = true;
+			else if (arg == "--dump-asm")
+				result.dumpAsm = true;
 			else
 				panic("Unknown argument %s", arg.str().c_str());
 		}
@@ -93,6 +99,16 @@ TargetMachine* createTargetMachine()
 	return target->createTargetMachine(triple, "", "", options, Reloc::Default, CodeModel::Default, CodeGenOpt::Default);
 }
 
+string getModuleIR(Module* module)
+{
+	string result;
+	raw_string_ostream rs(result);
+
+	module->print(rs, 0);
+
+	return result;
+}
+
 string generateModule(TargetMachine* machine, Module* module, TargetMachine::CodeGenFileType type)
 {
 	string result;
@@ -135,6 +151,11 @@ int main(int argc, const char** argv)
 		Tokens tokens = tokenize(output, source, contents);
 		Ast* root = parse(output, tokens);
 
+		if (options.dumpParse)
+		{
+			dump(root);
+		}
+
 		resolve(output, root);
 
 		int fixpoint;
@@ -148,17 +169,22 @@ int main(int argc, const char** argv)
 
 		typeckVerify(output, root);
 
-		dump(root);
+		if (options.dumpAst)
+		{
+			dump(root);
+		}
 
 		codegen(output, root, &context, module);
 	}
 
-	if (options.emitLLVM)
+	if (options.dumpLLVM)
 	{
-		module->dump();
+		string result = getModuleIR(module);
+
+		puts(result.c_str());
 	}
 
-	if (options.emitAsm)
+	if (options.dumpAsm)
 	{
 		string result = generateModule(machine, module, TargetMachine::CGFT_AssemblyFile);
 
