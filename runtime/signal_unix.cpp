@@ -37,6 +37,8 @@ void installSignalHandler()
 	sigemptyset(&new_action.sa_mask);
 	new_action.sa_flags = SA_SIGINFO;
 
+	sigaction(SIGILL, &new_action, NULL);
 	sigaction(SIGSEGV, &new_action, NULL);
+	sigaction(SIGFPE, &new_action, NULL);
 }
 #endif
