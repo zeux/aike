@@ -28,6 +28,7 @@ enum BinaryOp
 	BinaryOpSubtract,
 	BinaryOpMultiply,
 	BinaryOpDivide,
+	BinaryOpModulo,
 	BinaryOpLess,
 	BinaryOpLessEqual,
 	BinaryOpGreater,

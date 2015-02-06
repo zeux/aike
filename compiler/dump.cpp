@@ -22,6 +22,7 @@ static const char* getOpName(BinaryOp op)
 		case BinaryOpSubtract: return "-";
 		case BinaryOpMultiply: return "*";
 		case BinaryOpDivide: return "/";
+		case BinaryOpModulo: return "%";
 		case BinaryOpLess: return "<";
 		case BinaryOpLessEqual: return "<=";
 		case BinaryOpGreater: return ">";

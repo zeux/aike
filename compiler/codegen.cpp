@@ -258,6 +258,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 				case BinaryOpSubtract: return cg.builder->CreateSub(left, right);
 				case BinaryOpMultiply: return cg.builder->CreateMul(left, right);
 				case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
+				case BinaryOpModulo: return cg.builder->CreateSRem(left, right);
 				case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
 				case BinaryOpLessEqual: return cg.builder->CreateICmpSLE(left, right);
 				case BinaryOpGreater: return cg.builder->CreateICmpSGT(left, right);

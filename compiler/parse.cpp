@@ -484,6 +484,17 @@ static Ast* parseTerm(TokenStream& ts)
 		return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr });
 	}
 
+	if (ts.is(Token::TypeBracket, "("))
+	{
+		ts.move();
+
+		Ast* result = parseExpr(ts);
+
+		ts.eat(Token::TypeBracket, ")");
+
+		return result;
+	}
+
 	auto t = ts.get();
 
 	ts.output->panic(t.location, "Unexpected token '%s'", t.data.str().c_str());
@@ -502,6 +513,7 @@ static pair<int, BinaryOp> parseBinaryOp(TokenStream& ts)
 {
 	if (ts.is(Token::TypeAtom, "*")) return make_pair(7, BinaryOpMultiply);
 	if (ts.is(Token::TypeAtom, "/")) return make_pair(7, BinaryOpDivide);
+	if (ts.is(Token::TypeAtom, "%")) return make_pair(7, BinaryOpModulo);
 	if (ts.is(Token::TypeAtom, "+")) return make_pair(6, BinaryOpAdd);
 	if (ts.is(Token::TypeAtom, "-")) return make_pair(6, BinaryOpSubtract);
 	if (ts.is(Token::TypeAtom, "<")) return make_pair(5, BinaryOpLess);
