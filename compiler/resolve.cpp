@@ -5,18 +5,6 @@
 #include "visit.hpp"
 #include "output.hpp"
 
-struct Binding
-{
-	Variable* var;
-	Binding* shadow;
-};
-
-struct TyBinding
-{
-	TyDef* def;
-	TyBinding* shadow;
-};
-
 template <typename T>
 struct NameMap
 {
