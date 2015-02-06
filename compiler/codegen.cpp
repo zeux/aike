@@ -193,6 +193,83 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		return cg.builder->CreateCall(expr, args);
 	}
 
+	if (UNION_CASE(Unary, n, node))
+	{
+		Value* expr = codegenExpr(cg, n->expr);
+
+		switch (n->op)
+		{
+		case UnaryOpPlus:
+			return expr;
+
+		case UnaryOpMinus:
+			return cg.builder->CreateNeg(expr);
+
+		case UnaryOpNot:
+			return cg.builder->CreateNot(expr);
+
+		default:
+			ICE("Unknown UnaryOp %d", n->op);
+		}
+	}
+
+	if (UNION_CASE(Binary, n, node))
+	{
+		if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
+		{
+			Function* func = cg.builder->GetInsertBlock()->getParent();
+
+			Value* left = codegenExpr(cg, n->left);
+
+			BasicBlock* currentbb = cg.builder->GetInsertBlock();
+			BasicBlock* nextbb = BasicBlock::Create(*cg.context, "next");
+			BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
+
+			if (n->op == BinaryOpAnd)
+				cg.builder->CreateCondBr(left, nextbb, afterbb);
+			else
+				cg.builder->CreateCondBr(left, afterbb, nextbb);
+
+			func->getBasicBlockList().push_back(nextbb);
+			cg.builder->SetInsertPoint(nextbb);
+
+			Value* right = codegenExpr(cg, n->right);
+			cg.builder->CreateBr(afterbb);
+			nextbb = cg.builder->GetInsertBlock();
+
+			func->getBasicBlockList().push_back(afterbb);
+			cg.builder->SetInsertPoint(afterbb);
+
+			PHINode* pn = cg.builder->CreatePHI(left->getType(), 2);
+
+			pn->addIncoming(right, nextbb);
+			pn->addIncoming(left, currentbb);
+
+			return pn;
+		}
+		else
+		{
+			Value* left = codegenExpr(cg, n->left);
+			Value* right = codegenExpr(cg, n->right);
+
+			switch (n->op)
+			{
+				case BinaryOpAdd: return cg.builder->CreateAdd(left, right);
+				case BinaryOpSubtract: return cg.builder->CreateSub(left, right);
+				case BinaryOpMultiply: return cg.builder->CreateMul(left, right);
+				case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
+				case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
+				case BinaryOpLessEqual: return cg.builder->CreateICmpSLE(left, right);
+				case BinaryOpGreater: return cg.builder->CreateICmpSGT(left, right);
+				case BinaryOpGreaterEqual: return cg.builder->CreateICmpSGE(left, right);
+				case BinaryOpEqual: return cg.builder->CreateICmpEQ(left, right);
+				case BinaryOpNotEqual: return cg.builder->CreateICmpNE(left, right);
+				default:
+					ICE("Unknown BinaryOp %d", n->op);
+			}
+		}
+	}
+
 	if (UNION_CASE(If, n, node))
 	{
 		Value* cond = codegenExpr(cg, n->cond);
@@ -201,12 +278,13 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		if (n->elsebody)
 		{
-			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then", func);
+			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
 			BasicBlock* elsebb = BasicBlock::Create(*cg.context, "else");
 			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
 
 			cg.builder->CreateCondBr(cond, thenbb, elsebb);
 
+			func->getBasicBlockList().push_back(thenbb);
 			cg.builder->SetInsertPoint(thenbb);
 
 			Value* thenbody = codegenExpr(cg, n->thenbody);
@@ -214,8 +292,8 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			thenbb = cg.builder->GetInsertBlock();
 
 			func->getBasicBlockList().push_back(elsebb);
-
 			cg.builder->SetInsertPoint(elsebb);
+
 			Value* elsebody = codegenExpr(cg, n->elsebody);
 			cg.builder->CreateBr(endbb);
 			elsebb = cg.builder->GetInsertBlock();
@@ -239,16 +317,16 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		}
 		else
 		{
-			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then", func);
+			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
 			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
 
 			cg.builder->CreateCondBr(cond, thenbb, endbb);
 
+			func->getBasicBlockList().push_back(thenbb);
 			cg.builder->SetInsertPoint(thenbb);
 
 			Value* thenbody = codegenExpr(cg, n->thenbody);
 			cg.builder->CreateBr(endbb);
-			thenbb = cg.builder->GetInsertBlock();
 
 			func->getBasicBlockList().push_back(endbb);
 			cg.builder->SetInsertPoint(endbb);

@@ -106,6 +106,62 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		}
 	}
 
+	if (UNION_CASE(Unary, n, root))
+	{
+		auto expr = type(output, n->expr, constraints);
+
+		switch (n->op)
+		{
+		case UnaryOpPlus:
+		case UnaryOpMinus:
+			typeMustEqual(expr.first, UNION_NEW(Ty, Integer, {}), constraints, output, expr.second);
+			return expr;
+
+		case UnaryOpNot:
+			typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
+			return expr;
+
+		default:
+			ICE("Unknown UnaryOp %d", n->op);
+		}
+	}
+
+	if (UNION_CASE(Binary, n, root))
+	{
+		auto left = type(output, n->left, constraints);
+		auto right = type(output, n->right, constraints);
+
+		switch (n->op)
+		{
+			case BinaryOpAdd:
+			case BinaryOpSubtract:
+			case BinaryOpMultiply:
+			case BinaryOpDivide:
+				typeMustEqual(left.first, UNION_NEW(Ty, Integer, {}), constraints, output, left.second);
+				typeMustEqual(right.first, UNION_NEW(Ty, Integer, {}), constraints, output, right.second);
+				return left;
+
+			case BinaryOpLess:
+			case BinaryOpLessEqual:
+			case BinaryOpGreater:
+			case BinaryOpGreaterEqual:
+			case BinaryOpEqual:
+			case BinaryOpNotEqual:
+				typeMustEqual(left.first, UNION_NEW(Ty, Integer, {}), constraints, output, left.second);
+				typeMustEqual(right.first, UNION_NEW(Ty, Integer, {}), constraints, output, right.second);
+				return make_pair(UNION_NEW(Ty, Bool, {}), Location()); // TODO: Location
+
+			case BinaryOpAnd:
+			case BinaryOpOr:
+				typeMustEqual(left.first, UNION_NEW(Ty, Bool, {}), constraints, output, left.second);
+				typeMustEqual(right.first, UNION_NEW(Ty, Bool, {}), constraints, output, right.second);
+				return left;
+
+			default:
+				ICE("Unknown BinaryOp %d", n->op);
+		}
+	}
+
 	if (UNION_CASE(If, n, root))
 	{
 		auto cond = type(output, n->cond, constraints);
