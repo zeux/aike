@@ -489,8 +489,46 @@ static Ast* parseTerm(TokenStream& ts)
 	ts.output->panic(t.location, "Unexpected token '%s'", t.data.str().c_str());
 }
 
-static Ast* parseExpr(TokenStream& ts)
+static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
 {
+	if (ts.is(Token::TypeAtom, "+")) return make_pair(1, UnaryOpPlus);
+	if (ts.is(Token::TypeAtom, "-")) return make_pair(1, UnaryOpMinus);
+	if (ts.is(Token::TypeIdent, "not")) return make_pair(1, UnaryOpNot);
+
+	return make_pair(0, UnaryOpNot);
+}
+
+static pair<int, BinaryOp> parseBinaryOp(TokenStream& ts)
+{
+	if (ts.is(Token::TypeAtom, "*")) return make_pair(7, BinaryOpMultiply);
+	if (ts.is(Token::TypeAtom, "/")) return make_pair(7, BinaryOpDivide);
+	if (ts.is(Token::TypeAtom, "+")) return make_pair(6, BinaryOpAdd);
+	if (ts.is(Token::TypeAtom, "-")) return make_pair(6, BinaryOpSubtract);
+	if (ts.is(Token::TypeAtom, "<")) return make_pair(5, BinaryOpLess);
+	if (ts.is(Token::TypeAtom, "<=")) return make_pair(5, BinaryOpLessEqual);
+	if (ts.is(Token::TypeAtom, ">")) return make_pair(5, BinaryOpGreater);
+	if (ts.is(Token::TypeAtom, ">=")) return make_pair(5, BinaryOpGreaterEqual);
+	if (ts.is(Token::TypeAtom, "==")) return make_pair(4, BinaryOpEqual);
+	if (ts.is(Token::TypeAtom, "!=")) return make_pair(4, BinaryOpNotEqual);
+	if (ts.is(Token::TypeIdent, "and")) return make_pair(3, BinaryOpAnd);
+	if (ts.is(Token::TypeIdent, "or")) return make_pair(2, BinaryOpOr);
+
+	return make_pair(0, BinaryOpOr);
+}
+
+static Ast* parsePrimary(TokenStream& ts)
+{
+	auto uop = parseUnaryOp(ts);
+
+	if (uop.first)
+	{
+		ts.move();
+
+		Ast* expr = parsePrimary(ts);
+
+		return UNION_NEW(Ast, Unary, { uop.second, expr });
+	}
+
 	if (ts.is(Token::TypeIdent, "extern"))
 		return parseFnDecl(ts);
 
@@ -521,6 +559,38 @@ static Ast* parseExpr(TokenStream& ts)
 	}
 
 	return term;
+}
+
+Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
+{
+	auto op = parseBinaryOp(ts);
+
+	while (op.first && op.first >= limit)
+	{
+		ts.move();
+
+		Ast* right = parsePrimary(ts);
+
+		auto nextop = parseBinaryOp(ts);
+
+		while (nextop.first && nextop.first > op.first)
+		{
+			right = parseExprClimb(ts, right, nextop.first);
+
+			nextop = parseBinaryOp(ts);
+		}
+
+		left = UNION_NEW(Ast, Binary, { op.second, left, right });
+
+		op = parseBinaryOp(ts);
+	}
+
+	return left;
+}
+
+Ast* parseExpr(TokenStream& ts)
+{
+	return parseExprClimb(ts, parsePrimary(ts), 0);
 }
 
 Ast* parse(Output& output, const Tokens& tokens)
