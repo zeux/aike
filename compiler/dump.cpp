@@ -3,6 +3,37 @@
 
 #include "ast.hpp"
 
+static const char* getOpName(UnaryOp op)
+{
+	switch (op)
+	{
+		case UnaryOpPlus: return "+";
+		case UnaryOpMinus: return "-";
+		case UnaryOpNot: return "not";
+		default: ICE("Unknown UnaryOp %d", op);
+	}
+}
+
+static const char* getOpName(BinaryOp op)
+{
+	switch (op)
+	{
+		case BinaryOpAdd: return "+";
+		case BinaryOpSubtract: return "-";
+		case BinaryOpMultiply: return "*";
+		case BinaryOpDivide: return "/";
+		case BinaryOpLess: return "<";
+		case BinaryOpLessEqual: return "<=";
+		case BinaryOpGreater: return ">";
+		case BinaryOpGreaterEqual: return ">=";
+		case BinaryOpEqual: return "==";
+		case BinaryOpNotEqual: return "!=";
+		case BinaryOpAnd: return "and";
+		case BinaryOpOr: return "or";
+		default: ICE("Unknown BinaryOp %d", op);
+	}
+}
+
 static void dumpIndent(int indent)
 {
 	for (int i = 0; i < indent; ++i)
@@ -105,6 +136,20 @@ static void dumpNode(Ast* root, int indent)
 
 		printf("(");
 		dumpList(n->args, [&](Ast* c) { dumpNode(c, indent); });
+		printf(")");
+	}
+	else if (UNION_CASE(Unary, n, root))
+	{
+		printf("(%s ", getOpName(n->op));
+		dumpNode(n->expr, indent);
+		printf(")");
+	}
+	else if (UNION_CASE(Binary, n, root))
+	{
+		printf("(");
+		dumpNode(n->left, indent);
+		printf(" %s ", getOpName(n->op));
+		dumpNode(n->right, indent);
 		printf(")");
 	}
 	else if (UNION_CASE(If, n, root))

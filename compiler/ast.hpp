@@ -15,6 +15,29 @@ enum FnAttribute
 	FnAttributeExtern = 1 << 0,
 };
 
+enum UnaryOp
+{
+	UnaryOpPlus,
+	UnaryOpMinus,
+	UnaryOpNot,
+};
+
+enum BinaryOp
+{
+	BinaryOpAdd,
+	BinaryOpSubtract,
+	BinaryOpMultiply,
+	BinaryOpDivide,
+	BinaryOpLess,
+	BinaryOpLessEqual,
+	BinaryOpGreater,
+	BinaryOpGreaterEqual,
+	BinaryOpEqual,
+	BinaryOpNotEqual,
+	BinaryOpAnd,
+	BinaryOpOr
+};
+
 #define UD_AST(X) \
 	X(LiteralBool, { bool value; Location location; }) \
 	X(LiteralNumber, { Str value; Location location; }) \
@@ -24,6 +47,8 @@ enum FnAttribute
 	X(Index, { Ast* expr; Str name; Location location; int field; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
+	X(Unary, { UnaryOp op; Ast* expr; }) \
+	X(Binary, { BinaryOp op; Ast* left; Ast* right; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
 	X(Fn, { Ty* type; Location location; Array<Variable*> args; Ast* body; }) \
 	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \

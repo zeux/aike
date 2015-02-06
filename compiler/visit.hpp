@@ -27,6 +27,15 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 		for (auto& a: n->args)
 			visitAst(a, f, fc);
 	}
+	else if (UNION_CASE(Unary, n, node))
+	{
+		visitAst(n->expr, f, fc);
+	}
+	else if (UNION_CASE(Binary, n, node))
+	{
+		visitAst(n->left, f, fc);
+		visitAst(n->right, f, fc);
+	}
 	else if (UNION_CASE(If, n, node))
 	{
 		visitAst(n->cond, f, fc);
