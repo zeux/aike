@@ -332,14 +332,25 @@ static Ast* parseStructDecl(TokenStream& ts)
 	Array<pair<Str, Ty*>> fields;
 
 	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
-		auto fname = ts.eat(Token::TypeIdent);
+		vector<Token> fnames;
+
+		for (;;)
+		{
+			fnames.push_back(ts.eat(Token::TypeIdent));
+
+			if (!ts.is(Token::TypeAtom, ","))
+				break;
+
+			ts.move();
+		}
 
 		ts.eat(Token::TypeAtom, ":");
 
 		auto ty = parseType(ts);
 
 		// TODO: verify name uniqueness
-		fields.push(make_pair(fname.data, ty));
+		for (auto& f: fnames)
+			fields.push(make_pair(f.data, ty));
 	});
 
 	TyDef* def = UNION_NEW(TyDef, Struct, { fields });
