@@ -100,12 +100,12 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 {
 	if (UNION_CASE(LiteralBool, n, node))
 	{
-		return ConstantInt::get(Type::getInt1Ty(*cg.context), n->value);
+		return cg.builder->getInt1(n->value);
 	}
 
 	if (UNION_CASE(LiteralNumber, n, node))
 	{
-		return ConstantInt::get(Type::getInt32Ty(*cg.context), atoi(n->value.str().c_str()));
+		return cg.builder->getInt32(atoi(n->value.str().c_str()));
 	}
 
 	if (UNION_CASE(LiteralString, n, node))
@@ -114,17 +114,10 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		Value* result = UndefValue::get(type);
 
-		auto constant = ConstantDataArray::getString(*cg.context, StringRef(n->value.data, n->value.size));
-		auto constantPtr = new GlobalVariable(*cg.module, constant->getType(), true, GlobalValue::InternalLinkage, constant);
+		Value* string = cg.builder->CreateGlobalStringPtr(StringRef(n->value.data, n->value.size));
 
-		// TODO: refactor
-		Constant* zero_32 = Constant::getNullValue(IntegerType::getInt32Ty(*cg.context));
-		Constant *gep_params[] = { zero_32, zero_32 };
-
-		Constant *msgptr = ConstantExpr::getGetElementPtr(constantPtr, gep_params);
-
-		result = cg.builder->CreateInsertValue(result, msgptr, 0);
-		result = cg.builder->CreateInsertValue(result, ConstantInt::get(Type::getInt32Ty(*cg.context), n->value.size), 1);
+		result = cg.builder->CreateInsertValue(result, string, 0);
+		result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->value.size), 1);
 
 		return result;
 	}
@@ -339,7 +332,7 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 void codegen(Output& output, Ast* root, llvm::Module* module)
 {
 	llvm::LLVMContext* context = &module->getContext();
-	
+
 	IRBuilder<> builder(*context);
 
 	Codegen cg = { &output, context, module, &builder };
