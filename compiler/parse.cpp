@@ -522,10 +522,13 @@ static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
 
 static pair<int, BinaryOp> parseBinaryOp(TokenStream& ts)
 {
+	if (ts.is(Token::TypeAtom, "*%")) return make_pair(7, BinaryOpMultiplyWrap);
 	if (ts.is(Token::TypeAtom, "*")) return make_pair(7, BinaryOpMultiply);
 	if (ts.is(Token::TypeAtom, "/")) return make_pair(7, BinaryOpDivide);
 	if (ts.is(Token::TypeAtom, "%")) return make_pair(7, BinaryOpModulo);
+	if (ts.is(Token::TypeAtom, "+%")) return make_pair(6, BinaryOpAddWrap);
 	if (ts.is(Token::TypeAtom, "+")) return make_pair(6, BinaryOpAdd);
+	if (ts.is(Token::TypeAtom, "-%")) return make_pair(6, BinaryOpSubtractWrap);
 	if (ts.is(Token::TypeAtom, "-")) return make_pair(6, BinaryOpSubtract);
 	if (ts.is(Token::TypeAtom, "<")) return make_pair(5, BinaryOpLess);
 	if (ts.is(Token::TypeAtom, "<=")) return make_pair(5, BinaryOpLessEqual);

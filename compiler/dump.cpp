@@ -18,6 +18,9 @@ static const char* getOpName(BinaryOp op)
 {
 	switch (op)
 	{
+		case BinaryOpAddWrap: return "+%";
+		case BinaryOpSubtractWrap: return "-%";
+		case BinaryOpMultiplyWrap: return "*%";
 		case BinaryOpAdd: return "+";
 		case BinaryOpSubtract: return "-";
 		case BinaryOpMultiply: return "*";

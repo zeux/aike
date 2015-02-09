@@ -24,6 +24,9 @@ enum UnaryOp
 
 enum BinaryOp
 {
+	BinaryOpAddWrap,
+	BinaryOpSubtractWrap,
+	BinaryOpMultiplyWrap,
 	BinaryOpAdd,
 	BinaryOpSubtract,
 	BinaryOpMultiply,

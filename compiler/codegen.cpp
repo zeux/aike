@@ -26,6 +26,12 @@ struct Codegen
 	Module* module;
 
 	IRBuilder<>* builder;
+
+	Constant* builtinTrap;
+	Constant* builtinAddOverflow;
+	Constant* builtinSubOverflow;
+	Constant* builtinMulOverflow;
+
 	unordered_map<Variable*, Value*> vars;
 
 	vector<FunctionInstance> pendingFunctions;
@@ -94,6 +100,30 @@ static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 	FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, var->type))->getElementType());
 
 	return cg.module->getOrInsertFunction(var->name.str(), funty);
+}
+
+static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
+{
+	Function* func = cg.builder->GetInsertBlock()->getParent();
+
+	Value* result = cg.builder->CreateCall2(overflowOp, left, right);
+	Value* cond = cg.builder->CreateExtractValue(result, 1);
+
+	BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
+	BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+
+	cg.builder->CreateCondBr(cond, thenbb, endbb);
+
+	func->getBasicBlockList().push_back(thenbb);
+	cg.builder->SetInsertPoint(thenbb);
+
+	cg.builder->CreateCall(cg.builtinTrap);
+	cg.builder->CreateBr(endbb);
+
+	func->getBasicBlockList().push_back(endbb);
+	cg.builder->SetInsertPoint(endbb);
+
+	return cg.builder->CreateExtractValue(result, 0);
 }
 
 static Value* codegenExpr(Codegen& cg, Ast* node)
@@ -254,9 +284,12 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 			switch (n->op)
 			{
-				case BinaryOpAdd: return cg.builder->CreateAdd(left, right);
-				case BinaryOpSubtract: return cg.builder->CreateSub(left, right);
-				case BinaryOpMultiply: return cg.builder->CreateMul(left, right);
+				case BinaryOpAddWrap: return cg.builder->CreateAdd(left, right);
+				case BinaryOpSubtractWrap: return cg.builder->CreateSub(left, right);
+				case BinaryOpMultiplyWrap: return cg.builder->CreateMul(left, right);
+				case BinaryOpAdd: return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
+				case BinaryOpSubtract: return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
+				case BinaryOpMultiply: return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
 				case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
 				case BinaryOpModulo: return cg.builder->CreateSRem(left, right);
 				case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
@@ -408,6 +441,19 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 	return false;
 }
 
+static void codegenPrepare(Codegen& cg)
+{
+	cg.builtinTrap = cg.module->getOrInsertFunction("llvm.trap", FunctionType::get(Type::getVoidTy(*cg.context), false));
+
+	Type* overflowArgs[] = { Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context) };
+	Type* overflowRets[] = { Type::getInt32Ty(*cg.context), Type::getInt1Ty(*cg.context) };
+	FunctionType* overflowFunTy = FunctionType::get(StructType::get(*cg.context, overflowRets, 2), overflowArgs, false);
+
+	cg.builtinAddOverflow = cg.module->getOrInsertFunction("llvm.sadd.with.overflow.i32", overflowFunTy);
+	cg.builtinSubOverflow = cg.module->getOrInsertFunction("llvm.ssub.with.overflow.i32", overflowFunTy);
+	cg.builtinMulOverflow = cg.module->getOrInsertFunction("llvm.smul.with.overflow.i32", overflowFunTy);
+}
+
 void codegen(Output& output, Ast* root, llvm::Module* module)
 {
 	llvm::LLVMContext* context = &module->getContext();
@@ -417,6 +463,8 @@ void codegen(Output& output, Ast* root, llvm::Module* module)
 	Codegen cg = { &output, context, module, &builder };
 
 	visitAst(root, codegenGatherToplevel, cg);
+
+	codegenPrepare(cg);
 
 	while (!cg.pendingFunctions.empty())
 	{

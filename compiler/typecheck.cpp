@@ -133,6 +133,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		switch (n->op)
 		{
+			case BinaryOpAddWrap:
+			case BinaryOpSubtractWrap:
+			case BinaryOpMultiplyWrap:
 			case BinaryOpAdd:
 			case BinaryOpSubtract:
 			case BinaryOpMultiply:
