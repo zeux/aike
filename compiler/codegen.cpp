@@ -160,12 +160,11 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		for (auto& f: n->fields)
 		{
-			pair<int, Ty*> p = typeIndex(n->type, f.first);
-			assert(p.first >= 0);
+			assert(f.first.index >= 0);
 
 			Value* expr = codegenExpr(cg, f.second);
 
-			result = cg.builder->CreateInsertValue(result, expr, p.first);
+			result = cg.builder->CreateInsertValue(result, expr, f.first.index);
 		}
 
 		return result;
@@ -194,11 +193,11 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Member, n, node))
 	{
-		assert(n->field >= 0);
+		assert(n->field.index >= 0);
 
 		Value* expr = codegenExpr(cg, n->expr);
 
-		return cg.builder->CreateExtractValue(expr, n->field);
+		return cg.builder->CreateExtractValue(expr, n->field.index);
 	}
 
 	if (UNION_CASE(Block, n, node))

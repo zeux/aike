@@ -112,7 +112,7 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->name);
 		printf(" { ");
-		dumpList(n->fields, [&](const pair<Str, Ast*>& p) { dumpString(p.first); printf(" = "); dumpNode(p.second, indent); });
+		dumpList(n->fields, [&](const pair<Field, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
 		printf(" }");
 	}
 	else if (UNION_CASE(Ident, n, root))
@@ -123,7 +123,7 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpNode(n->expr, indent);
 		printf(".");
-		dumpString(n->name);
+		dumpString(n->field.name);
 	}
 	else if (UNION_CASE(Block, n, root))
 	{

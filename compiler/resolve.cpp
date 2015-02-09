@@ -193,15 +193,30 @@ static int findMember(Ty* type, const Str& name)
 	return -1;
 }
 
+static bool resolveField(Field& f, Ty* ty)
+{
+	if (f.index < 0)
+	{
+		f.index = findMember(ty, f.name);
+
+		if (f.index >= 0)
+			return true;
+	}
+
+	return false;
+}
+
 static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
 {
 	if (UNION_CASE(Member, n, root))
 	{
-		if (n->exprty && n->field < 0)
-			n->field = findMember(n->exprty, n->name);
+		if (n->exprty)
+			rs.counter += resolveField(n->field, n->exprty);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
+		for (auto& f: n->fields)
+			rs.counter += resolveField(f.first, n->type);
 	}
 
 	return false;

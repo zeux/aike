@@ -42,13 +42,20 @@ enum BinaryOp
 	BinaryOpOr
 };
 
+struct Field
+{
+	Str name;
+	Location location;
+	int index;
+};
+
 #define UD_AST(X) \
 	X(LiteralBool, { bool value; Location location; }) \
 	X(LiteralNumber, { Str value; Location location; }) \
 	X(LiteralString, { Str value; Location location; }) \
-	X(LiteralStruct, { Str name; Location location; Ty* type; Array<pair<Str, Ast*>> fields; }) \
+	X(LiteralStruct, { Str name; Location location; Ty* type; Array<pair<Field, Ast*>> fields; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
-	X(Member, { Ast* expr; Str name; Location location; Ty* exprty; int field; }) \
+	X(Member, { Ast* expr; Location location; Ty* exprty; Field field; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
 	X(Unary, { UnaryOp op; Ast* expr; }) \

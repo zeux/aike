@@ -384,8 +384,9 @@ static Ast* parseMember(TokenStream& ts, Ast* expr)
 	ts.eat(Token::TypeAtom, ".");
 
 	auto name = ts.eat(Token::TypeIdent);
+	Field field = { name.data, name.location, -1 };
 
-	return UNION_NEW(Ast, Member, { expr, name.data, name.location, nullptr, -1 });
+	return UNION_NEW(Ast, Member, { expr, name.location, nullptr, field });
 }
 
 static Ast* parseIf(TokenStream& ts)
@@ -420,7 +421,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
 
-	Array<pair<Str, Ast*>> fields;
+	Array<pair<Field, Ast*>> fields;
 
 	ts.eat(Token::TypeBracket, "{");
 
@@ -439,8 +440,10 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 		else
 			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
 
+		Field field = { fname.data, fname.location, -1 };
+
 		// TODO: verify name uniqueness
-		fields.push(make_pair(fname.data, expr));
+		fields.push(make_pair(field, expr));
 
 		if (!ts.is(Token::TypeBracket, "}"))
 			ts.eat(Token::TypeAtom, ",");

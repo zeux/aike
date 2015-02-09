@@ -31,8 +31,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		{
 			auto expr = type(output, f.second, constraints);
 
-			if (Ty* ty = typeIndex(n->type, f.first).second)
-				typeMustEqual(expr.first, ty, constraints, output, expr.second);
+			if (f.first.index >= 0)
+				typeMustEqual(expr.first, typeMember(n->type, f.first.index), constraints, output, expr.second);
 		}
 
 		// TODO: verify that all struct fields are initialized
@@ -51,12 +51,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		n->exprty = expr.first;
 
-		if (n->field >= 0)
-			return make_pair(typeMember(n->exprty, n->field), n->location);
+		if (n->field.index >= 0)
+			return make_pair(typeMember(n->exprty, n->field.index), n->location);
 		else if (constraints)
 			return make_pair(UNION_NEW(Ty, Unknown, {}), Location());
 		else
-			output.panic(expr.second, "%s does not have a field %s", typeName(expr.first).c_str(), n->name.str().c_str());
+			output.panic(expr.second, "%s does not have a field %s", typeName(expr.first).c_str(), n->field.name.str().c_str());
 	}
 
 	if (UNION_CASE(Block, n, root))
