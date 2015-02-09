@@ -11,7 +11,7 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 		for (auto& c: n->fields)
 			visitAst(c.second, f, fc);
 	}
-	else if (UNION_CASE(Index, n, node))
+	else if (UNION_CASE(Member, n, node))
 	{
 		visitAst(n->expr, f, fc);
 	}

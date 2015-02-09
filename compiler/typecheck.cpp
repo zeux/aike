@@ -45,7 +45,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return make_pair(n->target->type, n->location);
 	}
 
-	if (UNION_CASE(Index, n, root))
+	if (UNION_CASE(Member, n, root))
 	{
 		auto expr = type(output, n->expr, constraints);
 

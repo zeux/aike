@@ -48,7 +48,7 @@ enum BinaryOp
 	X(LiteralString, { Str value; Location location; }) \
 	X(LiteralStruct, { Str name; Location location; Ty* type; Array<pair<Str, Ast*>> fields; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
-	X(Index, { Ast* expr; Str name; Location location; int field; }) \
+	X(Member, { Ast* expr; Str name; Location location; Ty* exprty; int field; }) \
 	X(Block, { Array<Ast*> body; }) \
 	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
 	X(Unary, { UnaryOp op; Ast* expr; }) \

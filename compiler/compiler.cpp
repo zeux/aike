@@ -173,7 +173,7 @@ int main(int argc, const char** argv)
 			dump(root);
 		}
 
-		resolve(output, root);
+		resolveNames(output, root);
 
 		int fixpoint;
 
@@ -181,6 +181,7 @@ int main(int argc, const char** argv)
 		{
 			fixpoint = 0;
 			fixpoint += typeckPropagate(output, root);
+			fixpoint += resolveMembers(output, root);
 		}
 		while (fixpoint != 0);
 

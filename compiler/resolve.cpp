@@ -53,7 +53,7 @@ struct NameMap
 	}
 };
 
-struct Resolve
+struct ResolveNames
 {
 	Output* output;
 
@@ -72,7 +72,7 @@ struct Resolve
 	}
 };
 
-static void resolveDecl(Resolve& rs, Ast* root)
+static void resolveDecl(ResolveNames& rs, Ast* root)
 {
 	if (UNION_CASE(FnDecl, n, root))
 		rs.variables.push(n->var->name, n->var);
@@ -80,7 +80,7 @@ static void resolveDecl(Resolve& rs, Ast* root)
 		rs.typedefs.push(n->name, n->def);
 }
 
-static void resolveTypeInstance(Resolve& rs, Ty* type)
+static void resolveTypeInstance(ResolveNames& rs, Ty* type)
 {
 	if (UNION_CASE(Instance, t, type))
 	{
@@ -93,12 +93,12 @@ static void resolveTypeInstance(Resolve& rs, Ty* type)
 	}
 }
 
-static void resolveType(Resolve& rs, Ty* type)
+static void resolveType(ResolveNames& rs, Ty* type)
 {
 	visitType(type, resolveTypeInstance, rs);
 }
 
-static bool resolveNode(Resolve& rs, Ast* root)
+static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 {
 	visitAstTypes(root, resolveType, rs);
 
@@ -117,7 +117,7 @@ static bool resolveNode(Resolve& rs, Ast* root)
 		for (auto& c: n->body)
 			resolveDecl(rs, c);
 
-		visitAstInner(root, resolveNode, rs);
+		visitAstInner(root, resolveNamesNode, rs);
 
 		rs.pop(scope);
 	}
@@ -128,7 +128,7 @@ static bool resolveNode(Resolve& rs, Ast* root)
 		for (auto& a: n->args)
 			rs.variables.push(a->name, a);
 
-		visitAstInner(root, resolveNode, rs);
+		visitAstInner(root, resolveNamesNode, rs);
 
 		rs.pop(scope);
 	}
@@ -141,14 +141,14 @@ static bool resolveNode(Resolve& rs, Ast* root)
 			for (auto& a: n->args)
 				rs.variables.push(a->name, a);
 
-			visitAstInner(root, resolveNode, rs);
+			visitAstInner(root, resolveNamesNode, rs);
 
 			rs.pop(scope);
 		}
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{
-		visitAstInner(root, resolveNode, rs);
+		visitAstInner(root, resolveNamesNode, rs);
 
 		rs.variables.push(n->var->name, n->var);
 	}
@@ -158,9 +158,37 @@ static bool resolveNode(Resolve& rs, Ast* root)
 	return true;
 }
 
-void resolve(Output& output, Ast* root)
+void resolveNames(Output& output, Ast* root)
 {
-	Resolve rs = { &output };
+	ResolveNames rs = { &output };
 
-	visitAst(root, resolveNode, rs);
+	visitAst(root, resolveNamesNode, rs);
+}
+
+struct ResolveMembers
+{
+	Output* output;
+
+	int counter;
+};
+
+static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
+{
+	if (UNION_CASE(Member, n, root))
+	{
+	}
+	else if (UNION_CASE(LiteralStruct, n, root))
+	{
+	}
+
+	return false;
+}
+
+int resolveMembers(Output& output, Ast* root)
+{
+	ResolveMembers rs = { &output };
+
+	visitAst(root, resolveMembersNode, rs);
+
+	return rs.counter;
 }

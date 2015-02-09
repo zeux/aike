@@ -3,4 +3,5 @@
 struct Output;
 struct Ast;
 
-void resolve(Output& output, Ast* root);
+void resolveNames(Output& output, Ast* root);
+int resolveMembers(Output& output, Ast* root);

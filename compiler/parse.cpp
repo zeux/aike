@@ -379,13 +379,13 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 	return UNION_NEW(Ast, Call, { expr, args, Location(start, end) });
 }
 
-static Ast* parseIndex(TokenStream& ts, Ast* expr)
+static Ast* parseMember(TokenStream& ts, Ast* expr)
 {
 	ts.eat(Token::TypeAtom, ".");
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	return UNION_NEW(Ast, Index, { expr, name.data, name.location, -1 });
+	return UNION_NEW(Ast, Member, { expr, name.data, name.location, nullptr, -1 });
 }
 
 static Ast* parseIf(TokenStream& ts)
@@ -579,7 +579,7 @@ static Ast* parsePrimary(TokenStream& ts)
 		if (ts.is(Token::TypeBracket, "("))
 			term = parseCall(ts, term, start);
 		else if (ts.is(Token::TypeAtom, "."))
-			term = parseIndex(ts, term);
+			term = parseMember(ts, term);
 		else
 			break;
 	}

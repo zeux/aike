@@ -119,7 +119,7 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->name);
 	}
-	else if (UNION_CASE(Index, n, root))
+	else if (UNION_CASE(Member, n, root))
 	{
 		dumpNode(n->expr, indent);
 		printf(".");

@@ -192,7 +192,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		ICE("No code generated for identifier %s", n->target->name.str().c_str());
 	}
 
-	if (UNION_CASE(Index, n, node))
+	if (UNION_CASE(Member, n, node))
 	{
 		assert(n->field >= 0);
 
