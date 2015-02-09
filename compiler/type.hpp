@@ -35,5 +35,6 @@ bool typeEquals(Ty* lhs, Ty* rhs);
 bool typeOccurs(Ty* lhs, Ty* rhs);
 
 pair<int, Ty*> typeIndex(Ty* type, const Str& name);
+Ty* typeMember(Ty* type, int index);
 
 string typeName(Ty* type);

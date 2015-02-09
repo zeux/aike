@@ -123,6 +123,27 @@ pair<int, Ty*> typeIndex(Ty* type, const Str& name)
 	return make_pair(-1, nullptr);
 }
 
+Ty* typeMember(Ty* type, int index)
+{
+	assert(index >= 0);
+
+	if (UNION_CASE(Instance, i, type))
+	{
+		if (UNION_CASE(Struct, def, i->def))
+		{
+			assert(index < def->fields.size);
+
+			return def->fields[index].second;
+		}
+
+		ICE("Unexpected TyDef kind %d", i->def->kind);
+	}
+
+	ICE("Unexpected Ty kind %d", type->kind);
+
+	return nullptr;
+}
+
 static void typeName(string& buffer, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))

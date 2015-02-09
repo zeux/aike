@@ -49,13 +49,10 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	{
 		auto expr = type(output, n->expr, constraints);
 
-		if (Ty* ty = typeIndex(expr.first, n->name).second)
-		{
-			// TODO: move to a separate resolve stage
-			n->field = typeIndex(expr.first, n->name).first;
+		n->exprty = expr.first;
 
-			return make_pair(ty, n->location);
-		}
+		if (n->field >= 0)
+			return make_pair(typeMember(n->exprty, n->field), n->location);
 		else if (constraints)
 			return make_pair(UNION_NEW(Ty, Unknown, {}), Location());
 		else

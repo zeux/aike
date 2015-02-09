@@ -172,10 +172,33 @@ struct ResolveMembers
 	int counter;
 };
 
+static int findMember(Ty* type, const Str& name)
+{
+	if (UNION_CASE(Instance, i, type))
+	{
+		if (UNION_CASE(Struct, def, i->def))
+		{
+			for (size_t i = 0; i < def->fields.size; ++i)
+			{
+				auto& f = def->fields[i];
+
+				if (f.first == name)
+					return i;
+			}
+
+			return -1;
+		}
+	}
+
+	return -1;
+}
+
 static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
 {
 	if (UNION_CASE(Member, n, root))
 	{
+		if (n->exprty && n->field < 0)
+			n->field = findMember(n->exprty, n->name);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
