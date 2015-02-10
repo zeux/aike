@@ -9,6 +9,7 @@
 #include "codegen.hpp"
 #include "optimize.hpp"
 #include "dump.hpp"
+#include "timer.hpp"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -34,6 +35,7 @@ struct Options
 	bool dumpAst;
 	bool dumpLLVM;
 	bool dumpAsm;
+	bool time;
 };
 
 Options parseOptions(int argc, const char** argv)
@@ -56,6 +58,8 @@ Options parseOptions(int argc, const char** argv)
 				result.dumpLLVM = true;
 			else if (arg == "--dump-asm")
 				result.dumpAsm = true;
+			else if (arg == "--time")
+				result.time = true;
 			else if (arg[0] == '-' && arg[1] == 'O')
 				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
 			else
@@ -147,6 +151,9 @@ string generateModule(TargetMachine* machine, Module* module, TargetMachine::Cod
 int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
+
+	Timer timer;
+
 	Output output;
 
 	InitializeNativeTarget();
@@ -157,6 +164,8 @@ int main(int argc, const char** argv)
 	LLVMContext context;
 	Module* module = new Module("main", context);
 
+	timer.checkpoint("startup");
+
 	for (auto& file: options.inputs)
 	{
 		const char* source = strdup(file.c_str());
@@ -165,37 +174,68 @@ int main(int argc, const char** argv)
 
 		output.sources[source] = contents;
 
+		timer.checkpoint();
+
 		Tokens tokens = tokenize(output, source, contents);
+
+		timer.checkpoint("tokenize");
+
 		Ast* root = parse(output, tokens);
+
+		timer.checkpoint("parse");
 
 		if (options.dumpParse)
 		{
 			dump(root);
 		}
 
+		timer.checkpoint();
+
 		resolveNames(output, root);
+
+		timer.checkpoint("resolveNames");
 
 		int fixpoint;
 
 		do
 		{
 			fixpoint = 0;
+
+			timer.checkpoint();
+
 			fixpoint += typeckPropagate(output, root);
+
+			timer.checkpoint("typeckPropagate");
+
 			fixpoint += resolveMembers(output, root);
+
+			timer.checkpoint("resolveMembers");
 		}
 		while (fixpoint != 0);
 
+		timer.checkpoint();
+
 		typeckVerify(output, root);
+
+		timer.checkpoint("typeckVerify");
 
 		if (options.dumpAst)
 		{
 			dump(root);
 		}
 
+		timer.checkpoint();
+
 		codegen(output, root, module);
+
+		timer.checkpoint("codegen");
 	}
 
+	timer.checkpoint();
+
 	optimize(module, options.optimize);
+
+	timer.checkpoint("optimize");
 
 	if (options.dumpLLVM)
 	{
@@ -213,9 +253,18 @@ int main(int argc, const char** argv)
 
 	if (!options.output.empty())
 	{
+		timer.checkpoint();
+
 		string result = generateModule(machine, module, TargetMachine::CGFT_ObjectFile);
+
+		timer.checkpoint("assemble");
 
 		std::ofstream of(options.output, std::ios::out | std::ios::binary);
 		of.write(result.c_str(), result.size());
+	}
+
+	if (options.time)
+	{
+		timer.dump();
 	}
 }
