@@ -193,14 +193,16 @@ static int findMember(Ty* type, const Str& name)
 	return -1;
 }
 
-static bool resolveField(Field& f, Ty* ty)
+static bool resolveField(Output* output, Field& f, Ty* ty)
 {
-	if (f.index < 0)
+	if (f.index < 0 && ty->kind != Ty::KindUnknown)
 	{
 		f.index = findMember(ty, f.name);
 
-		if (f.index >= 0)
-			return true;
+		if (f.index < 0)
+			output->panic(f.location, "No member named '%s' in %s", f.name.str().c_str(), typeName(ty).c_str());
+
+		return true;
 	}
 
 	return false;
@@ -211,12 +213,12 @@ static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
 	if (UNION_CASE(Member, n, root))
 	{
 		if (n->exprty)
-			rs.counter += resolveField(n->field, n->exprty);
+			rs.counter += resolveField(rs.output, n->field, n->exprty);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
 		for (auto& f: n->fields)
-			rs.counter += resolveField(f.first, n->type);
+			rs.counter += resolveField(rs.output, f.first, n->type);
 	}
 
 	return false;
