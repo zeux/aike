@@ -1,16 +1,11 @@
 #include "common.hpp"
 #include "timer.hpp"
 
-#include <mach/mach_time.h>
+#include <chrono>
 
 static unsigned long long now()
 {
-	unsigned long long value = mach_absolute_time();
-
-    mach_timebase_info_data_t timebase;
-    mach_timebase_info(&timebase);
-
-    return value * timebase.numer / timebase.denom;
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
 Timer::Timer(): lasttime(0)
