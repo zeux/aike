@@ -35,6 +35,8 @@ struct Codegen
 	Constant* builtinSubOverflow;
 	Constant* builtinMulOverflow;
 
+	Constant* runtimeNew;
+
 	unordered_map<Variable*, Value*> vars;
 
 	vector<FunctionInstance> pendingFunctions;
@@ -422,6 +424,7 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 	Constant* external = cg.module->getOrInsertFunction(inst.external.str(), inst.value->getFunctionType());
 
 	vector<Value*> args;
+
 	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait)
 		args.push_back(ait);
 
@@ -482,6 +485,8 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinAddOverflow = cg.module->getOrInsertFunction("llvm.sadd.with.overflow.i32", overflowFunTy);
 	cg.builtinSubOverflow = cg.module->getOrInsertFunction("llvm.ssub.with.overflow.i32", overflowFunTy);
 	cg.builtinMulOverflow = cg.module->getOrInsertFunction("llvm.smul.with.overflow.i32", overflowFunTy);
+
+	cg.runtimeNew = cg.module->getOrInsertFunction("aike_new", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
 void codegen(Output& output, Ast* root, llvm::Module* module)
