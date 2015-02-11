@@ -269,7 +269,7 @@ static Ast* parseFn(TokenStream& ts)
 
 	Ast* body = parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, Fn, { sig.first, indent, sig.second, body });
+	return UNION_NEW(Ast, Fn, { int(ts.index), sig.first, indent, sig.second, body });
 }
 
 static Ast* parseFnDecl(TokenStream& ts)

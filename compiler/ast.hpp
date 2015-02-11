@@ -61,7 +61,7 @@ struct Field
 	X(Unary, { UnaryOp op; Ast* expr; }) \
 	X(Binary, { BinaryOp op; Ast* left; Ast* right; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
-	X(Fn, { Ty* type; Location location; Array<Variable*> args; Ast* body; }) \
+	X(Fn, { int id; Ty* type; Location location; Array<Variable*> args; Ast* body; }) \
 	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; })
