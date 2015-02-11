@@ -4,6 +4,7 @@
 #include "ast.hpp"
 #include "visit.hpp"
 #include "output.hpp"
+#include "mangle.hpp"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -17,6 +18,8 @@ struct FunctionInstance
 
 	Array<Variable*> args;
 	Ast* body;
+
+	Str external;
 };
 
 struct Codegen
@@ -95,11 +98,22 @@ static Type* getType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
+{
+	if (Function* fun = cg.module->getFunction(name))
+		return fun;
+
+	FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, type))->getElementType());
+
+	return Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
+}
+
 static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 {
-	FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, var->type))->getElementType());
+	// TODO: remove hack
+	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, var->type));
 
-	return cg.module->getOrInsertFunction(var->name.str(), funty);
+	return codegenFunctionValue(cg, name, var->type);
 }
 
 static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
@@ -370,9 +384,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Fn, n, node))
 	{
-		FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, n->type))->getElementType());
-
-		Function* fun = Function::Create(funty, GlobalValue::InternalLinkage, "anonymous", cg.module);
+		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, n->type)), n->type));
 
 		cg.pendingFunctions.push_back({ fun, n->args, n->body });
 
@@ -383,7 +395,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	{
 		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
 
-		cg.pendingFunctions.push_back({ fun, n->args, n->body });
+		cg.pendingFunctions.push_back({ fun, n->args, n->body, n->var->name });
 
 		return nullptr;
 	}
@@ -403,10 +415,31 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	ICE("Unknown Ast kind %d", node->kind);
 }
 
+static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
+{
+	assert(inst.external.size > 0);
+
+	Constant* external = cg.module->getOrInsertFunction(inst.external.str(), inst.value->getFunctionType());
+
+	vector<Value*> args;
+	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait)
+		args.push_back(ait);
+
+	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
+	cg.builder->SetInsertPoint(bb);
+
+	Value* ret = cg.builder->CreateCall(external, args);
+
+	if (ret->getType()->isVoidTy())
+		cg.builder->CreateRetVoid();
+	else
+		cg.builder->CreateRet(ret);
+}
+
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
 	if (!inst.body)
-		return;
+		return codegenFunctionExtern(cg, inst);
 
 	size_t argindex = 0;
 
@@ -430,9 +463,7 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 	{
 		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
 
-		cg.vars[n->var] = fun;
-
-		cg.pendingFunctions.push_back({ fun, n->args, n->body });
+		cg.pendingFunctions.push_back({ fun, n->args, n->body, n->var->name });
 
 		return true;
 	}
