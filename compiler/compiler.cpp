@@ -11,9 +11,9 @@
 #include "dump.hpp"
 #include "timer.hpp"
 
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/FormattedStream.h"
@@ -164,6 +164,8 @@ int main(int argc, const char** argv)
 	LLVMContext context;
 	Module* module = new Module("main", context);
 
+	module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr);
+
 	timer.checkpoint("startup");
 
 	for (auto& file: options.inputs)
@@ -232,6 +234,10 @@ int main(int argc, const char** argv)
 	}
 
 	timer.checkpoint();
+
+	assert(!verifyModule(*module, &llvm::errs()));
+
+	timer.checkpoint("verify");
 
 	optimize(module, options.optimize);
 
