@@ -299,7 +299,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		func->getBasicBlockList().push_back(endbb);
 		cg.builder->SetInsertPoint(endbb);
 
-		return cg.builder->CreateLoad(cg.builder->CreateGEP(ptr, index));
+		return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
 	}
 
 	if (UNION_CASE(Unary, n, node))
