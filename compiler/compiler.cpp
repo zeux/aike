@@ -164,6 +164,8 @@ int main(int argc, const char** argv)
 	LLVMContext context;
 	Module* module = new Module("main", context);
 
+	module->setDataLayout(machine->getDataLayout());
+
 	module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr);
 
 	timer.checkpoint("startup");

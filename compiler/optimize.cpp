@@ -3,10 +3,18 @@
 
 #include "llvm/PassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 using namespace llvm;
+
+static TargetLibraryInfo* createLibraryInfo()
+{
+	TargetLibraryInfo* result = new TargetLibraryInfo();
+
+	return result;
+}
 
 void optimize(Module* module, int level)
 {
@@ -14,6 +22,7 @@ void optimize(Module* module, int level)
 
 	pmb.OptLevel = level;
 
+	pmb.LibraryInfo = createLibraryInfo();
 	pmb.Inliner = (level > 1) ? createFunctionInliningPass(level, 0) : createAlwaysInlinerPass();
 
 	pmb.LoopVectorize = level > 2;
@@ -23,6 +32,7 @@ void optimize(Module* module, int level)
 	pmb.populateFunctionPassManager(fpm);
 
 	PassManager pm;
+	pm.add(new DataLayoutPass(*module->getDataLayout()));
 	pmb.populateModulePassManager(pm);
 
 	fpm.doInitialization();
