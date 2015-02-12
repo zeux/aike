@@ -28,6 +28,7 @@ struct Token
 
 	Type type;
 	Str data;
+	size_t offset;
 	size_t matching;
 	Location location;
 };

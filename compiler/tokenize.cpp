@@ -120,27 +120,29 @@ static Arr<Token> parseTokens(Output& output, const char* source, const Str& dat
 
 		if (offset < data.size)
 		{
+			size_t start = offset;
+
 			if (isIdentStart(data[offset]))
-				result.push({Token::TypeIdent, scan(data, offset, isIdent)});
+				result.push({Token::TypeIdent, scan(data, offset, isIdent), start});
 			else if (isdigit(data[offset]))
-				result.push({Token::TypeNumber, scan(data, offset, isNumber)});
+				result.push({Token::TypeNumber, scan(data, offset, isNumber), start});
 			else if (data[offset] == '"' || data[offset] == '\'')
 			{
-				char start = data[offset];
+				char terminator = data[offset];
 				offset++;
-				Str contents = scan(data, offset, [=](char ch) { return ch != start; });
+				Str contents = scan(data, offset, [=](char ch) { return ch != terminator; });
 				offset++;
 
-				result.push({start == '"' ? Token::TypeString : Token::TypeCharacter, Str(contents.data - 1, contents.size + 2)});
+				result.push({terminator == '"' ? Token::TypeString : Token::TypeCharacter, contents, start });
 			}
 			else if (isBracket(data[offset]))
 			{
-				result.push({Token::TypeBracket, Str(data.data + offset, 1)});
+				result.push({Token::TypeBracket, Str(data.data + offset, 1), start});
 				offset++;
 			}
 			else if (isAtom(data[offset]))
 			{
-				result.push({Token::TypeAtom, scan(data, offset, isAtom)});
+				result.push({Token::TypeAtom, scan(data, offset, isAtom), start});
 			}
 			else
 			{
@@ -207,8 +209,20 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 	auto lines = parseLines(output, source, data);
 	auto tokens = parseTokens(output, source, data, lines);
 
+	size_t last = 0;
+
 	for (auto& t: tokens)
-		t.location = getLocation(source, lines, t.data.data - data.data, t.data.size);
+	{
+		size_t start = t.offset;
+		size_t end = (t.data.data - data.data) + t.data.size;
+
+		assert(start < end);
+		assert(start >= last);
+
+		t.location = getLocation(source, lines, start, end - start);
+
+		last = end;
+	}
 
 	matchBrackets(output, tokens);
 
