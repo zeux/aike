@@ -127,26 +127,31 @@ static Value* codegenFunctionValue(Codegen& cg, Variable* var)
 	return codegenFunctionValue(cg, name, var->type);
 }
 
-static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
+static void codegenTrapIf(Codegen& cg, Value* cond)
 {
 	Function* func = cg.builder->GetInsertBlock()->getParent();
 
+	BasicBlock* trapbb = BasicBlock::Create(*cg.context, "trap");
+	BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
+
+	cg.builder->CreateCondBr(cond, trapbb, afterbb);
+
+	func->getBasicBlockList().push_back(trapbb);
+	cg.builder->SetInsertPoint(trapbb);
+
+	cg.builder->CreateCall(cg.builtinTrap);
+	cg.builder->CreateUnreachable();
+
+	func->getBasicBlockList().push_back(afterbb);
+	cg.builder->SetInsertPoint(afterbb);
+}
+
+static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
+{
 	Value* result = cg.builder->CreateCall2(overflowOp, left, right);
 	Value* cond = cg.builder->CreateExtractValue(result, 1);
 
-	BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
-	BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
-
-	cg.builder->CreateCondBr(cond, thenbb, endbb);
-
-	func->getBasicBlockList().push_back(thenbb);
-	cg.builder->SetInsertPoint(thenbb);
-
-	cg.builder->CreateCall(cg.builtinTrap);
-	cg.builder->CreateBr(endbb);
-
-	func->getBasicBlockList().push_back(endbb);
-	cg.builder->SetInsertPoint(endbb);
+	codegenTrapIf(cg, cond);
 
 	return cg.builder->CreateExtractValue(result, 0);
 }
@@ -185,7 +190,8 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		Type* elementType = cast<PointerType>(pointerType)->getElementType();
 
 		// TODO: refactor + fix int32/size_t
-		Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, cg.builder->getInt32(n->elements.size), cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false));
+		Value* elementSize = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false);
+		Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, cg.builder->getInt32(n->elements.size), elementSize);
 		Value* ptr = cg.builder->CreateBitCast(rawPtr, pointerType);
 
 		for (size_t i = 0; i < n->elements.size; ++i)
@@ -275,8 +281,6 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Index, n, node))
 	{
-		Function* func = cg.builder->GetInsertBlock()->getParent();
-
 		Value* expr = codegenExpr(cg, n->expr);
 		Value* index = codegenExpr(cg, n->index);
 
@@ -285,19 +289,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		Value* cond = cg.builder->CreateICmpUGE(index, size);
 
-		BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
-		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
-
-		cg.builder->CreateCondBr(cond, thenbb, endbb);
-
-		func->getBasicBlockList().push_back(thenbb);
-		cg.builder->SetInsertPoint(thenbb);
-
-		cg.builder->CreateCall(cg.builtinTrap);
-		cg.builder->CreateBr(endbb);
-
-		func->getBasicBlockList().push_back(endbb);
-		cg.builder->SetInsertPoint(endbb);
+		codegenTrapIf(cg, cond);
 
 		return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
 	}
