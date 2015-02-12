@@ -53,6 +53,7 @@ struct Field
 	X(LiteralBool, { bool value; Location location; }) \
 	X(LiteralNumber, { Str value; Location location; }) \
 	X(LiteralString, { Str value; Location location; }) \
+	X(LiteralArray, { Location location; Ty* type; Arr<Ast*> elements; }) \
 	X(LiteralStruct, { Str name; Location location; Ty* type; Arr<pair<Field, Ast*>> fields; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; Field field; }) \

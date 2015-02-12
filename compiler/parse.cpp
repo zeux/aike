@@ -426,6 +426,29 @@ static Ast* parseIf(TokenStream& ts)
 	return UNION_NEW(Ast, If, { cond, thenbody, elsebody });
 }
 
+static Ast* parseLiteralArray(TokenStream& ts)
+{
+	Location start = ts.get().location;
+
+	Arr<Ast*> elements;
+
+	ts.eat(Token::TypeBracket, "[");
+
+	while (!ts.is(Token::TypeBracket, "]"))
+	{
+		elements.push(parseExpr(ts));
+
+		if (!ts.is(Token::TypeBracket, "]"))
+			ts.eat(Token::TypeAtom, ",");
+	}
+
+	ts.eat(Token::TypeBracket, "]");
+
+	Ty* ty = UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) });
+
+	return UNION_NEW(Ast, LiteralArray, { start, ty, elements });
+}
+
 static Ast* parseLiteralStruct(TokenStream& ts)
 {
 	Location start = ts.get().location;
@@ -500,6 +523,11 @@ static Ast* parseTerm(TokenStream& ts)
 	if (ts.is(Token::TypeBracket, "{") || (ts.is(Token::TypeIdent) && ts.get(1).type == Token::TypeBracket && ts.get(1).data == "{"))
 	{
 		return parseLiteralStruct(ts);
+	}
+
+	if (ts.is(Token::TypeBracket, "["))
+	{
+		return parseLiteralArray(ts);
 	}
 
 	if (ts.is(Token::TypeIdent))

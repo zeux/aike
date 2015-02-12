@@ -25,6 +25,26 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	if (UNION_CASE(LiteralString, n, root))
 		return make_pair(UNION_NEW(Ty, String, {}), n->location);
 
+	if (UNION_CASE(LiteralArray, n, root))
+	{
+		if (UNION_CASE(Array, t, n->type))
+		{
+			for (auto& e: n->elements)
+			{
+				auto expr = type(output, e, constraints);
+
+				typeMustEqual(expr.first, t->element, constraints, output, expr.second);
+			}
+
+			if (!constraints && t->element->kind == Ty::KindUnknown)
+				output.panic(n->location, "Type mismatch: expected a known type");
+		}
+		else
+			ICE("LiteralArray type is not Array");
+
+		return make_pair(n->type, n->location);
+	}
+
 	if (UNION_CASE(LiteralStruct, n, root))
 	{
 		for (auto& f: n->fields)
@@ -244,7 +264,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 static bool propagate(TypeConstraints& constraints, Ast* root)
 {
-	if (UNION_CASE(LiteralStruct, n, root))
+	if (UNION_CASE(LiteralArray, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(LiteralStruct, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
 	}

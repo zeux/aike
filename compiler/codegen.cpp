@@ -36,6 +36,7 @@ struct Codegen
 	Constant* builtinMulOverflow;
 
 	Constant* runtimeNew;
+	Constant* runtimeNewArr;
 
 	unordered_map<Variable*, Value*> vars;
 
@@ -172,6 +173,32 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		result = cg.builder->CreateInsertValue(result, string, 0);
 		result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->value.size), 1);
+
+		return result;
+	}
+
+	if (UNION_CASE(LiteralArray, n, node))
+	{
+		Type* type = getType(cg, n->type);
+
+		Type* pointerType = cast<StructType>(type)->getElementType(0);
+		Type* elementType = cast<PointerType>(pointerType)->getElementType();
+
+		// TODO: refactor + fix int32/size_t
+		Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, cg.builder->getInt32(n->elements.size), cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false));
+		Value* ptr = cg.builder->CreateBitCast(rawPtr, pointerType);
+
+		for (size_t i = 0; i < n->elements.size; ++i)
+		{
+			Value* expr = codegenExpr(cg, n->elements[i]);
+
+			cg.builder->CreateStore(expr, cg.builder->CreateConstInBoundsGEP1_32(ptr, i));
+		}
+
+		Value* result = UndefValue::get(type);
+
+		result = cg.builder->CreateInsertValue(result, ptr, 0);
+		result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->elements.size), 1);
 
 		return result;
 	}
@@ -495,6 +522,7 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinMulOverflow = cg.module->getOrInsertFunction("llvm.smul.with.overflow.i32", overflowFunTy);
 
 	cg.runtimeNew = cg.module->getOrInsertFunction("aike_new", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNewArr = cg.module->getOrInsertFunction("aike_newarr", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
 void codegen(Output& output, Ast* root, llvm::Module* module)

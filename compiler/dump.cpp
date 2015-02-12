@@ -108,6 +108,12 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->value);
 	}
+	else if (UNION_CASE(LiteralArray, n, root))
+	{
+		printf("[");
+		dumpList(n->elements, [&](Ast* c) { dumpNode(c, indent); });
+		printf("]");
+	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
 		dumpString(n->name);

@@ -6,7 +6,12 @@ template <typename F, typename FC> inline void visitAst(Ast* node, F f, FC& fc);
 
 template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC& fc)
 {
-	if (UNION_CASE(LiteralStruct, n, node))
+	if (UNION_CASE(LiteralArray, n, node))
+	{
+		for (auto& c: n->elements)
+			visitAst(c, f, fc);
+	}
+	else if (UNION_CASE(LiteralStruct, n, node))
 	{
 		for (auto& c: n->fields)
 			visitAst(c.second, f, fc);
@@ -67,7 +72,11 @@ template <typename F, typename FC> inline void visitAst(Ast* node, F f, FC& fc)
 
 template <typename F, typename FC> inline void visitAstTypes(Ast* node, F f, FC& fc)
 {
-	if (UNION_CASE(LiteralStruct, n, node))
+	if (UNION_CASE(LiteralArray, n, node))
+	{
+		f(fc, n->type);
+	}
+	else if (UNION_CASE(LiteralStruct, n, node))
 	{
 		f(fc, n->type);
 	}
