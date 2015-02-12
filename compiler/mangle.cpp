@@ -29,6 +29,13 @@ static void mangle(string& buffer, Ty* type)
 		return;
 	}
 
+	if (UNION_CASE(Array, t, type))
+	{
+		buffer += "U5array";
+		mangle(buffer, t->element);
+		return;
+	}
+
 	if (UNION_CASE(Function, t, type))
 	{
 		buffer += "F";

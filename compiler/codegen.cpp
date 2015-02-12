@@ -66,6 +66,14 @@ static Type* getType(Codegen& cg, Ty* type)
 		return StructType::get(*cg.context, { fields, 2 });
 	}
 
+	if (UNION_CASE(Array, t, type))
+	{
+		Type* element = getType(cg, t->element);
+		Type* fields[] = { PointerType::get(element, 0), Type::getInt32Ty(*cg.context) };
+
+		return StructType::get(*cg.context, { fields, 2 });
+	}
+
 	if (UNION_CASE(Function, t, type))
 	{
 		Type* ret = getType(cg, t->ret);

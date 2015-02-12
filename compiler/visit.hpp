@@ -97,7 +97,11 @@ template <typename F, typename FC> inline void visitType(Ty* type, F f, FC& fc)
 {
 	f(fc, type);
 
-	if (UNION_CASE(Function, t, type))
+	if (UNION_CASE(Array, t, type))
+	{
+		visitType(t->element, f, fc);
+	}
+	else if (UNION_CASE(Function, t, type))
 	{
 		for (auto& c: t->args)
 			visitType(c, f, fc);

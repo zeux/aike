@@ -120,6 +120,17 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, String, {});
 	}
 
+	if (ts.is(Token::TypeBracket, "["))
+	{
+		ts.eat(Token::TypeBracket, "[");
+
+		Ty* element = parseType(ts);
+
+		ts.eat(Token::TypeBracket, "]");
+
+		return UNION_NEW(Ty, Array, { element });
+	}
+
 	if (ts.is(Token::TypeIdent, "fn"))
 	{
 		ts.move();

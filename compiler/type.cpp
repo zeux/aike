@@ -26,14 +26,21 @@ Ty* TypeConstraints::rewrite(Ty* type)
 		type = it->second;
 	}
 
-	if (UNION_CASE(Function, funty, type))
+	if (UNION_CASE(Array, t, type))
+	{
+		Ty* element = rewrite(t->element);
+
+		return UNION_NEW(Ty, Array, { element });
+	}
+
+	if (UNION_CASE(Function, t, type))
 	{
 		Arr<Ty*> args;
 
-		for (Ty* arg: funty->args)
+		for (Ty* arg: t->args)
 			args.push(rewrite(arg));
 
-		Ty* ret = rewrite(funty->ret);
+		Ty* ret = rewrite(t->ret);
 
 		return UNION_NEW(Ty, Function, { args, ret });
 	}
@@ -51,6 +58,13 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 
 	if (lhs->kind != rhs->kind)
 		return false;
+
+	if (UNION_CASE(Array, la, lhs))
+	{
+		UNION_CASE(Array, ra, rhs);
+
+		return typeUnify(la->element, ra->element, constraints);
+	}
 
 	if (UNION_CASE(Function, lf, lhs))
 	{
@@ -87,6 +101,11 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 {
 	if (lhs == rhs)
 		return true;
+
+	if (UNION_CASE(Array, la, lhs))
+	{
+		return typeOccurs(la->element, rhs);
+	}
 
 	if (UNION_CASE(Function, lf, lhs))
 	{
@@ -144,6 +163,14 @@ static void typeName(string& buffer, Ty* type)
 	if (UNION_CASE(String, t, type))
 	{
 		buffer += "string";
+		return;
+	}
+
+	if (UNION_CASE(Array, t, type))
+	{
+		buffer += "[";
+		typeName(buffer, t->element);
+		buffer += "]";
 		return;
 	}
 
