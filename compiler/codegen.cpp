@@ -273,6 +273,35 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		return cg.builder->CreateCall(expr, args);
 	}
 
+	if (UNION_CASE(Index, n, node))
+	{
+		Function* func = cg.builder->GetInsertBlock()->getParent();
+
+		Value* expr = codegenExpr(cg, n->expr);
+		Value* index = codegenExpr(cg, n->index);
+
+		Value* ptr = cg.builder->CreateExtractValue(expr, 0);
+		Value* size = cg.builder->CreateExtractValue(expr, 1);
+
+		Value* cond = cg.builder->CreateICmpUGE(index, size);
+
+		BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
+		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+
+		cg.builder->CreateCondBr(cond, thenbb, endbb);
+
+		func->getBasicBlockList().push_back(thenbb);
+		cg.builder->SetInsertPoint(thenbb);
+
+		cg.builder->CreateCall(cg.builtinTrap);
+		cg.builder->CreateBr(endbb);
+
+		func->getBasicBlockList().push_back(endbb);
+		cg.builder->SetInsertPoint(endbb);
+
+		return cg.builder->CreateLoad(cg.builder->CreateGEP(ptr, index));
+	}
+
 	if (UNION_CASE(Unary, n, node))
 	{
 		Value* expr = codegenExpr(cg, n->expr);

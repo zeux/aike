@@ -162,6 +162,13 @@ static void dumpNode(Ast* root, int indent)
 		dumpNode(n->right, indent);
 		printf(")");
 	}
+	else if (UNION_CASE(Index, n, root))
+	{
+		dumpNode(n->expr, indent);
+		printf("[");
+		dumpNode(n->index, indent);
+		printf("]");
+	}
 	else if (UNION_CASE(If, n, root))
 	{
 		printf("if ");

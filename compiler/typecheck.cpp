@@ -190,6 +190,27 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		}
 	}
 
+	if (UNION_CASE(Index, n, root))
+	{
+		auto expr = type(output, n->expr, constraints);
+		auto index = type(output, n->index, constraints);
+
+		typeMustEqual(index.first, UNION_NEW(Ty, Integer, {}), constraints, output, index.second);
+
+		if (UNION_CASE(Array, t, expr.first))
+		{
+			return make_pair(t->element, n->location);
+		}
+		else
+		{
+			Ty* element = UNION_NEW(Ty, Unknown, {});
+
+			typeMustEqual(expr.first, UNION_NEW(Ty, Array, { element }), constraints, output, expr.second);
+
+			return make_pair(element, n->location);
+		}
+	}
+
 	if (UNION_CASE(If, n, root))
 	{
 		auto cond = type(output, n->cond, constraints);
