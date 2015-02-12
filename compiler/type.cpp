@@ -28,7 +28,7 @@ Ty* TypeConstraints::rewrite(Ty* type)
 
 	if (UNION_CASE(Function, funty, type))
 	{
-		Array<Ty*> args;
+		Arr<Ty*> args;
 
 		for (Ty* arg: funty->args)
 			args.push(rewrite(arg));

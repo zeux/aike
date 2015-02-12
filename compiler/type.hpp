@@ -5,7 +5,7 @@
 struct Ty;
 
 #define UD_TYDEF(X) \
-	X(Struct, { Array<pair<Str, Ty*>> fields; })
+	X(Struct, { Arr<pair<Str, Ty*>> fields; })
 
 UNION_DECL(TyDef, UD_TYDEF)
 
@@ -14,7 +14,7 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(Bool, {}) \
 	X(Integer, {}) \
 	X(String, {}) \
-	X(Function, { Array<Ty*> args; Ty* ret; }) \
+	X(Function, { Arr<Ty*> args; Ty* ret; }) \
 	X(Instance, { Str name; Location location; TyDef* def; }) \
 	X(Unknown, {})
 

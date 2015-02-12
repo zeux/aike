@@ -53,16 +53,16 @@ struct Field
 	X(LiteralBool, { bool value; Location location; }) \
 	X(LiteralNumber, { Str value; Location location; }) \
 	X(LiteralString, { Str value; Location location; }) \
-	X(LiteralStruct, { Str name; Location location; Ty* type; Array<pair<Field, Ast*>> fields; }) \
+	X(LiteralStruct, { Str name; Location location; Ty* type; Arr<pair<Field, Ast*>> fields; }) \
 	X(Ident, { Str name; Location location; Variable* target; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; Field field; }) \
-	X(Block, { Array<Ast*> body; }) \
-	X(Call, { Ast* expr; Array<Ast*> args; Location location; }) \
+	X(Block, { Arr<Ast*> body; }) \
+	X(Call, { Ast* expr; Arr<Ast*> args; Location location; }) \
 	X(Unary, { UnaryOp op; Ast* expr; }) \
 	X(Binary, { BinaryOp op; Ast* left; Ast* right; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
-	X(Fn, { int id; Ty* type; Location location; Array<Variable*> args; Ast* body; }) \
-	X(FnDecl, { Variable* var; Array<Variable*> args; unsigned attributes; Ast* body; }) \
+	X(Fn, { int id; Ty* type; Location location; Arr<Variable*> args; Ast* body; }) \
+	X(FnDecl, { Variable* var; Arr<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; })
 

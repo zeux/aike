@@ -34,8 +34,8 @@ struct Token
 
 struct Tokens
 {
-	Array<Line> lines;
-	Array<Token> tokens;
+	Arr<Line> lines;
+	Arr<Token> tokens;
 };
 
 Tokens tokenize(Output& output, const char* source, const Str& data);

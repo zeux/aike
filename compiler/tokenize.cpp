@@ -48,9 +48,9 @@ static bool isAtom(char ch)
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
-static Array<Line> parseLines(Output& output, const char* source, const Str& data)
+static Arr<Line> parseLines(Output& output, const char* source, const Str& data)
 {
-	Array<Line> result;
+	Arr<Line> result;
 
 	size_t offset = 0;
 
@@ -84,7 +84,7 @@ static Array<Line> parseLines(Output& output, const char* source, const Str& dat
 	return result;
 }
 
-static Location getLocation(const char* source, const Array<Line>& lines, size_t offset, size_t length)
+static Location getLocation(const char* source, const Arr<Line>& lines, size_t offset, size_t length)
 {
 	auto it = std::lower_bound(lines.begin(), lines.end(), offset, [](const Line& line, size_t offset) { return line.offset <= offset; });
 	assert(it != lines.begin());
@@ -107,9 +107,9 @@ template <typename Fn> static Str scan(const Str& data, size_t& offset, Fn fn)
 	return Str(data.data + start, end - start);
 }
 
-static Array<Token> parseTokens(Output& output, const char* source, const Str& data, const Array<Line>& lines)
+static Arr<Token> parseTokens(Output& output, const char* source, const Str& data, const Arr<Line>& lines)
 {
-	Array<Token> result;
+	Arr<Token> result;
 
 	size_t offset = 0;
 
@@ -164,7 +164,7 @@ static const char* getClosingBracket(const Str& open)
 	return (open == "{") ? "}" : (open == "(") ? ")" : "]";
 }
 
-static void matchBrackets(Output& output, Array<Token>& tokens)
+static void matchBrackets(Output& output, Arr<Token>& tokens)
 {
 	vector<size_t> brackets;
 

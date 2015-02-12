@@ -16,7 +16,7 @@ struct FunctionInstance
 {
 	Function* value;
 
-	Array<Variable*> args;
+	Arr<Variable*> args;
 	Ast* body;
 
 	Str external;

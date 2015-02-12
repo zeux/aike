@@ -1,12 +1,12 @@
 #pragma once
 
-template <typename T> struct Array
+template <typename T> struct Arr
 {
 	T* data;
 	size_t size;
 	size_t capacity;
 
-	Array(): data(0), size(0), capacity(0)
+	Arr(): data(0), size(0), capacity(0)
 	{
 	}
 

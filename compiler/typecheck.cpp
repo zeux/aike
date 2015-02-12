@@ -90,7 +90,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		}
 		else
 		{
-			Array<Ty*> args;
+			Arr<Ty*> args;
 
 			for (auto& a: n->args)
 				args.push(type(output, a, constraints).first);

@@ -61,7 +61,7 @@ template <typename T, typename F> static void dumpList(const T& list, F pred)
 	}
 }
 
-static void dumpSignature(Ty* ty, const Array<Variable*>& args)
+static void dumpSignature(Ty* ty, const Arr<Variable*>& args)
 {
 	printf("(");
 	dumpList(args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });

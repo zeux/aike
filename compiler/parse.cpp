@@ -126,7 +126,7 @@ static Ty* parseType(TokenStream& ts)
 
 		ts.eat(Token::TypeBracket, "(");
 
-		Array<Ty*> args;
+		Arr<Ty*> args;
 
 		while (!ts.is(Token::TypeBracket, ")"))
 		{
@@ -204,17 +204,17 @@ static Ast* parseExpr(TokenStream& ts);
 
 static Ast* parseBlock(TokenStream& ts, const Location* indent)
 {
-	Array<Ast*> body;
+	Arr<Ast*> body;
 
 	parseIndent(ts, indent, /* allowSingleLine= */ true, [&]() { body.push(parseExpr(ts)); });
 
 	return UNION_NEW(Ast, Block, { body });
 }
 
-static pair<Ty*, Array<Variable*>> parseFnSignature(TokenStream& ts, bool requireTypes)
+static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireTypes)
 {
-	Array<Variable*> args;
-	Array<Ty*> argtys;
+	Arr<Variable*> args;
+	Arr<Ty*> argtys;
 
 	ts.eat(Token::TypeBracket, "(");
 
@@ -329,7 +329,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	Array<pair<Str, Ty*>> fields;
+	Arr<pair<Str, Ty*>> fields;
 
 	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
 		vector<Token> fnames;
@@ -362,7 +362,7 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
 {
 	ts.eat(Token::TypeBracket, "(");
 
-	Array<Ast*> args;
+	Arr<Ast*> args;
 
 	while (!ts.is(Token::TypeBracket, ")"))
 	{
@@ -421,7 +421,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
 
-	Array<pair<Field, Ast*>> fields;
+	Arr<pair<Field, Ast*>> fields;
 
 	ts.eat(Token::TypeBracket, "{");
 
