@@ -84,9 +84,9 @@ static void dumpDef(const Str& name, TyDef* def, int indent)
 		for (auto& f: sd->fields)
 		{
 			dumpIndent(indent + 1);
-			dumpString(f.first);
+			dumpString(f.name);
 			printf(": ");
-			dump(f.second);
+			dump(f.type);
 			printf("\n");
 		}
 	}
@@ -118,7 +118,7 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpString(n->name);
 		printf(" { ");
-		dumpList(n->fields, [&](const pair<Field, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
+		dumpList(n->fields, [&](const pair<FieldRef, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
 		printf(" }");
 	}
 	else if (UNION_CASE(Ident, n, root))

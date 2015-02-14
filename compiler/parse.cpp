@@ -340,7 +340,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	Arr<pair<Str, Ty*>> fields;
+	Arr<StructField> fields;
 
 	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
 		vector<Token> fnames;
@@ -361,7 +361,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 		// TODO: verify name uniqueness
 		for (auto& f: fnames)
-			fields.push(make_pair(f.data, ty));
+			fields.push({ f.data, ty });
 	});
 
 	TyDef* def = UNION_NEW(TyDef, Struct, { fields });
@@ -408,7 +408,7 @@ static Ast* parseMember(TokenStream& ts, Ast* expr)
 	ts.eat(Token::TypeAtom, ".");
 
 	auto name = ts.eat(Token::TypeIdent);
-	Field field = { name.data, name.location, -1 };
+	FieldRef field = { name.data, name.location, -1 };
 
 	return UNION_NEW(Ast, Member, { expr, name.location, nullptr, field });
 }
@@ -468,7 +468,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
 
-	Arr<pair<Field, Ast*>> fields;
+	Arr<pair<FieldRef, Ast*>> fields;
 
 	ts.eat(Token::TypeBracket, "{");
 
@@ -487,7 +487,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 		else
 			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
 
-		Field field = { fname.data, fname.location, -1 };
+		FieldRef field = { fname.data, fname.location, -1 };
 
 		// TODO: verify name uniqueness
 		fields.push(make_pair(field, expr));

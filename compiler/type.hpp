@@ -4,8 +4,14 @@
 
 struct Ty;
 
+struct StructField
+{
+	Str name;
+	Ty* type;
+};
+
 #define UD_TYDEF(X) \
-	X(Struct, { Arr<pair<Str, Ty*>> fields; })
+	X(Struct, { Arr<StructField> fields; })
 
 UNION_DECL(TyDef, UD_TYDEF)
 

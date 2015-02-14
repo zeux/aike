@@ -102,7 +102,7 @@ template <typename F, typename FC> inline void visitAstTypes(Ast* node, F f, FC&
 		if (UNION_CASE(Struct, d, n->def))
 		{
 			for (auto& c: d->fields)
-				f(fc, c.second);
+				f(fc, c.type);
 		}
 	}
 }

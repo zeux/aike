@@ -34,7 +34,7 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 
 			for (size_t i = 0; i < def->fields.size; ++i)
 				if (!fields[i])
-					output.panic(n->location, "Field %s does not have an initializer", def->fields[i].first.str().c_str());
+					output.panic(n->location, "Field %s does not have an initializer", def->fields[i].name.str().c_str());
 		}
 		else
 			output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());

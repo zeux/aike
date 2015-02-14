@@ -182,7 +182,7 @@ static int findMember(Ty* type, const Str& name)
 			{
 				auto& f = def->fields[i];
 
-				if (f.first == name)
+				if (f.name == name)
 					return i;
 			}
 
@@ -193,7 +193,7 @@ static int findMember(Ty* type, const Str& name)
 	return -1;
 }
 
-static bool resolveField(Output* output, Field& f, Ty* ty)
+static bool resolveFieldRef(Output* output, FieldRef& f, Ty* ty)
 {
 	if (f.index < 0 && ty->kind != Ty::KindUnknown)
 	{
@@ -213,12 +213,12 @@ static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
 	if (UNION_CASE(Member, n, root))
 	{
 		if (n->exprty)
-			rs.counter += resolveField(rs.output, n->field, n->exprty);
+			rs.counter += resolveFieldRef(rs.output, n->field, n->exprty);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
 		for (auto& f: n->fields)
-			rs.counter += resolveField(rs.output, f.first, n->type);
+			rs.counter += resolveFieldRef(rs.output, f.first, n->type);
 	}
 
 	return false;

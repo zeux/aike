@@ -129,7 +129,7 @@ Ty* typeMember(Ty* type, int index)
 		{
 			assert(index < def->fields.size);
 
-			return def->fields[index].second;
+			return def->fields[index].type;
 		}
 
 		ICE("Unexpected TyDef kind %d", i->def->kind);

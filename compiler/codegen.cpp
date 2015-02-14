@@ -98,7 +98,7 @@ static Type* getType(Codegen& cg, Ty* type)
 
 			vector<Type*> fields;
 			for (auto& f: d->fields)
-				fields.push_back(getType(cg, f.second));
+				fields.push_back(getType(cg, f.type));
 
 			return StructType::create(*cg.context, fields, t->name.str());
 		}
