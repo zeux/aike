@@ -14,6 +14,35 @@ static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, 
 		output.panic(location, "Type mismatch: expected a known type");
 }
 
+static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
+{
+	if (UNION_CASE(Instance, i, n->type))
+	{
+		if (UNION_CASE(Struct, def, i->def))
+		{
+			vector<bool> fields(def->fields.size);
+
+			for (auto& f: n->fields)
+			{
+				assert(f.first.index >= 0);
+
+				if (fields[f.first.index])
+					output.panic(f.first.location, "Field %s already has an initializer", f.first.name.str().c_str());
+
+				fields[f.first.index] = true;
+			}
+
+			for (size_t i = 0; i < def->fields.size; ++i)
+				if (!fields[i])
+					output.panic(n->location, "Field %s does not have an initializer", def->fields[i].first.str().c_str());
+		}
+		else
+			output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
+	}
+	else
+		output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
+}
+
 static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* constraints)
 {
 	if (UNION_CASE(LiteralBool, n, root))
@@ -55,7 +84,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 				typeMustEqual(expr.first, typeMember(n->type, f.first.index), constraints, output, expr.second);
 		}
 
-		// TODO: verify that all struct fields are initialized
+		if (!constraints)
+			validateLiteralStruct(output, n);
+
 		return make_pair(n->type, n->location);
 	}
 
