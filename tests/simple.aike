@@ -1,6 +1,6 @@
 extern fn init()
 extern fn println(str: string)
-extern fn printf(str: string, val: int, val: int)
+extern fn printfn(str: string, val: int, val: int)
 
 struct Point
     x: int
@@ -22,6 +22,14 @@ fn world(dbg: string, print: bool): string
         println(dbg)
     "world"
 
+fn dump(data: [int])
+    fn helper(data: [int], offset: int)
+        if offset < #data
+            printfn("[%d]: %d", offset, data[offset])
+            helper(data, offset + 1)
+
+    helper(data, 0)
+
 fn main(): int
     init()
     var hello = "Hello, "
@@ -37,17 +45,20 @@ fn main(): int
         println(worldwrap(fn (a0: string, a1: bool): string "x", "test", false))
         println(worldwrap(world, "test", false))
         println(worldwrap(test, "test", false))
-    printf("%d %d%c", 5, 10)
+    printfn("%d", 5, 0)
 
     var fp = fn(x) x.y
     var p = Point { x = 1, y = 2 }
-    printf("%d %d,%d", p.x, fp(p))
+    printfn("point %d,%d", p.x, fp(p))
 
     var loc = Location {}
-    printf("%d %d,%d", loc.line, loc.column)
+    printfn("location %d,%d", loc.line, loc.column)
 
     var foo = [3, 4]
-    printf("%d %d,%d", foo[0], foo[1] + singleton(5)[0])
+    printfn("array %d,%d", foo[0], foo[1] + singleton(5)[0])
+
+    dump([1, 2, 3, 4, 5, 6])
+
     0
 
 fn worldwrap(f: fn(string, bool): string, arg0: string, arg1: bool): string
