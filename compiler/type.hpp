@@ -3,11 +3,13 @@
 #include "location.hpp"
 
 struct Ty;
+struct Ast;
 
 struct StructField
 {
 	Str name;
 	Ty* type;
+	Ast* expr;
 };
 
 #define UD_TYDEF(X) \

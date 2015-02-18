@@ -6,6 +6,17 @@ struct Point
     x: int
     y: int
 
+struct Location
+    line: int = defline()
+    column: int = 8
+
+fn defline(): int
+    println("defline!")
+    4
+
+fn singleton(v: int): [int]
+    [v]
+
 fn world(dbg: string, print: bool): string
     if print
         println(dbg)
@@ -32,8 +43,11 @@ fn main(): int
     var p = Point { x = 1, y = 2 }
     printf("%d %d,%d", p.x, fp(p))
 
+    var loc = Location {}
+    printf("%d %d,%d", loc.line, loc.column)
+
     var foo = [3, 4]
-    printf("%d %d,%d", foo[0], foo[1])
+    printf("%d %d,%d", foo[0], foo[1] + singleton(5)[0])
     0
 
 fn worldwrap(f: fn(string, bool): string, arg0: string, arg1: bool): string

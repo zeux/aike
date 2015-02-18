@@ -359,9 +359,18 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 		auto ty = parseType(ts);
 
+		Ast* expr = nullptr;
+
+		if (ts.is(Token::TypeAtom, "="))
+		{
+			ts.move();
+
+			expr = parseExpr(ts);
+		}
+
 		// TODO: verify name uniqueness
 		for (auto& f: fnames)
-			fields.push({ f.data, ty });
+			fields.push({ f.data, ty, expr });
 	});
 
 	TyDef* def = UNION_NEW(TyDef, Struct, { fields });

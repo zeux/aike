@@ -33,8 +33,12 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 			}
 
 			for (size_t i = 0; i < def->fields.size; ++i)
-				if (!fields[i])
-					output.panic(n->location, "Field %s does not have an initializer", def->fields[i].name.str().c_str());
+			{
+				const StructField& f = def->fields[i];
+
+				if (!fields[i] && !f.expr)
+					output.panic(n->location, "Field %s does not have an initializer", f.name.str().c_str());
+			}
 		}
 		else
 			output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
@@ -308,6 +312,17 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(TyDecl, n, root))
 	{
+		if (UNION_CASE(Struct, t, n->def))
+		{
+			for (auto& c: t->fields)
+				if (c.expr)
+				{
+					auto expr = type(output, c.expr, constraints);
+
+					typeMustEqual(expr.first, c.type, constraints, output, expr.second);
+				}
+		}
+
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 

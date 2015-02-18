@@ -211,9 +211,34 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(LiteralStruct, n, node))
 	{
+		UNION_CASE(Instance, ti, n->type);
+		assert(ti);
+
+		UNION_CASE(Struct, td, ti->def);
+		assert(td);
+
 		Type* type = getType(cg, n->type);
 
 		Value* result = UndefValue::get(type);
+
+		vector<bool> fields(td->fields.size);
+
+		for (auto& f: n->fields)
+		{
+			assert(f.first.index >= 0);
+
+			fields[f.first.index] = true;
+		}
+
+		for (size_t i = 0; i < fields.size(); ++i)
+			if (!fields[i])
+			{
+				assert(td->fields[i].expr);
+
+				Value* expr = codegenExpr(cg, td->fields[i].expr);
+
+				result = cg.builder->CreateInsertValue(result, expr, i);
+			}
 
 		for (auto& f: n->fields)
 		{

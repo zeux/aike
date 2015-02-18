@@ -67,6 +67,15 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 	{
 		visitAst(n->expr, f, fc);
 	}
+	else if (UNION_CASE(TyDecl, n, node))
+	{
+		if (UNION_CASE(Struct, t, n->def))
+		{
+			for (auto& c: t->fields)
+				if (c.expr)
+					visitAst(c.expr, f, fc);
+		}
+	}
 }
 
 template <typename F, typename FC> inline void visitAst(Ast* node, F f, FC& fc)
