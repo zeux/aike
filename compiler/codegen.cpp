@@ -9,6 +9,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
 
@@ -557,15 +558,11 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 
 static void codegenPrepare(Codegen& cg)
 {
-	cg.builtinTrap = cg.module->getOrInsertFunction("llvm.trap", FunctionType::get(Type::getVoidTy(*cg.context), false));
+	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
 
-	Type* overflowArgs[] = { Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context) };
-	Type* overflowRets[] = { Type::getInt32Ty(*cg.context), Type::getInt1Ty(*cg.context) };
-	FunctionType* overflowFunTy = FunctionType::get(StructType::get(*cg.context, overflowRets, 2), overflowArgs, false);
-
-	cg.builtinAddOverflow = cg.module->getOrInsertFunction("llvm.sadd.with.overflow.i32", overflowFunTy);
-	cg.builtinSubOverflow = cg.module->getOrInsertFunction("llvm.ssub.with.overflow.i32", overflowFunTy);
-	cg.builtinMulOverflow = cg.module->getOrInsertFunction("llvm.smul.with.overflow.i32", overflowFunTy);
+	cg.builtinAddOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::sadd_with_overflow, Type::getInt32Ty(*cg.context));
+	cg.builtinSubOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::ssub_with_overflow, Type::getInt32Ty(*cg.context));
+	cg.builtinMulOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::smul_with_overflow, Type::getInt32Ty(*cg.context));
 
 	cg.runtimeNew = cg.module->getOrInsertFunction("aike_new", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 	cg.runtimeNewArr = cg.module->getOrInsertFunction("aike_newarr", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
