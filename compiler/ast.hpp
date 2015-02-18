@@ -20,6 +20,7 @@ enum UnaryOp
 	UnaryOpPlus,
 	UnaryOpMinus,
 	UnaryOpNot,
+	UnaryOpSize,
 };
 
 enum BinaryOp

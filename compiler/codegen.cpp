@@ -335,6 +335,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		case UnaryOpNot:
 			return cg.builder->CreateNot(expr);
 
+		case UnaryOpSize:
+			return cg.builder->CreateExtractValue(expr, 1);
+
 		default:
 			ICE("Unknown UnaryOp %d", n->op);
 		}
@@ -536,7 +539,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 
 	Value* ret = codegenExpr(cg, inst.body);
 
-	if (ret)
+	if (ret && !ret->getType()->isVoidTy())
 		cg.builder->CreateRet(ret);
 	else
 		cg.builder->CreateRetVoid();

@@ -580,6 +580,7 @@ static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
 	if (ts.is(Token::TypeAtom, "+")) return make_pair(1, UnaryOpPlus);
 	if (ts.is(Token::TypeAtom, "-")) return make_pair(1, UnaryOpMinus);
 	if (ts.is(Token::TypeIdent, "not")) return make_pair(1, UnaryOpNot);
+	if (ts.is(Token::TypeAtom, "#")) return make_pair(1, UnaryOpSize);
 
 	return make_pair(0, UnaryOpNot);
 }
