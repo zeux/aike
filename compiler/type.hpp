@@ -13,11 +13,12 @@ struct StructField
 };
 
 #define UD_TYDEF(X) \
-	X(Struct, { Arr<StructField> fields; })
+	X(Struct, { Arr<StructField> fields; }) \
 
 UNION_DECL(TyDef, UD_TYDEF)
 
 #define UD_TY(X) \
+	X(Unknown, {}) \
 	X(Void, {}) \
 	X(Bool, {}) \
 	X(Integer, {}) \
@@ -25,7 +26,6 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(Array, { Ty* element; }) \
 	X(Function, { Arr<Ty*> args; Ty* ret; }) \
 	X(Instance, { Str name; Location location; TyDef* def; }) \
-	X(Unknown, {})
 
 UNION_DECL(Ty, UD_TY)
 

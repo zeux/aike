@@ -67,6 +67,6 @@ struct FieldRef
 	X(Fn, { int id; Ty* type; Location location; Arr<Variable*> args; Ast* body; }) \
 	X(FnDecl, { Variable* var; Arr<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
-	X(TyDecl, { Str name; Location location; TyDef* def; })
+	X(TyDecl, { Str name; Location location; TyDef* def; }) \
 
 UNION_DECL(Ast, UD_AST)
