@@ -244,7 +244,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireT
 		else
 			type = UNION_NEW(Ty, Unknown, {});
 
-		args.push(new Variable { Variable::KindVariable, argname.data, type, argname.location });
+		args.push(new Variable { Variable::KindArgument, argname.data, type, argname.location });
 		argtys.push(type);
 
 		if (!ts.is(Token::TypeBracket, ")"))

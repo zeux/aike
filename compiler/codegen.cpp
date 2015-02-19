@@ -255,23 +255,20 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Ident, n, node))
 	{
-		auto it = cg.vars.find(n->target);
-
-		if (it != cg.vars.end())
+		if (n->target->kind == Variable::KindFunction)
 		{
-			Value* storage = it->second;
+			return codegenFunctionValue(cg, n->target);
+		}
+		else
+		{
+			auto it = cg.vars.find(n->target);
+			assert(it != cg.vars.end());
 
-			if (isa<AllocaInst>(storage))
-				return cg.builder->CreateLoad(storage);
+			if (n->target->kind == Variable::KindVariable)
+				return cg.builder->CreateLoad(it->second);
 			else
 				return it->second;
 		}
-
-		// Delayed function compilation
-		if (n->target->type->kind == Ty::KindFunction)
-			return cg.vars[n->target] = codegenFunctionValue(cg, n->target);
-
-		ICE("No code generated for identifier %s", n->target->name.str().c_str());
 	}
 
 	if (UNION_CASE(Member, n, node))
