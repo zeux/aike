@@ -5,6 +5,13 @@
 
 struct Variable
 {
+	enum Kind
+	{
+		KindVariable,
+		KindFunction
+	};
+
+	Kind kind;
 	Str name;
 	Ty* type;
 	Location location;

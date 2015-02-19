@@ -244,7 +244,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireT
 		else
 			type = UNION_NEW(Ty, Unknown, {});
 
-		args.push(new Variable { argname.data, type, argname.location });
+		args.push(new Variable { Variable::KindVariable, argname.data, type, argname.location });
 		argtys.push(type);
 
 		if (!ts.is(Token::TypeBracket, ")"))
@@ -306,7 +306,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 		? nullptr
 		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { new Variable { name.data, sig.first, name.location }, sig.second, attributes, body });
+	return UNION_NEW(Ast, FnDecl, { new Variable { Variable::KindFunction, name.data, sig.first, name.location }, sig.second, attributes, body });
 }
 
 static Ast* parseVarDecl(TokenStream& ts)
@@ -329,7 +329,7 @@ static Ast* parseVarDecl(TokenStream& ts)
 
 	Ast* expr = parseExpr(ts);
 
-	return UNION_NEW(Ast, VarDecl, { new Variable { name.data, type, name.location }, expr });
+	return UNION_NEW(Ast, VarDecl, { new Variable { Variable::KindVariable, name.data, type, name.location }, expr });
 }
 
 static Ast* parseStructDecl(TokenStream& ts)
