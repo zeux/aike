@@ -101,7 +101,16 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		if (!constraints)
 			for (auto& a: n->tyargs)
 				if (a->kind == Ty::KindUnknown)
-					output.panic(n->location, "Type mismatch: expected a known type"); // TODO: error message
+				{
+					string inst;
+					for (auto& a: n->tyargs)
+					{
+						if (!inst.empty()) inst += ", ";
+						inst += typeName(a);
+					}
+
+					output.panic(n->location, "Unable to instantiate %s<%s>", n->target->name.str().c_str(), inst.c_str());
+				}
 
 		return make_pair(n->type, n->location);
 	}
