@@ -142,10 +142,10 @@ static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
 	return Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
 }
 
-static Value* codegenFunctionValue(Codegen& cg, Variable* var, Ty* type)
+static Value* codegenFunctionValue(Codegen& cg, Variable* var, Ty* type, const Arr<Ty*>& tyargs)
 {
 	// TODO: remove hack
-	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, type));
+	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, type, tyargs));
 
 	return codegenFunctionValue(cg, name, type);
 }
@@ -282,7 +282,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			UNION_CASE(FnDecl, decl, n->target->fn);
 			assert(decl && decl->var == n->target);
 
-			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, n->type));
+			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, n->type, n->tyargs));
 
 			// TODO: there might be a better way?
 			if (fun->empty())
@@ -584,7 +584,7 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 	{
 		if (n->tyargs.size == 0)
 		{
-			Function* fun = cast<Function>(codegenFunctionValue(cg, n->var, n->var->type));
+			Function* fun = cast<Function>(codegenFunctionValue(cg, n->var, n->var->type, Arr<Ty*>()));
 
 			cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, n->var->name });
 		}

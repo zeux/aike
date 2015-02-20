@@ -59,7 +59,7 @@ static void mangle(string& buffer, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static string mangleFn(const Str& name, int unnamed, Ty* type, const string& parent)
+static string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
 {
 	string result;
 
@@ -82,13 +82,24 @@ static string mangleFn(const Str& name, int unnamed, Ty* type, const string& par
 		result += "_";
 	}
 
-	if (UNION_CASE(Function, t, type))
+	UNION_CASE(Function, t, type);
+	assert(t);
+
+	if (tyargs.size > 0)
 	{
-		for (auto& a: t->args)
+		result += "I";
+
+		for (auto& a: tyargs)
 			mangle(result, a);
+
+		result += "E";
+
+		// Itanium mangling rules are... weird
+		mangle(result, t->ret);
 	}
-	else
-		ICE("Fn type is not Function");
+
+	for (auto& a: t->args)
+		mangle(result, a);
 
 	return result;
 }
@@ -100,14 +111,14 @@ string mangleType(Ty* type)
 	return result;
 }
 
-string mangleFn(const Str& name, Ty* type, const string& parent)
+string mangleFn(const Str& name, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
 {
-	return mangleFn(name, 0, type, parent);
+	return mangleFn(name, 0, type, tyargs, parent);
 }
 
 string mangleFn(int unnamed, Ty* type, const string& parent)
 {
-	return mangleFn(Str(), unnamed, type, parent);
+	return mangleFn(Str(), unnamed, type, Arr<Ty*>(), parent);
 }
 
 string mangle(const string& name)
