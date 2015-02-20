@@ -293,6 +293,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 				for (size_t i = 0; i < n->tyargs.size; ++i)
 					tyargs.push_back(make_pair(decl->tyargs[i], n->tyargs[i]));
 
+				// TODO: parent=current is wrong: need to pick lexical parent
 				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->var->name, cg.currentFunction, tyargs });
 			}
 

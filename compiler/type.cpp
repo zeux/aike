@@ -128,13 +128,13 @@ static void instantiate(TypeConstraints& constraints, Ty* type)
 	{
 		if (t->generic)
 		{
-			Ty*& inst = constraints.data[type];
+			Ty*& inst = constraints.data[t->generic];
 
 			if (!inst)
 				inst = UNION_NEW(Ty, Unknown, {});
 
 			// TODO: Instance & Generic are dual in a weird way
-			constraints.data[t->generic] = inst;
+			constraints.data[type] = inst;
 		}
 	}
 }
