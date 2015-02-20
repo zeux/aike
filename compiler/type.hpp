@@ -25,7 +25,8 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(String, {}) \
 	X(Array, { Ty* element; }) \
 	X(Function, { Arr<Ty*> args; Ty* ret; }) \
-	X(Instance, { Str name; Location location; TyDef* def; }) \
+	X(Instance, { Str name; Location location; TyDef* def; Ty* generic; }) \
+	X(Generic, { Str name; Location location; }) \
 
 UNION_DECL(Ty, UD_TY)
 
@@ -42,6 +43,8 @@ struct TypeConstraints
 bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints);
 bool typeEquals(Ty* lhs, Ty* rhs);
 bool typeOccurs(Ty* lhs, Ty* rhs);
+
+Ty* typeInstantiate(Ty* type, TypeConstraints& constraints);
 
 Ty* typeMember(Ty* type, int index);
 

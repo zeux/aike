@@ -10,6 +10,7 @@ static const char* getOpName(UnaryOp op)
 		case UnaryOpPlus: return "+";
 		case UnaryOpMinus: return "-";
 		case UnaryOpNot: return "not";
+		case UnaryOpSize: return "#";
 		default: ICE("Unknown UnaryOp %d", op);
 	}
 }
@@ -61,7 +62,17 @@ template <typename T, typename F> static void dumpList(const T& list, F pred)
 	}
 }
 
-static void dumpSignature(Ty* ty, const Arr<Variable*>& args)
+static void dumpTypeSignature(const Arr<Ty*>& args)
+{
+	if (args.size == 0)
+		return;
+
+	printf("<");
+	dumpList(args, [&](Ty* t) { dump(t); });
+	printf(">");
+}
+
+static void dumpFunctionSignature(Ty* ty, const Arr<Variable*>& args)
 {
 	printf("(");
 	dumpList(args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
@@ -133,6 +144,7 @@ static void dumpNode(Ast* root, int indent)
 	else if (UNION_CASE(Ident, n, root))
 	{
 		dumpString(n->name);
+		dumpTypeSignature(n->tyargs);
 	}
 	else if (UNION_CASE(Member, n, root))
 	{
@@ -196,7 +208,7 @@ static void dumpNode(Ast* root, int indent)
 	else if (UNION_CASE(Fn, n, root))
 	{
 		printf("fn ");
-		dumpSignature(n->type, n->args);
+		dumpFunctionSignature(n->type, n->args);
 		printf("\n");
 
 		if (n->body)
@@ -209,7 +221,8 @@ static void dumpNode(Ast* root, int indent)
 
 		printf("fn ");
 		dumpString(n->var->name);
-		dumpSignature(n->var->type, n->args);
+		dumpTypeSignature(n->tyargs);
+		dumpFunctionSignature(n->var->type, n->args);
 		printf("\n");
 
 		if (n->body)

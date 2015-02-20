@@ -21,6 +21,9 @@ struct FunctionInstance
 	Ast* body;
 
 	Str external;
+
+	FunctionInstance* parent;
+	vector<pair<Ty*, Ty*>> generics;
 };
 
 struct Codegen
@@ -41,7 +44,8 @@ struct Codegen
 
 	unordered_map<Variable*, Value*> vars;
 
-	vector<FunctionInstance> pendingFunctions;
+	vector<FunctionInstance*> pendingFunctions;
+	FunctionInstance* currentFunction;
 };
 
 static Type* getType(Codegen& cg, Ty* type)
@@ -90,21 +94,39 @@ static Type* getType(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
-		assert(t->def);
-
-		if (UNION_CASE(Struct, d, t->def))
+		if (t->generic)
 		{
-			if (StructType* st = cg.module->getTypeByName(t->name.str()))
-				return st;
+			FunctionInstance* fn = cg.currentFunction;
 
-			vector<Type*> fields;
-			for (auto& f: d->fields)
-				fields.push_back(getType(cg, f.type));
+			while (fn)
+			{
+				for (auto& g: fn->generics)
+					if (g.first == t->generic)
+						return getType(cg, g.second);
 
-			return StructType::create(*cg.context, fields, t->name.str());
+				fn = fn->parent;
+			}
+
+			ICE("Generic type %s was not instantiated", t->name.str().c_str());
 		}
+		else
+		{
+			assert(t->def);
 
-		ICE("Unknown TyDef kind %d", t->def->kind);
+			if (UNION_CASE(Struct, d, t->def))
+			{
+				if (StructType* st = cg.module->getTypeByName(t->name.str()))
+					return st;
+
+				vector<Type*> fields;
+				for (auto& f: d->fields)
+					fields.push_back(getType(cg, f.type));
+
+				return StructType::create(*cg.context, fields, t->name.str());
+			}
+
+			ICE("Unknown TyDef kind %d", t->def->kind);
+		}
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
@@ -120,12 +142,12 @@ static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
 	return Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
 }
 
-static Value* codegenFunctionValue(Codegen& cg, Variable* var)
+static Value* codegenFunctionValue(Codegen& cg, Variable* var, Ty* type)
 {
 	// TODO: remove hack
-	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, var->type));
+	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, type));
 
-	return codegenFunctionValue(cg, name, var->type);
+	return codegenFunctionValue(cg, name, type);
 }
 
 static void codegenTrapIf(Codegen& cg, Value* cond)
@@ -257,7 +279,24 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	{
 		if (n->target->kind == Variable::KindFunction)
 		{
-			return codegenFunctionValue(cg, n->target);
+			UNION_CASE(FnDecl, decl, n->target->fn);
+			assert(decl && decl->var == n->target);
+
+			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, n->type));
+
+			// TODO: there might be a better way?
+			if (fun->empty())
+			{
+				vector<pair<Ty*, Ty*>> tyargs;
+				assert(n->tyargs.size == decl->tyargs.size);
+
+				for (size_t i = 0; i < n->tyargs.size; ++i)
+					tyargs.push_back(make_pair(decl->tyargs[i], n->tyargs[i]));
+
+				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->var->name, cg.currentFunction, tyargs });
+			}
+
+			return fun;
 		}
 		else
 		{
@@ -470,17 +509,13 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	{
 		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, n->type)), n->type));
 
-		cg.pendingFunctions.push_back({ fun, n->args, n->body });
+		cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, Str(), cg.currentFunction });
 
 		return fun;
 	}
 
 	if (UNION_CASE(FnDecl, n, node))
 	{
-		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
-
-		cg.pendingFunctions.push_back({ fun, n->args, n->body, n->var->name });
-
 		return nullptr;
 	}
 
@@ -546,9 +581,12 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 {
 	if (UNION_CASE(FnDecl, n, node))
 	{
-		Function* fun = cast<Function>(codegenFunctionValue(cg, n->var));
+		if (n->tyargs.size == 0)
+		{
+			Function* fun = cast<Function>(codegenFunctionValue(cg, n->var, n->var->type));
 
-		cg.pendingFunctions.push_back({ fun, n->args, n->body, n->var->name });
+			cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, n->var->name });
+		}
 
 		return true;
 	}
@@ -582,10 +620,14 @@ void codegen(Output& output, Ast* root, llvm::Module* module)
 
 	while (!cg.pendingFunctions.empty())
 	{
-		FunctionInstance inst = cg.pendingFunctions.back();
+		FunctionInstance* inst = cg.pendingFunctions.back();
 
 		cg.pendingFunctions.pop_back();
 
-		codegenFunction(cg, inst);
+		cg.currentFunction = inst;
+
+		codegenFunction(cg, *inst);
+
+		cg.currentFunction = nullptr;
 	}
 }

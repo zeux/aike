@@ -59,16 +59,20 @@ struct ResolveNames
 
 	NameMap<Variable> variables;
 	NameMap<TyDef> typedefs;
+	NameMap<Ty> generics;
 
-	pair<size_t, size_t> top() const
+	typedef array<size_t, 3> State;
+
+	State top() const
 	{
-		return make_pair(variables.top(), typedefs.top());
+		return { variables.top(), typedefs.top(), generics.top() };
 	}
 
-	void pop(const pair<size_t, size_t>& offset)
+	void pop(const State& offset)
 	{
-		variables.pop(offset.first);
-		typedefs.pop(offset.second);
+		variables.pop(offset[0]);
+		typedefs.pop(offset[1]);
+		generics.pop(offset[2]);
 	}
 };
 
@@ -84,10 +88,12 @@ static void resolveTypeInstance(ResolveNames& rs, Ty* type)
 {
 	if (UNION_CASE(Instance, t, type))
 	{
-		assert(!t->def);
+		assert(!t->def && !t->generic);
 
 		if (TyDef* def = rs.typedefs.find(t->name))
 			t->def = def;
+		else if (Ty* generic = rs.generics.find(t->name))
+			t->generic = generic;
 		else
 			rs.output->panic(t->location, "Unresolved type %s", t->name.str().c_str());
 	}
@@ -100,12 +106,33 @@ static void resolveType(ResolveNames& rs, Ty* type)
 
 static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 {
-	visitAstTypes(root, resolveType, rs);
+	// TODO: refactor
+	if (root->kind != Ast::KindFnDecl)
+		visitAstTypes(root, resolveType, rs);
 
 	if (UNION_CASE(Ident, n, root))
 	{
 		if (Variable* var = rs.variables.find(n->name))
-			n->target = var;
+		{
+			if (var->kind == Variable::KindFunction)
+			{
+				// TODO: this is incorrect - we should not instantiate generic types that are currently in scope
+				TypeConstraints constraints;
+				n->type = typeInstantiate(var->type, constraints);
+				n->target = var;
+
+				UNION_CASE(FnDecl, decl, var->fn);
+				assert(decl);
+
+				for (auto& arg: decl->tyargs)
+					n->tyargs.push(constraints.rewrite(arg));
+			}
+			else
+			{
+				n->type = var->type;
+				n->target = var;
+			}
+		}
 		else
 			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
 	}
@@ -137,6 +164,16 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 		if (n->body)
 		{
 			auto scope = rs.top();
+
+			for (auto& a: n->tyargs)
+			{
+				UNION_CASE(Generic, g, a);
+				assert(g);
+
+				rs.generics.push(g->name, a);
+			}
+
+			visitAstTypes(root, resolveType, rs);
 
 			for (auto& a: n->args)
 				rs.variables.push(a->name, a);

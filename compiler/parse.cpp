@@ -222,6 +222,53 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 	return UNION_NEW(Ast, Block, { body });
 }
 
+static Arr<Ty*> parseTypeSignature(TokenStream& ts)
+{
+	if (!ts.is(Token::TypeAtom, "<"))
+		return Arr<Ty*>();
+
+	Arr<Ty*> args;
+
+	ts.eat(Token::TypeAtom, "<");
+
+	while (!ts.is(Token::TypeAtom, ">"))
+	{
+		auto name = ts.eat(Token::TypeIdent);
+
+		// TODO: verify name uniqueness
+		args.push(UNION_NEW(Ty, Generic, { name.data, name.location }));
+
+		if (!ts.is(Token::TypeAtom, ">"))
+			ts.eat(Token::TypeAtom, ",");
+	}
+
+	ts.eat(Token::TypeAtom, ">");
+
+	return args;
+}
+
+static Arr<Ty*> parseTypeArguments(TokenStream& ts)
+{
+	if (!ts.is(Token::TypeAtom, "<"))
+		return Arr<Ty*>();
+
+	Arr<Ty*> args;
+
+	ts.eat(Token::TypeAtom, "<");
+
+	while (!ts.is(Token::TypeAtom, ">"))
+	{
+		args.push(parseType(ts));
+
+		if (!ts.is(Token::TypeAtom, ">"))
+			ts.eat(Token::TypeAtom, ",");
+	}
+
+	ts.eat(Token::TypeAtom, ">");
+
+	return args;
+}
+
 static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireTypes)
 {
 	Arr<Variable*> args;
@@ -299,6 +346,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
+	auto tysig = parseTypeSignature(ts);
 	auto sig = parseFnSignature(ts, /* requireTypes= */ true);
 
 	Ast* body =
@@ -306,7 +354,12 @@ static Ast* parseFnDecl(TokenStream& ts)
 		? nullptr
 		: parseBlock(ts, &indent);
 
-	return UNION_NEW(Ast, FnDecl, { new Variable { Variable::KindFunction, name.data, sig.first, name.location }, sig.second, attributes, body });
+	Variable* var = new Variable { Variable::KindFunction, name.data, sig.first, name.location };
+	Ast* result = UNION_NEW(Ast, FnDecl, { var, tysig, sig.second, attributes, body });
+
+	var->fn = result;
+
+	return result;
 }
 
 static Ast* parseVarDecl(TokenStream& ts)
@@ -494,7 +547,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 			expr = parseExpr(ts);
 		}
 		else
-			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
+			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr, nullptr });
 
 		FieldRef field = { fname.data, fname.location, -1 };
 
@@ -556,7 +609,7 @@ static Ast* parseTerm(TokenStream& ts)
 	{
 		auto name = ts.eat(Token::TypeIdent);
 
-		return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr });
+		return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr });
 	}
 
 	if (ts.is(Token::TypeBracket, "("))

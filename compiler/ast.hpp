@@ -16,6 +16,8 @@ struct Variable
 	Str name;
 	Ty* type;
 	Location location;
+
+	Ast* fn;
 };
 
 enum FnAttribute
@@ -64,7 +66,7 @@ struct FieldRef
 	X(LiteralString, { Str value; Location location; }) \
 	X(LiteralArray, { Location location; Ty* type; Arr<Ast*> elements; }) \
 	X(LiteralStruct, { Str name; Location location; Ty* type; Arr<pair<FieldRef, Ast*>> fields; }) \
-	X(Ident, { Str name; Location location; Variable* target; }) \
+	X(Ident, { Str name; Location location; Ty* type; Variable* target; Arr<Ty*> tyargs; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; FieldRef field; }) \
 	X(Block, { Arr<Ast*> body; }) \
 	X(Call, { Ast* expr; Arr<Ast*> args; Location location; }) \
@@ -73,7 +75,7 @@ struct FieldRef
 	X(Index, { Ast* expr; Ast* index; Location location; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
 	X(Fn, { int id; Ty* type; Location location; Arr<Variable*> args; Ast* body; }) \
-	X(FnDecl, { Variable* var; Arr<Variable*> args; unsigned attributes; Ast* body; }) \
+	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; }) \
 

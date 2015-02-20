@@ -1,6 +1,8 @@
 #include "common.hpp"
 #include "type.hpp"
 
+#include "visit.hpp"
+
 bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 {
 	assert(lhs != rhs);
@@ -84,9 +86,10 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 	{
 		UNION_CASE(Instance, ri, rhs);
 
-		assert(li->def && ri->def);
+		assert(li->def || li->generic);
+		assert(ri->def || ri->generic);
 
-		return li->def == ri->def;
+		return li->def == ri->def || li->generic == ri->generic;
 	}
 
 	return true;
@@ -119,6 +122,30 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 	return false;
 }
 
+static void instantiate(TypeConstraints& constraints, Ty* type)
+{
+	if (UNION_CASE(Instance, t, type))
+	{
+		if (t->generic)
+		{
+			Ty*& inst = constraints.data[type];
+
+			if (!inst)
+				inst = UNION_NEW(Ty, Unknown, {});
+
+			// TODO: Instance & Generic are dual in a weird way
+			constraints.data[t->generic] = inst;
+		}
+	}
+}
+
+Ty* typeInstantiate(Ty* type, TypeConstraints& constraints)
+{
+	visitType(type, instantiate, constraints);
+
+	return constraints.rewrite(type);
+}
+
 Ty* typeMember(Ty* type, int index)
 {
 	assert(index >= 0);
@@ -142,6 +169,12 @@ Ty* typeMember(Ty* type, int index)
 
 static void typeName(string& buffer, Ty* type)
 {
+	if (UNION_CASE(Unknown, t, type))
+	{
+		buffer += "_";
+		return;
+	}
+
 	if (UNION_CASE(Void, t, type))
 	{
 		buffer += "void";
@@ -202,9 +235,9 @@ static void typeName(string& buffer, Ty* type)
 		return;
 	}
 
-	if (UNION_CASE(Unknown, t, type))
+	if (UNION_CASE(Generic, t, type))
 	{
-		buffer += "_";
+		buffer += t->name.str();
 		return;
 	}
 

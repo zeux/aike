@@ -56,12 +56,6 @@ static void mangle(string& buffer, Ty* type)
 		return;
 	}
 
-	if (UNION_CASE(Unknown, t, type))
-	{
-		buffer += "Da";
-		return;
-	}
-
 	ICE("Unknown Ty kind %d", type->kind);
 }
 

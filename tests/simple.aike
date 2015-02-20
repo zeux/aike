@@ -22,13 +22,16 @@ fn world(dbg: string, print: bool): string
         println(dbg)
     "world"
 
-fn dump(data: [int])
-    fn helper(data: [int], offset: int)
+fn iter<T>(data: [T], f: fn(int, T))
+    fn helper(data: _, f: _, offset: _)
         if offset < #data
-            printfn("[%d]: %d", offset, data[offset])
-            helper(data, offset + 1)
+            f(offset, data[offset])
+            helper(data, f, offset + 1)
 
-    helper(data, 0)
+    helper(data, f, 0)
+
+fn dump(data: [int])
+    iter(data, fn (i,x) printfn("[%d]: %d", i, x))
 
 fn main(): int
     init()

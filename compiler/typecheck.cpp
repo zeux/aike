@@ -97,7 +97,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	if (UNION_CASE(Ident, n, root))
 	{
 		assert(n->target);
-		return make_pair(n->target->type, n->location);
+
+		return make_pair(n->type, n->location);
 	}
 
 	if (UNION_CASE(Member, n, root))
@@ -343,6 +344,13 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(Ident, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+
+		for (auto& a: n->tyargs)
+			a = constraints.rewrite(a);
 	}
 	else if (UNION_CASE(Fn, n, root))
 	{
