@@ -14,7 +14,7 @@ fn defline(): int
     println("defline!")
     4
 
-fn singleton(v: int): [int]
+fn singleton<T>(v: T): [T]
     [v]
 
 fn world(dbg: string, print: bool): string

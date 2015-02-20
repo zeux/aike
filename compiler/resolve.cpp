@@ -113,26 +113,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	if (UNION_CASE(Ident, n, root))
 	{
 		if (Variable* var = rs.variables.find(n->name))
-		{
-			if (var->kind == Variable::KindFunction)
-			{
-				// TODO: this is incorrect - we should not instantiate generic types that are currently in scope
-				TypeConstraints constraints;
-				n->type = typeInstantiate(var->type, constraints);
-				n->target = var;
-
-				UNION_CASE(FnDecl, decl, var->fn);
-				assert(decl);
-
-				for (auto& arg: decl->tyargs)
-					n->tyargs.push(constraints.rewrite(arg));
-			}
-			else
-			{
-				n->type = var->type;
-				n->target = var;
-			}
-		}
+			n->target = var;
 		else
 			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
 	}

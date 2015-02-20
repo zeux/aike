@@ -96,7 +96,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		assert(n->target);
+		assert(n->type);
 
 		return make_pair(n->type, n->location);
 	}
@@ -372,6 +372,40 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	}
 
 	return false;
+}
+
+static bool instantiate(Output& output, Ast* node)
+{
+	if (UNION_CASE(Ident, n, node))
+	{
+		Variable* var = n->target;
+
+		if (var->kind == Variable::KindFunction)
+		{
+			// TODO: this is incorrect - we should not instantiate generic types that are currently in scope
+			TypeConstraints constraints;
+			n->type = typeInstantiate(var->type, constraints);
+
+			UNION_CASE(FnDecl, decl, var->fn);
+			assert(decl);
+
+			for (auto& arg: decl->tyargs)
+				n->tyargs.push(constraints.rewrite(arg));
+		}
+		else
+		{
+			n->type = var->type;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+void typeckInstantiate(Output& output, Ast* root)
+{
+	visitAst(root, instantiate, output);
 }
 
 int typeckPropagate(Output& output, Ast* root)

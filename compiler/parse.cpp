@@ -269,7 +269,7 @@ static Arr<Ty*> parseTypeArguments(TokenStream& ts)
 	return args;
 }
 
-static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireTypes)
+static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireArgTypes, bool defaultRetVoid)
 {
 	Arr<Variable*> args;
 	Arr<Ty*> argtys;
@@ -282,7 +282,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireT
 
 		Ty* type;
 
-		if (ts.is(Token::TypeAtom, ":") || requireTypes)
+		if (ts.is(Token::TypeAtom, ":") || requireArgTypes)
 		{
 			ts.eat(Token::TypeAtom, ":");
 
@@ -307,7 +307,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireT
 		ts.move();
 		ret = parseType(ts);
 	}
-	else if (requireTypes)
+	else if (defaultRetVoid)
 		ret = UNION_NEW(Ty, Void, {});
 	else
 		ret = UNION_NEW(Ty, Unknown, {});
@@ -323,7 +323,7 @@ static Ast* parseFn(TokenStream& ts)
 
 	ts.eat(Token::TypeIdent, "fn");
 
-	auto sig = parseFnSignature(ts, /* requireTypes= */ false);
+	auto sig = parseFnSignature(ts, /* requireArgTypes= */ false, /* defaultRetVoid= */ false);
 
 	Ast* body = parseBlock(ts, &indent);
 
@@ -347,7 +347,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 	auto name = ts.eat(Token::TypeIdent);
 
 	auto tysig = parseTypeSignature(ts);
-	auto sig = parseFnSignature(ts, /* requireTypes= */ true);
+	auto sig = parseFnSignature(ts, /* requireArgTypes= */ true, /* defaultRetVoid= */ true);
 
 	Ast* body =
 		(attributes & FnAttributeExtern)

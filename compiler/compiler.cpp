@@ -199,6 +199,10 @@ int main(int argc, const char** argv)
 
 		timer.checkpoint("resolveNames");
 
+		typeckInstantiate(output, root);
+
+		timer.checkpoint("instantiate");
+
 		int fixpoint;
 
 		do
