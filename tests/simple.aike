@@ -2,6 +2,14 @@ extern fn init()
 extern fn println(str: string)
 extern fn printfn(str: string, val: int, val: int)
 
+fn concat<T>(a: [T], b: [T]): [T]
+    extern fn aike_concat(a: [T], b: [T], e: int): [T]
+
+    aike_concat(a, b, #:T)
+
+fn append<T>(a: [T], e: T): [T]
+    concat(a, [e])
+
 struct Point
     x: int
     y: int
@@ -61,6 +69,8 @@ fn main(): int
     printfn("array %d,%d", foo[0], foo[1] + singleton(5)[0])
 
     dump([1, 2, 3, 4, 5, 6])
+    dump(append([1, 2, 3], 4))
+    iter(append([], "foo"), fn(i,x) println(x))
 
     0
 

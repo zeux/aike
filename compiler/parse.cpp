@@ -673,6 +673,15 @@ static Ast* parsePrimary(TokenStream& ts)
 		return UNION_NEW(Ast, Unary, { uop.second, expr });
 	}
 
+	if (ts.is(Token::TypeAtom, "#:"))
+	{
+		Location start = ts.get().location;
+
+		ts.move();
+
+		return UNION_NEW(Ast, SizeOf, { start, parseType(ts) });
+	}
+
 	if (ts.is(Token::TypeIdent, "extern"))
 		return parseFnDecl(ts);
 

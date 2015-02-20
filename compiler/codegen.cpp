@@ -48,7 +48,26 @@ struct Codegen
 	FunctionInstance* currentFunction;
 };
 
-static Type* getType(Codegen& cg, Ty* type)
+static Ty* getGenericInstance(Codegen& cg, Ty* type)
+{
+	FunctionInstance* fn = cg.currentFunction;
+
+	while (fn)
+	{
+		for (auto& g: fn->generics)
+			if (g.first == type)
+				return g.second;
+
+		fn = fn->parent;
+	}
+
+	UNION_CASE(Generic, t, type);
+	assert(t);
+
+	ICE("Generic type %s was not instantiated", t->name.str().c_str());
+}
+
+static Type* codegenType(Codegen& cg, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))
 	{
@@ -74,7 +93,7 @@ static Type* getType(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Array, t, type))
 	{
-		Type* element = getType(cg, t->element);
+		Type* element = codegenType(cg, t->element);
 		Type* fields[] = { PointerType::get(element, 0), Type::getInt32Ty(*cg.context) };
 
 		return StructType::get(*cg.context, { fields, 2 });
@@ -82,12 +101,12 @@ static Type* getType(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Function, t, type))
 	{
-		Type* ret = getType(cg, t->ret);
+		Type* ret = codegenType(cg, t->ret);
 
 		vector<Type*> args;
 
 		for (auto& a: t->args)
-			args.push_back(getType(cg, a));
+			args.push_back(codegenType(cg, a));
 
 		return PointerType::get(FunctionType::get(ret, args, false), 0);
 	}
@@ -96,18 +115,9 @@ static Type* getType(Codegen& cg, Ty* type)
 	{
 		if (t->generic)
 		{
-			FunctionInstance* fn = cg.currentFunction;
+			Ty* inst = getGenericInstance(cg, t->generic);
 
-			while (fn)
-			{
-				for (auto& g: fn->generics)
-					if (g.first == t->generic)
-						return getType(cg, g.second);
-
-				fn = fn->parent;
-			}
-
-			ICE("Generic type %s was not instantiated", t->name.str().c_str());
+			return codegenType(cg, inst);
 		}
 		else
 		{
@@ -120,7 +130,7 @@ static Type* getType(Codegen& cg, Ty* type)
 
 				vector<Type*> fields;
 				for (auto& f: d->fields)
-					fields.push_back(getType(cg, f.type));
+					fields.push_back(codegenType(cg, f.type));
 
 				return StructType::create(*cg.context, fields, t->name.str());
 			}
@@ -132,12 +142,45 @@ static Type* getType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static Ty* getType(Codegen& cg, Ty* type)
+{
+	// TODO: We need a general type rewriting facility
+	if (UNION_CASE(Array, t, type))
+	{
+		Ty* element = getType(cg, t->element);
+
+		return UNION_NEW(Ty, Array, { element });
+	}
+
+	if (UNION_CASE(Function, t, type))
+	{
+		Arr<Ty*> args;
+
+		for (Ty* arg: t->args)
+			args.push(getType(cg, arg));
+
+		Ty* ret = getType(cg, t->ret);
+
+		return UNION_NEW(Ty, Function, { args, ret });
+	}
+
+	if (UNION_CASE(Instance, t, type))
+	{
+		if (t->generic)
+			return getGenericInstance(cg, t->generic);
+
+		return type;
+	}
+
+	return type;
+}
+
 static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
 {
 	if (Function* fun = cg.module->getFunction(name))
 		return fun;
 
-	FunctionType* funty = cast<FunctionType>(cast<PointerType>(getType(cg, type))->getElementType());
+	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, type))->getElementType());
 
 	return Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
 }
@@ -193,7 +236,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(LiteralString, n, node))
 	{
-		Type* type = getType(cg, UNION_NEW(Ty, String, {}));
+		Type* type = codegenType(cg, UNION_NEW(Ty, String, {}));
 
 		Value* result = UndefValue::get(type);
 
@@ -207,7 +250,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(LiteralArray, n, node))
 	{
-		Type* type = getType(cg, n->type);
+		Type* type = codegenType(cg, n->type);
 
 		Type* pointerType = cast<StructType>(type)->getElementType(0);
 		Type* elementType = cast<PointerType>(pointerType)->getElementType();
@@ -240,7 +283,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		UNION_CASE(Struct, td, ti->def);
 		assert(td);
 
-		Type* type = getType(cg, n->type);
+		Type* type = codegenType(cg, n->type);
 
 		Value* result = UndefValue::get(type);
 
@@ -275,6 +318,13 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		return result;
 	}
 
+	if (UNION_CASE(SizeOf, n, node))
+	{
+		Type* type = codegenType(cg, n->type);
+
+		return cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
+	}
+
 	if (UNION_CASE(Ident, n, node))
 	{
 		if (n->target->kind == Variable::KindFunction)
@@ -282,7 +332,13 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			UNION_CASE(FnDecl, decl, n->target->fn);
 			assert(decl && decl->var == n->target);
 
-			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, n->type, n->tyargs));
+			Ty* type = getType(cg, n->type);
+
+			Arr<Ty*> tyargs;
+			for (auto& a: n->tyargs)
+				tyargs.push(getType(cg, a));
+
+			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, type, tyargs));
 
 			// TODO: there might be a better way?
 			if (fun->empty())
@@ -290,8 +346,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 				vector<pair<Ty*, Ty*>> tyargs;
 				assert(n->tyargs.size == decl->tyargs.size);
 
+				// TODO: we're computing the final type here again
 				for (size_t i = 0; i < n->tyargs.size; ++i)
-					tyargs.push_back(make_pair(decl->tyargs[i], n->tyargs[i]));
+					tyargs.push_back(make_pair(decl->tyargs[i], getType(cg, n->tyargs[i])));
 
 				// TODO: parent=current is wrong: need to pick lexical parent
 				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->var->name, cg.currentFunction, tyargs });
@@ -508,7 +565,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Fn, n, node))
 	{
-		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, n->type)), n->type));
+		Ty* type = getType(cg, n->type);
+
+		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, type)), type));
 
 		cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, Str(), cg.currentFunction });
 

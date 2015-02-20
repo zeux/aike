@@ -51,6 +51,8 @@ static void mangle(string& buffer, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
+		assert(!t->generic);
+
 		buffer += to_string(t->name.size);
 		buffer += t->name.str();
 		return;

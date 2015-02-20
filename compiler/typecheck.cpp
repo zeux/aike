@@ -94,6 +94,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return make_pair(n->type, n->location);
 	}
 
+	if (UNION_CASE(SizeOf, n, root))
+		return make_pair(UNION_NEW(Ty, Integer, {}), n->location);
+
 	if (UNION_CASE(Ident, n, root))
 	{
 		assert(n->type);
@@ -356,6 +359,10 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 		n->type = constraints.rewrite(n->type);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(SizeOf, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
 	}

@@ -126,7 +126,9 @@ static void dumpNode(Ast* root, int indent)
 	}
 	else if (UNION_CASE(LiteralString, n, root))
 	{
+		printf("\"");
 		dumpString(n->value);
+		printf("\"");
 	}
 	else if (UNION_CASE(LiteralArray, n, root))
 	{
@@ -140,6 +142,11 @@ static void dumpNode(Ast* root, int indent)
 		printf(" { ");
 		dumpList(n->fields, [&](const pair<FieldRef, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
 		printf(" }");
+	}
+	else if (UNION_CASE(SizeOf, n, root))
+	{
+		printf("#:");
+		dump(n->type);
 	}
 	else if (UNION_CASE(Ident, n, root))
 	{
