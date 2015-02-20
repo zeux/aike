@@ -142,27 +142,27 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
+		auto scope = rs.top();
+
+		for (auto& a: n->tyargs)
+		{
+			UNION_CASE(Generic, g, a);
+			assert(g);
+
+			rs.generics.push(g->name, a);
+		}
+
+		visitAstTypes(root, resolveType, rs);
+
 		if (n->body)
 		{
-			auto scope = rs.top();
-
-			for (auto& a: n->tyargs)
-			{
-				UNION_CASE(Generic, g, a);
-				assert(g);
-
-				rs.generics.push(g->name, a);
-			}
-
-			visitAstTypes(root, resolveType, rs);
-
 			for (auto& a: n->args)
 				rs.variables.push(a->name, a);
 
 			visitAstInner(root, resolveNamesNode, rs);
-
-			rs.pop(scope);
 		}
+
+		rs.pop(scope);
 	}
 	else if (UNION_CASE(VarDecl, n, root))
 	{
