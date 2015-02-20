@@ -98,6 +98,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	{
 		assert(n->type);
 
+		if (!constraints)
+			for (auto& a: n->tyargs)
+				if (a->kind == Ty::KindUnknown)
+					output.panic(n->location, "Type mismatch: expected a known type"); // TODO: error message
+
 		return make_pair(n->type, n->location);
 	}
 
