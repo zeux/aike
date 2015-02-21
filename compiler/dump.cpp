@@ -143,11 +143,6 @@ static void dumpNode(Ast* root, int indent)
 		dumpList(n->fields, [&](const pair<FieldRef, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
 		printf(" }");
 	}
-	else if (UNION_CASE(SizeOf, n, root))
-	{
-		printf("#:");
-		dump(n->type);
-	}
 	else if (UNION_CASE(Ident, n, root))
 	{
 		dumpString(n->name);

@@ -320,13 +320,6 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		return result;
 	}
 
-	if (UNION_CASE(SizeOf, n, node))
-	{
-		Type* type = codegenType(cg, n->type);
-
-		return cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
-	}
-
 	if (UNION_CASE(Ident, n, node))
 	{
 		if (n->target->kind == Variable::KindFunction)
