@@ -46,7 +46,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(extern|fn|var|if|else)\b</string>
+			<string>\b(extern|builtin|fn|var|if|else)\b</string>
 			<key>name</key>
 			<string>keyword.control.aike</string>
 		</dict>
