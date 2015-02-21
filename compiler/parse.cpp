@@ -342,6 +342,12 @@ static Ast* parseFnDecl(TokenStream& ts)
 		ts.move();
 	}
 
+	if (ts.is(Token::TypeIdent, "builtin"))
+	{
+		attributes |= FnAttributeBuiltin;
+		ts.move();
+	}
+
 	ts.eat(Token::TypeIdent, "fn");
 
 	auto name = ts.eat(Token::TypeIdent);
@@ -350,7 +356,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 	auto sig = parseFnSignature(ts, /* requireArgTypes= */ true, /* defaultRetVoid= */ true);
 
 	Ast* body =
-		(attributes & FnAttributeExtern)
+		(attributes & (FnAttributeExtern | FnAttributeBuiltin))
 		? nullptr
 		: parseBlock(ts, &indent);
 
@@ -682,7 +688,7 @@ static Ast* parsePrimary(TokenStream& ts)
 		return UNION_NEW(Ast, SizeOf, { start, parseType(ts) });
 	}
 
-	if (ts.is(Token::TypeIdent, "extern"))
+	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "builtin"))
 		return parseFnDecl(ts);
 
 	if (ts.is(Token::TypeIdent, "fn"))

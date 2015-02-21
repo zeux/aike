@@ -23,6 +23,7 @@ struct Variable
 enum FnAttribute
 {
 	FnAttributeExtern = 1 << 0,
+	FnAttributeBuiltin = 1 << 1,
 };
 
 enum UnaryOp

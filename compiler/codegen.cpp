@@ -20,6 +20,8 @@ struct FunctionInstance
 	Arr<Variable*> args;
 	Ast* body;
 
+	unsigned int attributes;
+
 	Str external;
 
 	FunctionInstance* parent;
@@ -351,7 +353,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 					tyargs.push_back(make_pair(decl->tyargs[i], getType(cg, n->tyargs[i])));
 
 				// TODO: parent=current is wrong: need to pick lexical parent
-				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->var->name, cg.currentFunction, tyargs });
+				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, tyargs });
 			}
 
 			return fun;
@@ -569,7 +571,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, type)), type));
 
-		cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, Str(), cg.currentFunction });
+		cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, 0, Str(), cg.currentFunction });
 
 		return fun;
 	}
@@ -596,6 +598,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 {
+	assert(!inst.body);
 	assert(inst.external.size > 0);
 
 	Constant* external = cg.module->getOrInsertFunction(inst.external.str(), inst.value->getFunctionType());
@@ -616,10 +619,35 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 		cg.builder->CreateRet(ret);
 }
 
+static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
+{
+	assert(!inst.body);
+	assert(inst.external.size > 0);
+
+	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
+	cg.builder->SetInsertPoint(bb);
+
+	if (inst.external == "sizeof" && inst.generics.size() == 1)
+	{
+		Type* type = codegenType(cg, inst.generics[0].second);
+		Value* ret = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
+
+		cg.builder->CreateRet(ret);
+	}
+	else
+		// TODO Location
+		cg.output->panic(Location(), "Unknown builtin function %s", inst.external.str().c_str());
+}
+
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
-	if (!inst.body)
+	if (inst.attributes & FnAttributeExtern)
 		return codegenFunctionExtern(cg, inst);
+
+	if (inst.attributes & FnAttributeBuiltin)
+		return codegenFunctionBuiltin(cg, inst);
+
+	assert(inst.body);
 
 	size_t argindex = 0;
 
@@ -645,7 +673,7 @@ static bool codegenGatherToplevel(Codegen& cg, Ast* node)
 		{
 			Function* fun = cast<Function>(codegenFunctionValue(cg, n->var, n->var->type, Arr<Ty*>()));
 
-			cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, n->var->name });
+			cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, n->attributes, n->var->name });
 		}
 
 		return true;
