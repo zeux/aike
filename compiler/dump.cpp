@@ -84,6 +84,15 @@ static void dumpFunctionSignature(Ty* ty, const Arr<Variable*>& args)
 		ICE("Fn type is not Function");
 }
 
+static void dumpTypeArguments(const Arr<Ty*>& args)
+{
+	if (args.size == 0)
+		return;
+
+	printf(".");
+	dumpTypeSignature(args);
+}
+
 static void dumpNode(Ast* root, int indent);
 
 static void dumpDef(const Str& name, TyDef* def, int indent)
@@ -146,7 +155,7 @@ static void dumpNode(Ast* root, int indent)
 	else if (UNION_CASE(Ident, n, root))
 	{
 		dumpString(n->name);
-		dumpTypeSignature(n->tyargs);
+		dumpTypeArguments(n->tyargs);
 	}
 	else if (UNION_CASE(Member, n, root))
 	{

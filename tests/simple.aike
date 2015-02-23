@@ -2,13 +2,12 @@ extern fn init()
 extern fn println(str: string)
 extern fn printfn(str: string, val: int, val: int)
 
-builtin fn sizeof<T>(a: [T]): int
+builtin fn sizeof<T>(): int
 
 fn concat<T>(a: [T], b: [T]): [T]
     extern fn aike_concat(a: [T], b: [T], e: int): [T]
 
-    var dummy: [T] = []
-    aike_concat(a, b, sizeof(dummy))
+    aike_concat(a, b, sizeof.<T>())
 
 fn append<T>(a: [T], e: T): [T]
     concat(a, [e])

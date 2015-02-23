@@ -388,6 +388,43 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	return false;
 }
 
+static Ty* getType(const pair<Arr<Ty*>, Arr<Ty*>>& ctx, Ty* type)
+{
+	// TODO: We need a general type rewriting facility
+	if (UNION_CASE(Array, t, type))
+	{
+		Ty* element = getType(ctx, t->element);
+
+		return UNION_NEW(Ty, Array, { element });
+	}
+
+	if (UNION_CASE(Function, t, type))
+	{
+		Arr<Ty*> args;
+
+		for (Ty* arg: t->args)
+			args.push(getType(ctx, arg));
+
+		Ty* ret = getType(ctx, t->ret);
+
+		return UNION_NEW(Ty, Function, { args, ret });
+	}
+
+	if (UNION_CASE(Instance, t, type))
+	{
+		if (t->generic)
+		{
+			for (size_t i = 0; i < ctx.first.size; ++i)
+				if (t->generic == ctx.first[i])
+					return ctx.second[i];
+		}
+
+		return type;
+	}
+
+	return type;
+}
+
 static bool instantiate(Output& output, Ast* node)
 {
 	if (UNION_CASE(Ident, n, node))
@@ -396,15 +433,21 @@ static bool instantiate(Output& output, Ast* node)
 
 		if (var->kind == Variable::KindFunction)
 		{
-			// TODO: this is incorrect - we should not instantiate generic types that are currently in scope
-			TypeConstraints constraints;
-			n->type = typeInstantiate(var->type, constraints);
-
 			UNION_CASE(FnDecl, decl, var->fn);
 			assert(decl);
 
-			for (auto& arg: decl->tyargs)
-				n->tyargs.push(constraints.rewrite(arg));
+			if (n->tyargs.size == 0)
+			{
+				for (auto& arg: decl->tyargs)
+					n->tyargs.push(UNION_NEW(Ty, Unknown, {}));
+			}
+			else
+			{
+				if (n->tyargs.size != decl->tyargs.size)
+					output.panic(n->location, "Expected %d type arguments but given %d", int(decl->tyargs.size), int(n->tyargs.size));
+			}
+
+			n->type = getType(make_pair(decl->tyargs, n->tyargs), var->type);
 		}
 		else
 		{

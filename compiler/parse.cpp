@@ -249,12 +249,12 @@ static Arr<Ty*> parseTypeSignature(TokenStream& ts)
 
 static Arr<Ty*> parseTypeArguments(TokenStream& ts)
 {
-	if (!ts.is(Token::TypeAtom, "<"))
+	if (!ts.is(Token::TypeAtom, ".<"))
 		return Arr<Ty*>();
 
 	Arr<Ty*> args;
 
-	ts.eat(Token::TypeAtom, "<");
+	ts.eat(Token::TypeAtom, ".<");
 
 	while (!ts.is(Token::TypeAtom, ">"))
 	{
@@ -571,6 +571,15 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
 }
 
+static Ast* parseIdent(TokenStream& ts)
+{
+	auto name = ts.eat(Token::TypeIdent);
+
+	auto tyargs = parseTypeArguments(ts);
+
+	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr, tyargs });
+}
+
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "true"))
@@ -613,9 +622,7 @@ static Ast* parseTerm(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent))
 	{
-		auto name = ts.eat(Token::TypeIdent);
-
-		return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr });
+		return parseIdent(ts);
 	}
 
 	if (ts.is(Token::TypeBracket, "("))

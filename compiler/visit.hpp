@@ -94,6 +94,11 @@ template <typename F, typename FC> inline void visitAstTypes(Ast* node, F f, FC&
 	{
 		f(fc, n->type);
 	}
+	else if (UNION_CASE(Ident, n, node))
+	{
+		for (auto& a: n->tyargs)
+			f(fc, a);
+	}
 	else if (UNION_CASE(Fn, n, node))
 	{
 		f(fc, n->type);
