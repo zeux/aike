@@ -144,37 +144,11 @@ static Type* codegenType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static Ty* getType(Codegen& cg, Ty* type)
+static Ty* finalType(Codegen& cg, Ty* type)
 {
-	// TODO: We need a general type rewriting facility
-	if (UNION_CASE(Array, t, type))
-	{
-		Ty* element = getType(cg, t->element);
-
-		return UNION_NEW(Ty, Array, { element });
-	}
-
-	if (UNION_CASE(Function, t, type))
-	{
-		Arr<Ty*> args;
-
-		for (Ty* arg: t->args)
-			args.push(getType(cg, arg));
-
-		Ty* ret = getType(cg, t->ret);
-
-		return UNION_NEW(Ty, Function, { args, ret });
-	}
-
-	if (UNION_CASE(Instance, t, type))
-	{
-		if (t->generic)
-			return getGenericInstance(cg, t->generic);
-
-		return type;
-	}
-
-	return type;
+	return typeInstantiate(type, [&](Ty* ty) -> Ty* {
+		return getGenericInstance(cg, ty);
+	});
 }
 
 static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
@@ -327,26 +301,25 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			UNION_CASE(FnDecl, decl, n->target->fn);
 			assert(decl && decl->var == n->target);
 
-			Ty* type = getType(cg, n->type);
+			Ty* type = finalType(cg, n->type);
 
 			Arr<Ty*> tyargs;
 			for (auto& a: n->tyargs)
-				tyargs.push(getType(cg, a));
+				tyargs.push(finalType(cg, a));
 
 			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, type, tyargs));
 
 			// TODO: there might be a better way?
 			if (fun->empty())
 			{
-				vector<pair<Ty*, Ty*>> tyargs;
+				vector<pair<Ty*, Ty*>> inst;
 				assert(n->tyargs.size == decl->tyargs.size);
 
-				// TODO: we're computing the final type here again
 				for (size_t i = 0; i < n->tyargs.size; ++i)
-					tyargs.push_back(make_pair(decl->tyargs[i], getType(cg, n->tyargs[i])));
+					inst.push_back(make_pair(decl->tyargs[i], tyargs[i]));
 
 				// TODO: parent=current is wrong: need to pick lexical parent
-				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, tyargs });
+				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
 			}
 
 			return fun;
@@ -560,7 +533,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Fn, n, node))
 	{
-		Ty* type = getType(cg, n->type);
+		Ty* type = finalType(cg, n->type);
 
 		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, type)), type));
 

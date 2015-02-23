@@ -122,28 +122,42 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 	return false;
 }
 
-static void instantiate(TypeConstraints& constraints, Ty* type)
+Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 {
+	if (UNION_CASE(Array, t, type))
+	{
+		Ty* element = typeInstantiate(t->element, inst);
+
+		return UNION_NEW(Ty, Array, { element });
+	}
+
+	if (UNION_CASE(Function, t, type))
+	{
+		Arr<Ty*> args;
+
+		for (Ty* arg: t->args)
+			args.push(typeInstantiate(arg, inst));
+
+		Ty* ret = typeInstantiate(t->ret, inst);
+
+		return UNION_NEW(Ty, Function, { args, ret });
+	}
+
 	if (UNION_CASE(Instance, t, type))
 	{
 		if (t->generic)
 		{
-			Ty*& inst = constraints.data[t->generic];
-
-			if (!inst)
-				inst = UNION_NEW(Ty, Unknown, {});
-
-			// TODO: Instance & Generic are dual in a weird way
-			constraints.data[type] = inst;
+			if (Ty* i = inst(t->generic))
+			{
+				assert(i != t->generic);
+				return i;
+			}
 		}
+
+		return type;
 	}
-}
 
-Ty* typeInstantiate(Ty* type, TypeConstraints& constraints)
-{
-	visitType(type, instantiate, constraints);
-
-	return constraints.rewrite(type);
+	return type;
 }
 
 Ty* typeMember(Ty* type, int index)

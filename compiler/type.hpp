@@ -44,7 +44,7 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints);
 bool typeEquals(Ty* lhs, Ty* rhs);
 bool typeOccurs(Ty* lhs, Ty* rhs);
 
-Ty* typeInstantiate(Ty* type, TypeConstraints& constraints);
+Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst);
 
 Ty* typeMember(Ty* type, int index);
 
