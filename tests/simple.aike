@@ -12,6 +12,10 @@ fn concat<T>(a: [T], b: [T]): [T]
 fn append<T>(a: [T], e: T): [T]
     concat(a, [e])
 
+struct Pair<T, U>
+    first: T
+    second: U
+
 struct Point
     x: int
     y: int

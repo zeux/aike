@@ -399,6 +399,8 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
+	auto tysig = parseTypeSignature(ts);
+
 	Arr<StructField> fields;
 
 	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
@@ -432,7 +434,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 			fields.push({ f.data, ty, expr });
 	});
 
-	TyDef* def = UNION_NEW(TyDef, Struct, { fields });
+	TyDef* def = UNION_NEW(TyDef, Struct, { tysig, fields });
 
 	return UNION_NEW(Ast, TyDecl, { name.data, name.location, def });
 }

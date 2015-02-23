@@ -101,6 +101,7 @@ static void dumpDef(const Str& name, TyDef* def, int indent)
 	{
 		printf("struct ");
 		dumpString(name);
+		dumpTypeSignature(sd->tyargs);
 		printf("\n");
 
 		for (auto& f: sd->fields)

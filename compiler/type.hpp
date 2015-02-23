@@ -13,7 +13,7 @@ struct StructField
 };
 
 #define UD_TYDEF(X) \
-	X(Struct, { Arr<StructField> fields; }) \
+	X(Struct, { Arr<Ty*> tyargs; Arr<StructField> fields; }) \
 
 UNION_DECL(TyDef, UD_TYDEF)
 

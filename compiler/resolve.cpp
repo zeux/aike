@@ -107,7 +107,7 @@ static void resolveType(ResolveNames& rs, Ty* type)
 static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 {
 	// TODO: refactor
-	if (root->kind != Ast::KindFnDecl)
+	if (root->kind != Ast::KindFnDecl && root->kind != Ast::KindTyDecl)
 		visitAstTypes(root, resolveType, rs);
 
 	if (UNION_CASE(Ident, n, root))
@@ -161,6 +161,28 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 			visitAstInner(root, resolveNamesNode, rs);
 		}
+
+		rs.pop(scope);
+	}
+	else if (UNION_CASE(TyDecl, n, root))
+	{
+		auto scope = rs.top();
+
+		if (UNION_CASE(Struct, d, n->def))
+		{
+			for (auto& a: d->tyargs)
+			{
+				UNION_CASE(Generic, g, a);
+				assert(g);
+
+				rs.generics.push(g->name, a);
+			}
+		}
+		else
+			ICE("Unknown TyDef kind %d", n->def->kind);
+
+		visitAstTypes(root, resolveType, rs);
+		visitAstInner(root, resolveNamesNode, rs);
 
 		rs.pop(scope);
 	}
