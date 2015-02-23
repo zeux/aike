@@ -47,6 +47,9 @@ fn iter<T>(data: [T], f: fn(int, T))
 fn dump(data: [int])
     iter(data, fn (i,x) printfn("[%d]: %d", i, x))
 
+fn first<T, U>(p: Pair.<T, U>): T
+    p.first
+
 fn main(): int
     init()
     var hello = "Hello, "
@@ -77,6 +80,9 @@ fn main(): int
     dump([1, 2, 3, 4, 5, 6])
     dump(append([1, 2, 3], 4))
     iter(append([], "foo"), fn(i,x) println(x))
+
+    var p: Pair.<int, int> = { first = 1, second = 2 }
+    printfn("pair %d", first(p), 0)
 
     0
 

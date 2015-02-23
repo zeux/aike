@@ -127,14 +127,16 @@ static Type* codegenType(Codegen& cg, Ty* type)
 
 			if (UNION_CASE(Struct, d, t->def))
 			{
-				if (StructType* st = cg.module->getTypeByName(t->name.str()))
+				string name = mangleType(type);
+
+				if (StructType* st = cg.module->getTypeByName(name))
 					return st;
 
 				vector<Type*> fields;
-				for (auto& f: d->fields)
-					fields.push_back(codegenType(cg, f.type));
+				for (size_t i = 0; i < d->fields.size; ++i)
+					fields.push_back(codegenType(cg, typeMember(type, i)));
 
-				return StructType::create(*cg.context, fields, t->name.str());
+				return StructType::create(*cg.context, fields, name);
 			}
 
 			ICE("Unknown TyDef kind %d", t->def->kind);

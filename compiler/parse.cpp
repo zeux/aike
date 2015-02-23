@@ -88,7 +88,7 @@ static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
 	return loc.column == ts.tokens->lines[loc.line].indent;
 }
 
-static Arr<Ty*> parseTypeSignature(TokenStream& ts);
+static Arr<Ty*> parseTypeArguments(TokenStream& ts);
 
 static Ty* parseType(TokenStream& ts)
 {
@@ -167,7 +167,7 @@ static Ty* parseType(TokenStream& ts)
 	if (ts.is(Token::TypeIdent))
 	{
 		auto name = ts.eat(Token::TypeIdent);
-		auto tysig = parseTypeSignature(ts);
+		auto tysig = parseTypeArguments(ts);
 
 		return UNION_NEW(Ty, Instance, { name.data, name.location, tysig });
 	}

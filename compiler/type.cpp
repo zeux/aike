@@ -105,7 +105,7 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 		if (li->tyargs.size != ri->tyargs.size)
 			return false;
 
-		for (size_t i = 0; i < li->tyargs.size; ++ri)
+		for (size_t i = 0; i < li->tyargs.size; ++i)
 			if (!typeUnify(li->tyargs[i], ri->tyargs[i], constraints))
 				return false;
 
