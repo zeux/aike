@@ -388,8 +388,37 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	return false;
 }
 
-static bool instantiate(Output& output, Ast* node)
+static void instantiateType(Output& output, Ty* type)
 {
+	if (UNION_CASE(Instance, t, type))
+	{
+		assert(t->def || t->generic);
+
+		if (t->def)
+		{
+			if (UNION_CASE(Struct, def, t->def))
+			{
+				if (t->tyargs.size == 0)
+				{
+					for (auto& arg: def->tyargs)
+						t->tyargs.push(UNION_NEW(Ty, Unknown, {}));
+				}
+				else
+				{
+					if (t->tyargs.size != def->tyargs.size)
+						output.panic(t->location, "Expected %d type arguments but given %d", int(def->tyargs.size), int(t->tyargs.size));
+				}
+			}
+			else
+				ICE("Unknown TyDef kind %d", t->def->kind);
+		}
+	}
+}
+
+static bool instantiateNode(Output& output, Ast* node)
+{
+	visitAstTypes(node, instantiateType, output);
+
 	if (UNION_CASE(Ident, n, node))
 	{
 		Variable* var = n->target;
@@ -431,7 +460,7 @@ static bool instantiate(Output& output, Ast* node)
 
 void typeckInstantiate(Output& output, Ast* root)
 {
-	visitAst(root, instantiate, output);
+	visitAst(root, instantiateNode, output);
 }
 
 int typeckPropagate(Output& output, Ast* root)

@@ -81,8 +81,7 @@ fn main(): int
     dump(append([1, 2, 3], 4))
     iter(append([], "foo"), fn(i,x) println(x))
 
-    var p: Pair.<int, int> = { first = 1, second = 2 }
-    printfn("pair %d", first(p), 0)
+    printfn("pair %d", first({ first = 1, second = "hey"}), 0)
 
     0
 
