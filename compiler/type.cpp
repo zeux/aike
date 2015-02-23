@@ -47,6 +47,16 @@ Ty* TypeConstraints::rewrite(Ty* type)
 		return UNION_NEW(Ty, Function, { args, ret });
 	}
 
+	if (UNION_CASE(Instance, t, type))
+	{
+		Arr<Ty*> tyargs;
+
+		for (Ty* arg: t->tyargs)
+			tyargs.push(rewrite(arg));
+
+		return UNION_NEW(Ty, Instance, { t->name, t->location, tyargs, t->def, t->generic });
+	}
+
 	return type;
 }
 
@@ -89,7 +99,17 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 		assert(li->def || li->generic);
 		assert(ri->def || ri->generic);
 
-		return li->def == ri->def || li->generic == ri->generic;
+		if (li->def != ri->def || li->generic != ri->generic)
+			return false;
+
+		if (li->tyargs.size != ri->tyargs.size)
+			return false;
+
+		for (size_t i = 0; i < li->tyargs.size; ++ri)
+			if (!typeUnify(li->tyargs[i], ri->tyargs[i], constraints))
+				return false;
+
+		return true;
 	}
 
 	return true;
@@ -117,6 +137,15 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 				return true;
 
 		return typeOccurs(lf->ret, rhs);
+	}
+
+	if (UNION_CASE(Instance, li, lhs))
+	{
+		for (auto& a: li->tyargs)
+			if (typeOccurs(a, rhs))
+				return true;
+
+		return false;
 	}
 
 	return false;
@@ -152,9 +181,18 @@ Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 				assert(i != t->generic);
 				return i;
 			}
-		}
 
-		return type;
+			return type;
+		}
+		else
+		{
+			Arr<Ty*> tyargs;
+
+			for (Ty* arg: t->tyargs)
+				tyargs.push(typeInstantiate(arg, inst));
+
+			return UNION_NEW(Ty, Instance, { t->name, t->location, tyargs, t->def, t->generic });
+		}
 	}
 
 	return type;
@@ -164,16 +202,23 @@ Ty* typeMember(Ty* type, int index)
 {
 	assert(index >= 0);
 
-	if (UNION_CASE(Instance, i, type))
+	if (UNION_CASE(Instance, inst, type))
 	{
-		if (UNION_CASE(Struct, def, i->def))
+		if (UNION_CASE(Struct, def, inst->def))
 		{
 			assert(index < def->fields.size);
+			assert(def->tyargs.size == inst->tyargs.size);
 
-			return def->fields[index].type;
+			return typeInstantiate(def->fields[index].type, [&](Ty* ty) -> Ty* {
+				for (size_t i = 0; i < def->tyargs.size; ++i)
+					if (ty == def->tyargs[i])
+						return inst->tyargs[i];
+
+				return nullptr;
+			});
 		}
 
-		ICE("Unexpected TyDef kind %d", i->def->kind);
+		ICE("Unexpected TyDef kind %d", inst->def->kind);
 	}
 
 	ICE("Unexpected Ty kind %d", type->kind);
@@ -246,6 +291,18 @@ static void typeName(string& buffer, Ty* type)
 	if (UNION_CASE(Instance, t, type))
 	{
 		buffer += t->name.str();
+		if (t->tyargs.size > 0)
+		{
+			buffer += "<";
+
+			for (size_t i = 0; i < t->tyargs.size; ++i)
+			{
+				if (i != 0) buffer += ", ";
+				typeName(buffer, t->tyargs[i]);
+			}
+
+			buffer += ">";
+		}
 		return;
 	}
 

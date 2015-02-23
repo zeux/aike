@@ -131,9 +131,14 @@ template <typename F, typename FC> inline void visitType(Ty* type, F f, FC& fc)
 	}
 	else if (UNION_CASE(Function, t, type))
 	{
-		for (auto& c: t->args)
-			visitType(c, f, fc);
+		for (auto& a: t->args)
+			visitType(a, f, fc);
 
 		visitType(t->ret, f, fc);
+	}
+	else if (UNION_CASE(Instance, t, type))
+	{
+		for (auto& a: t->tyargs)
+			visitType(a, f, fc);
 	}
 }

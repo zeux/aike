@@ -88,6 +88,8 @@ static bool isFirstOnLine(const TokenStream& ts, const Location& loc)
 	return loc.column == ts.tokens->lines[loc.line].indent;
 }
 
+static Arr<Ty*> parseTypeSignature(TokenStream& ts);
+
 static Ty* parseType(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "_"))
@@ -165,8 +167,9 @@ static Ty* parseType(TokenStream& ts)
 	if (ts.is(Token::TypeIdent))
 	{
 		auto name = ts.eat(Token::TypeIdent);
+		auto tysig = parseTypeSignature(ts);
 
-		return UNION_NEW(Ty, Instance, { name.data, name.location, nullptr });
+		return UNION_NEW(Ty, Instance, { name.data, name.location, tysig });
 	}
 
 	ts.output->panic(ts.get().location, "Expected type");
@@ -537,6 +540,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 	Location start = ts.get().location;
 
 	auto name = ts.is(Token::TypeIdent) ? ts.eat(Token::TypeIdent) : Token();
+	auto tyargs = name.data.size == 0 ? Arr<Ty*>() : parseTypeArguments(ts);
 
 	Arr<pair<FieldRef, Ast*>> fields;
 
@@ -568,7 +572,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, "}");
 
-	Ty* ty = name.data.size == 0 ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, nullptr });
+	Ty* ty = name.data.size == 0 ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
 
 	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
 }

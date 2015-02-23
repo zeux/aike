@@ -25,7 +25,7 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(String, {}) \
 	X(Array, { Ty* element; }) \
 	X(Function, { Arr<Ty*> args; Ty* ret; }) \
-	X(Instance, { Str name; Location location; TyDef* def; Ty* generic; }) \
+	X(Instance, { Str name; Location location; Arr<Ty*> tyargs; TyDef* def; Ty* generic; }) \
 	X(Generic, { Str name; Location location; }) \
 
 UNION_DECL(Ty, UD_TY)

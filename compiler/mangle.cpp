@@ -55,6 +55,16 @@ static void mangle(string& buffer, Ty* type)
 
 		buffer += to_string(t->name.size);
 		buffer += t->name.str();
+
+		if (t->tyargs.size > 0)
+		{
+			buffer += "I";
+
+			for (auto& a: t->tyargs)
+				mangle(buffer, a);
+
+			buffer += "E";
+		}
 		return;
 	}
 
