@@ -298,10 +298,12 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 	if (UNION_CASE(Ident, n, node))
 	{
-		if (n->target->kind == Variable::KindFunction)
+		Variable* target = n->target;
+
+		if (target->kind == Variable::KindFunction)
 		{
-			UNION_CASE(FnDecl, decl, n->target->fn);
-			assert(decl && decl->var == n->target);
+			UNION_CASE(FnDecl, decl, target->fn);
+			assert(decl && decl->var == target);
 
 			Ty* type = finalType(cg, n->type);
 
@@ -309,7 +311,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			for (auto& a: n->tyargs)
 				tyargs.push(finalType(cg, a));
 
-			Function* fun = cast<Function>(codegenFunctionValue(cg, n->target, type, tyargs));
+			Function* fun = cast<Function>(codegenFunctionValue(cg, target, type, tyargs));
 
 			// TODO: there might be a better way?
 			if (fun->empty())
@@ -328,10 +330,10 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		}
 		else
 		{
-			auto it = cg.vars.find(n->target);
+			auto it = cg.vars.find(target);
 			assert(it != cg.vars.end());
 
-			if (n->target->kind == Variable::KindVariable)
+			if (target->kind == Variable::KindVariable)
 				return cg.builder->CreateLoad(it->second);
 			else
 				return it->second;

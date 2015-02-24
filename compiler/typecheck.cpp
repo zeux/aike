@@ -109,7 +109,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 						inst += typeName(a);
 					}
 
-					output.panic(n->location, "Unable to instantiate %s<%s>", n->target->name.str().c_str(), inst.c_str());
+					output.panic(n->location, "Unable to instantiate %s<%s>", n->name.str().c_str(), inst.c_str());
 				}
 
 		return make_pair(n->type, n->location);
