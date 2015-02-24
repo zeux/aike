@@ -166,7 +166,7 @@ int main(int argc, const char** argv)
 
 	module->setDataLayout(machine->getDataLayout());
 
-	module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr);
+	vector<Value*> entries;
 
 	timer.checkpoint("startup");
 
@@ -234,10 +234,12 @@ int main(int argc, const char** argv)
 
 		timer.checkpoint();
 
-		codegen(output, root, module);
+		entries.push_back(codegen(output, root, module));
 
 		timer.checkpoint("codegen");
 	}
+
+	codegenMain(module, entries);
 
 	timer.checkpoint();
 

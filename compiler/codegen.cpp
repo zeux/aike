@@ -165,8 +165,7 @@ static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
 
 static Value* codegenFunctionValue(Codegen& cg, Variable* var, Ty* type, const Arr<Ty*>& tyargs)
 {
-	// TODO: remove hack
-	string name = var->name == "main" ? "main" : mangle(mangleFn(var->name, type, tyargs));
+	string name = mangle(mangleFn(var->name, type, tyargs));
 
 	return codegenFunctionValue(cg, name, type);
 }
@@ -563,6 +562,11 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 		return storage;
 	}
 
+	if (UNION_CASE(TyDecl, n, node))
+	{
+		return nullptr;
+	}
+
 	ICE("Unknown Ast kind %d", node->kind);
 }
 
@@ -635,23 +639,6 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 		cg.builder->CreateRetVoid();
 }
 
-static bool codegenGatherToplevel(Codegen& cg, Ast* node)
-{
-	if (UNION_CASE(FnDecl, n, node))
-	{
-		if (n->tyargs.size == 0)
-		{
-			Function* fun = cast<Function>(codegenFunctionValue(cg, n->var, n->var->type, Arr<Ty*>()));
-
-			cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, n->attributes, n->var->name });
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
 static void codegenPrepare(Codegen& cg)
 {
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
@@ -664,7 +651,7 @@ static void codegenPrepare(Codegen& cg)
 	cg.runtimeNewArr = cg.module->getOrInsertFunction("aike_newarr", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
-void codegen(Output& output, Ast* root, llvm::Module* module)
+llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module)
 {
 	llvm::LLVMContext* context = &module->getContext();
 
@@ -672,9 +659,12 @@ void codegen(Output& output, Ast* root, llvm::Module* module)
 
 	Codegen cg = { &output, context, module, &builder };
 
-	visitAst(root, codegenGatherToplevel, cg);
-
 	codegenPrepare(cg);
+
+	FunctionType* entryType = FunctionType::get(Type::getVoidTy(*cg.context), false);
+	Function* entry = Function::Create(entryType, GlobalValue::InternalLinkage, "entry", module);
+
+	cg.pendingFunctions.push_back(new FunctionInstance { entry, Arr<Variable*>(), root });
 
 	while (!cg.pendingFunctions.empty())
 	{
@@ -688,4 +678,26 @@ void codegen(Output& output, Ast* root, llvm::Module* module)
 
 		cg.currentFunction = nullptr;
 	}
+
+	return entry;
+}
+
+void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
+{
+	llvm::LLVMContext& context = module->getContext();
+	IRBuilder<> builder(context);
+
+	Function* main = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr));
+
+	BasicBlock* bb = BasicBlock::Create(context, "entry", main);
+	builder.SetInsertPoint(bb);
+
+	Constant* runtimeInit = module->getOrInsertFunction("aike_init", Type::getVoidTy(context), nullptr);
+
+	builder.CreateCall(runtimeInit);
+
+	for (auto& e: entries)
+		builder.CreateCall(e);
+
+	builder.CreateRet(builder.getInt32(0));
 }

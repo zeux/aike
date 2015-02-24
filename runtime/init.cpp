@@ -2,7 +2,7 @@
 
 #include "signal.hpp"
 
-AIKE_EXTERN void init()
+AIKE_EXTERN void aike_init()
 {
 	installSignalHandler();
 }

@@ -3,9 +3,12 @@
 namespace llvm
 {
 	class Module;
+	class Value;
 }
 
 struct Output;
 struct Ast;
 
-void codegen(Output& output, Ast* root, llvm::Module* module);
+llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module);
+
+void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries);
