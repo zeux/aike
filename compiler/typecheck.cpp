@@ -412,6 +412,11 @@ static void instantiateType(Output& output, Ty* type)
 			else
 				ICE("Unknown TyDef kind %d", t->def->kind);
 		}
+		else
+		{
+			if (t->tyargs.size != 0)
+				output.panic(t->location, "Expected 0 type arguments but given %d", int(t->tyargs.size));
+		}
 	}
 }
 
