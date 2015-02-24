@@ -442,11 +442,14 @@ static Ast* parseStructDecl(TokenStream& ts)
 	return UNION_NEW(Ast, TyDecl, { name.data, name.location, def });
 }
 
-static Ast* parseCall(TokenStream& ts, Ast* expr, Location start)
+static Ast* parseCall(TokenStream& ts, Ast* expr, Location start, Ast* self = nullptr)
 {
 	ts.eat(Token::TypeBracket, "(");
 
 	Arr<Ast*> args;
+
+	if (self)
+		args.push(self);
 
 	while (!ts.is(Token::TypeBracket, ")"))
 	{
@@ -476,14 +479,36 @@ static Ast* parseIndex(TokenStream& ts, Ast* expr)
 	return UNION_NEW(Ast, Index, { expr, index, start });
 }
 
+static Ast* parseIdent(TokenStream& ts)
+{
+	auto name = ts.eat(Token::TypeIdent);
+
+	auto tyargs = parseTypeArguments(ts);
+
+	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr, tyargs });
+}
+
 static Ast* parseMember(TokenStream& ts, Ast* expr)
 {
 	ts.eat(Token::TypeAtom, ".");
 
 	auto name = ts.eat(Token::TypeIdent);
-	FieldRef field = { name.data, name.location, -1 };
 
-	return UNION_NEW(Ast, Member, { expr, name.location, nullptr, field });
+	if (ts.is(Token::TypeBracket, "(") || ts.is(Token::TypeAtom, ".<"))
+	{
+		// backtrack so that we can reuse parseIdent
+		ts.index--;
+
+		Ast* member = parseIdent(ts);
+
+		return parseCall(ts, member, name.location, /* self= */ expr);
+	}
+	else
+	{
+		FieldRef field = { name.data, name.location, -1 };
+
+		return UNION_NEW(Ast, Member, { expr, name.location, nullptr, field });
+	}
 }
 
 static Ast* parseIf(TokenStream& ts)
@@ -575,15 +600,6 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 	Ty* ty = name.data.size == 0 ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
 
 	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
-}
-
-static Ast* parseIdent(TokenStream& ts)
-{
-	auto name = ts.eat(Token::TypeIdent);
-
-	auto tyargs = parseTypeArguments(ts);
-
-	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr, tyargs });
 }
 
 static Ast* parseTerm(TokenStream& ts)

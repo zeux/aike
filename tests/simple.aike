@@ -76,7 +76,7 @@ fn test(): int
     printfn("array %d,%d", foo[0], foo[1] + singleton(5)[0])
 
     dump([1, 2, 3, 4, 5, 6])
-    dump(append([1, 2, 3], 4))
+    dump([1, 2, 3].append(4))
     iter(append([], "foo"), fn(i,x) println(x))
 
     printfn("pair %d", first({ first = 1, second = "hey"}), 0)
