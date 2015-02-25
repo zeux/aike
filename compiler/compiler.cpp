@@ -14,13 +14,13 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/PassManager.h"
 
 #include <fstream>
 
@@ -137,7 +137,7 @@ string generateModule(TargetMachine* machine, Module* module, TargetMachine::Cod
 	raw_string_ostream rs(result);
 	formatted_raw_ostream frs(rs);
 
-	PassManager pm;
+	legacy::PassManager pm;
 
 	machine->addPassesToEmitFile(pm, frs, type);
 

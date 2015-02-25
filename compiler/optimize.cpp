@@ -1,7 +1,7 @@
 #include "common.hpp"
 #include "optimize.hpp"
 
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -19,11 +19,17 @@ void optimize(Module* module, int level)
 	pmb.LoopVectorize = level > 2;
 	pmb.SLPVectorize = level > 2;
 
-	FunctionPassManager fpm(module);
+	legacy::FunctionPassManager fpm(module);
 	pmb.populateFunctionPassManager(fpm);
 
-	PassManager pm;
-	pm.add(new DataLayoutPass(*module->getDataLayout()));
+	legacy::PassManager pm;
+
+#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 36
+	pm.add(new DataLayoutPass(module));
+#else
+	pm.add(new DataLayoutPass());
+#endif
+
 	pmb.populateModulePassManager(pm);
 
 	fpm.doInitialization();
