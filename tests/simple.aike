@@ -1,12 +1,32 @@
 extern fn println(str: string)
 extern fn printfn(str: string, val: int, val: int)
 
+builtin fn newarr<T>(size: int): [T]
 builtin fn sizeof<T>(): int
 
-fn concat<T>(a: [T], b: [T]): [T]
-    extern fn aike_concat(a: [T], b: [T], e: int): [T]
+fn map<T, U>(a: [T], f: fn(T): U): [U]
+    var b = newarr(#a)
 
-    aike_concat(a, b, sizeof.<T>())
+    fn loop(a, b, f, i)
+        if i < #a
+            b[i] = f(a[i])
+            loop(a, b, f, i + 1)
+
+    loop(a, b, f, 0)
+    b
+
+fn concat<T>(a: [T], b: [T]): [T]
+    var c = newarr(#a + #b)
+
+    fn loop(ab, c, i, o)
+        if i < #ab
+            c[o] = ab[i]
+            loop(ab, c, i + 1, o + 1)
+
+    loop(a, c, 0, 0)
+    loop(b, c, 0, #a)
+
+    c
 
 fn append<T>(a: [T], e: T): [T]
     concat(a, [e])
@@ -76,7 +96,7 @@ fn test(): int
     var foo = [3, 4]
     printfn("array %d,%d", foo[0], foo[1] + singleton(5)[0])
 
-    dump([1, 2, 3, 4, 5, 6])
+    dump([1, 2, 3, 4, 5, 6].map(fn (x) x * 4))
     dump([1, 2, 3].append(4))
     iter(append([], "foo"), fn(i,x) println(x))
 

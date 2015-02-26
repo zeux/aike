@@ -205,6 +205,19 @@ static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Const
 	return cg.builder->CreateExtractValue(result, 0);
 }
 
+static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
+{
+	Type* pointerType = cast<StructType>(type)->getElementType(0);
+	Type* elementType = cast<PointerType>(pointerType)->getElementType();
+
+	// TODO: refactor + fix int32/size_t
+	Value* elementSize = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false);
+	Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, count, elementSize);
+	Value* ptr = cg.builder->CreateBitCast(rawPtr, pointerType);
+
+	return ptr;
+}
+
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 {
 	if (UNION_CASE(LiteralBool, n, node))
@@ -235,13 +248,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 	{
 		Type* type = codegenType(cg, n->type);
 
-		Type* pointerType = cast<StructType>(type)->getElementType(0);
-		Type* elementType = cast<PointerType>(pointerType)->getElementType();
-
-		// TODO: refactor + fix int32/size_t
-		Value* elementSize = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false);
-		Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, cg.builder->getInt32(n->elements.size), elementSize);
-		Value* ptr = cg.builder->CreateBitCast(rawPtr, pointerType);
+		Value* ptr = codegenNewArr(cg, type, cg.builder->getInt32(n->elements.size));
 
 		for (size_t i = 0; i < n->elements.size; ++i)
 		{
@@ -621,10 +628,23 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.builder->SetInsertPoint(bb);
 
-	if (inst.external == "sizeof" && inst.generics.size() == 1)
+	if (inst.external == "sizeof" && inst.generics.size() == 1 && inst.value->arg_size() == 0)
 	{
 		Type* type = codegenType(cg, inst.generics[0].second);
 		Value* ret = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
+
+		cg.builder->CreateRet(ret);
+	}
+	else if (inst.external == "newarr" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
+	{
+		Type* type = codegenType(cg, UNION_NEW(Ty, Array, { inst.generics[0].second }));
+
+		Value* count = inst.value->arg_begin();
+
+		Value* ret = UndefValue::get(type);
+
+		ret = cg.builder->CreateInsertValue(ret, codegenNewArr(cg, type, count), 0);
+		ret = cg.builder->CreateInsertValue(ret, count, 1);
 
 		cg.builder->CreateRet(ret);
 	}

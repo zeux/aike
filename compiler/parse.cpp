@@ -356,7 +356,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 	auto name = ts.eat(Token::TypeIdent);
 
 	auto tysig = parseTypeSignature(ts);
-	auto sig = parseFnSignature(ts, /* requireArgTypes= */ true, /* defaultRetVoid= */ true);
+	auto sig = parseFnSignature(ts, /* requireArgTypes= */ false, /* defaultRetVoid= */ true);
 
 	Ast* body =
 		(attributes & (FnAttributeExtern | FnAttributeBuiltin))
