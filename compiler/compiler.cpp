@@ -22,6 +22,10 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Timer.h"
+
 #include <fstream>
 
 struct Options
@@ -60,8 +64,15 @@ Options parseOptions(int argc, const char** argv)
 				result.dumpAsm = true;
 			else if (arg == "--time")
 				result.time = true;
-			else if (arg[0] == '-' && arg[1] == 'O')
+			else if (arg.str().compare(0, 2, "-O") == 0)
 				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
+			else if (arg.str().compare(0, 6, "--llvm") == 0)
+			{
+				string opt = arg.str().substr(6);
+
+				const char* opts[] = { argv[0], opt.c_str() };
+				llvm::cl::ParseCommandLineOptions(2, opts);
+			}
 			else
 				panic("Unknown argument %s", arg.str().c_str());
 		}
@@ -152,7 +163,7 @@ int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
 
-	Timer timer;
+	::Timer timer;
 
 	Output output;
 
@@ -162,6 +173,7 @@ int main(int argc, const char** argv)
 	TargetMachine* machine = createTargetMachine(options.optimize);
 
 	LLVMContext context;
+
 	Module* module = new Module("main", context);
 
 	module->setDataLayout(machine->getDataLayout());
@@ -281,4 +293,7 @@ int main(int argc, const char** argv)
 	{
 		timer.dump();
 	}
+
+	llvm::PrintStatistics();
+	llvm::TimerGroup::printAll(llvm::outs());
 }
