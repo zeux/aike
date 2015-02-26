@@ -8,8 +8,9 @@ struct Variable
 	enum Kind
 	{
 		KindVariable,
+		KindFunction,
 		KindArgument,
-		KindFunction
+		KindValue,
 	};
 
 	Kind kind;

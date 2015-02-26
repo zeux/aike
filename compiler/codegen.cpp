@@ -553,6 +553,51 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 		}
 	}
 
+	if (UNION_CASE(For, n, node))
+	{
+		Function* func = cg.builder->GetInsertBlock()->getParent();
+
+		BasicBlock* entrybb = cg.builder->GetInsertBlock();
+		BasicBlock* loopbb = BasicBlock::Create(*cg.context, "loop");
+		BasicBlock* endbb = BasicBlock::Create(*cg.context, "forend");
+
+		Value* expr = codegenExpr(cg, n->expr);
+
+		Value* ptr = cg.builder->CreateExtractValue(expr, 0);
+		Value* size = cg.builder->CreateExtractValue(expr, 1);
+
+		cg.builder->CreateCondBr(cg.builder->CreateICmpSGT(size, cg.builder->getInt32(0)), loopbb, endbb);
+
+		func->getBasicBlockList().push_back(loopbb);
+		cg.builder->SetInsertPoint(loopbb);
+
+		PHINode* index = cg.builder->CreatePHI(Type::getInt32Ty(*cg.context), 2);
+
+		index->addIncoming(cg.builder->getInt32(0), entrybb);
+
+		Value* var = cg.builder->CreateInBoundsGEP(ptr, index);
+
+		cg.vars[n->var] = var;
+
+		if (n->index)
+			cg.vars[n->index] = index;
+
+		codegenExpr(cg, n->body);
+
+		Value* next = cg.builder->CreateAdd(index, cg.builder->getInt32(1));
+
+		BasicBlock* loopendbb = cg.builder->GetInsertBlock();
+
+		cg.builder->CreateCondBr(cg.builder->CreateICmpSLT(next, size), loopbb, endbb);
+
+		index->addIncoming(next, loopendbb);
+
+		func->getBasicBlockList().push_back(endbb);
+		cg.builder->SetInsertPoint(endbb);
+
+		return nullptr;
+	}
+
 	if (UNION_CASE(Fn, n, node))
 	{
 		Ty* type = finalType(cg, n->type);

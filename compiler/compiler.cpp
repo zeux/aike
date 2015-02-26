@@ -255,6 +255,13 @@ int main(int argc, const char** argv)
 
 	timer.checkpoint();
 
+	if (options.dumpLLVM)
+	{
+		string result = getModuleIR(module);
+
+		puts(result.c_str());
+	}
+
 	assert(!verifyModule(*module, &llvm::errs()));
 
 	timer.checkpoint("verify");

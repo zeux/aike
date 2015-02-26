@@ -564,7 +564,7 @@ static Ast* parseFor(TokenStream& ts)
 		ts.move();
 
 		auto name = ts.eat(Token::TypeIdent);
-		index = new Variable { Variable::KindVariable, name.data, UNION_NEW(Ty, Unknown, {}), name.location };
+		index = new Variable { Variable::KindValue, name.data, UNION_NEW(Ty, Unknown, {}), name.location };
 	}
 
 	ts.eat(Token::TypeIdent, "in");
