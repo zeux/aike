@@ -46,6 +46,11 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 		visitAst(n->expr, f, fc);
 		visitAst(n->index, f, fc);
 	}
+	else if (UNION_CASE(Assign, n, node))
+	{
+		visitAst(n->left, f, fc);
+		visitAst(n->right, f, fc);
+	}
 	else if (UNION_CASE(If, n, node))
 	{
 		visitAst(n->cond, f, fc);

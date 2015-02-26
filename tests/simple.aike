@@ -67,6 +67,7 @@ fn test(): int
 
     var fp = fn(x) x.y
     var p = Point { x = 1, y = 2 }
+    p.y = 5
     printfn("point %d,%d", p.x, fp(p))
 
     var loc = Location {}

@@ -511,6 +511,17 @@ static Ast* parseMember(TokenStream& ts, Ast* expr)
 	}
 }
 
+static Ast* parseAssign(TokenStream& ts, Ast* expr)
+{
+	Location location = ts.get().location;
+
+	ts.eat(Token::TypeAtom, "=");
+
+	Ast* value = parseExpr(ts);
+
+	return UNION_NEW(Ast, Assign, { location, expr, value });
+}
+
 static Ast* parseIf(TokenStream& ts)
 {
 	Location start = ts.get().location;
@@ -738,6 +749,10 @@ static Ast* parsePrimary(TokenStream& ts)
 		else
 			break;
 	}
+
+	// TODO: is this the right place?
+	if (ts.is(Token::TypeAtom, "="))
+		term = parseAssign(ts, term);
 
 	return term;
 }

@@ -50,6 +50,12 @@ struct Codegen
 	FunctionInstance* currentFunction;
 };
 
+enum CodegenKind
+{
+	KindValue,
+	KindRef,
+};
+
 static Ty* getGenericInstance(Codegen& cg, Ty* type)
 {
 	FunctionInstance* fn = cg.currentFunction;
@@ -199,7 +205,7 @@ static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Const
 	return cg.builder->CreateExtractValue(result, 0);
 }
 
-static Value* codegenExpr(Codegen& cg, Ast* node)
+static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 {
 	if (UNION_CASE(LiteralBool, n, node))
 	{
@@ -332,7 +338,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 			auto it = cg.vars.find(target);
 			assert(it != cg.vars.end());
 
-			if (target->kind == Variable::KindVariable)
+			if (target->kind == Variable::KindVariable && kind != KindRef)
 				return cg.builder->CreateLoad(it->second);
 			else
 				return it->second;
@@ -343,9 +349,12 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 	{
 		assert(n->field.index >= 0);
 
-		Value* expr = codegenExpr(cg, n->expr);
+		Value* expr = codegenExpr(cg, n->expr, kind);
 
-		return cg.builder->CreateExtractValue(expr, n->field.index);
+		if (kind == KindRef)
+			return cg.builder->CreateStructGEP(expr, n->field.index);
+		else
+			return cg.builder->CreateExtractValue(expr, n->field.index);
 	}
 
 	if (UNION_CASE(Block, n, node))
@@ -382,7 +391,18 @@ static Value* codegenExpr(Codegen& cg, Ast* node)
 
 		codegenTrapIf(cg, cond);
 
-		return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
+		if (kind == KindRef)
+			return cg.builder->CreateInBoundsGEP(ptr, index);
+		else
+			return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
+	}
+
+	if (UNION_CASE(Assign, n, node))
+	{
+		Value* left = codegenExpr(cg, n->left, KindRef);
+		Value* right = codegenExpr(cg, n->right);
+
+		return cg.builder->CreateStore(right, left);
 	}
 
 	if (UNION_CASE(Unary, n, node))

@@ -47,6 +47,18 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 		output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
 }
 
+static bool isAssignable(Ast* node)
+{
+	if (UNION_CASE(Ident, n, node))
+		return n->target->kind == Variable::KindVariable;
+	else if (UNION_CASE(Member, n, node))
+		return isAssignable(n->expr);
+	else if (UNION_CASE(Index, n, node))
+		return true;
+	else
+		return false;
+}
+
 static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* constraints)
 {
 	if (UNION_CASE(LiteralBool, n, root))
@@ -264,6 +276,19 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 			return make_pair(element, n->location);
 		}
+	}
+
+	if (UNION_CASE(Assign, n, root))
+	{
+		auto left = type(output, n->left, constraints);
+		auto right = type(output, n->right, constraints);
+
+		typeMustEqual(right.first, left.first, constraints, output, right.second);
+
+		if (!isAssignable(n->left))
+			output.panic(n->location, "Expression is not assignable");
+
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}
 
 	if (UNION_CASE(If, n, root))
