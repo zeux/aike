@@ -223,6 +223,22 @@ static void dumpNode(Ast* root, int indent)
 			dumpNode(n->elsebody, indent + 1);
 		}
 	}
+	else if (UNION_CASE(For, n, root))
+	{
+		printf("for ");
+		dumpString(n->var->name);
+
+		if (n->index)
+		{
+			printf(", ");
+			dumpString(n->index->name);
+		}
+
+		printf(" in ");
+		dumpNode(n->expr, indent);
+		printf("\n");
+		dumpNode(n->body, indent + 1);
+	}
 	else if (UNION_CASE(Fn, n, root))
 	{
 		printf("fn ");

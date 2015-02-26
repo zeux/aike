@@ -76,6 +76,7 @@ struct FieldRef
 	X(Index, { Ast* expr; Ast* index; Location location; }) \
 	X(Assign, { Location location; Ast* left; Ast* right; }) \
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
+	X(For, { Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
 	X(Fn, { int id; Ty* type; Location location; Arr<Variable*> args; Ast* body; }) \
 	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \

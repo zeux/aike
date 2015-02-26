@@ -313,6 +313,19 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return thenty;
 	}
 
+	if (UNION_CASE(For, n, root))
+	{
+		auto expr = type(output, n->expr, constraints);
+		auto body = type(output, n->body, constraints);
+
+		typeMustEqual(expr.first, UNION_NEW(Ty, Array, { n->var->type }), constraints, output, expr.second);
+
+		if (n->index)
+			typeMustEqual(n->index->type, UNION_NEW(Ty, Integer, {}), constraints, output, n->index->location);
+
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+	}
+
 	if (UNION_CASE(Fn, n, root))
 	{
 		auto ret = type(output, n->body, constraints);
@@ -390,6 +403,13 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 
 		for (auto& a: n->tyargs)
 			a = constraints.rewrite(a);
+	}
+	else if (UNION_CASE(For, n, root))
+	{
+		n->var->type = constraints.rewrite(n->var->type);
+
+		if (n->index)
+			n->index->type = constraints.rewrite(n->index->type);
 	}
 	else if (UNION_CASE(Fn, n, root))
 	{

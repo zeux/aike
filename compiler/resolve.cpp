@@ -129,6 +129,17 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 		rs.pop(scope);
 	}
+	else if (UNION_CASE(For, n, root))
+	{
+		visitAst(n->expr, resolveNamesNode, rs);
+
+		rs.variables.push(n->var->name, n->var);
+
+		if (n->index)
+			rs.variables.push(n->index->name, n->index);
+
+		visitAst(n->body, resolveNamesNode, rs);
+	}
 	else if (UNION_CASE(Fn, n, root))
 	{
 		auto scope = rs.top();

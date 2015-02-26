@@ -548,6 +548,33 @@ static Ast* parseIf(TokenStream& ts)
 	return UNION_NEW(Ast, If, { cond, thenbody, elsebody });
 }
 
+static Ast* parseFor(TokenStream& ts)
+{
+	Location start = ts.get().location;
+
+	ts.eat(Token::TypeIdent, "for");
+
+	auto name = ts.eat(Token::TypeIdent);
+	Variable* var = new Variable { Variable::KindVariable, name.data, UNION_NEW(Ty, Unknown, {}), name.location };
+
+	Variable* index = nullptr;
+
+	if (ts.is(Token::TypeAtom, ","))
+	{
+		ts.move();
+
+		auto name = ts.eat(Token::TypeIdent);
+		index = new Variable { Variable::KindVariable, name.data, UNION_NEW(Ty, Unknown, {}), name.location };
+	}
+
+	ts.eat(Token::TypeIdent, "in");
+
+	Ast* expr = parseExpr(ts);
+	Ast* body = parseBlock(ts, &start);
+
+	return UNION_NEW(Ast, For, { start, var, index, expr, body });
+}
+
 static Ast* parseLiteralArray(TokenStream& ts)
 {
 	Location start = ts.get().location;
@@ -733,6 +760,9 @@ static Ast* parsePrimary(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent, "if"))
 		return parseIf(ts);
+
+	if (ts.is(Token::TypeIdent, "for"))
+		return parseFor(ts);
 
 	Location start = ts.get().location;
 
