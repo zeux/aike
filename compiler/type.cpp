@@ -8,12 +8,29 @@ bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 	assert(lhs != rhs);
 	assert(lhs->kind == Ty::KindUnknown || rhs->kind == Ty::KindUnknown);
 
-	if (lhs->kind == Ty::KindUnknown && data.count(lhs) == 0 && !typeOccurs(rhs, lhs))
-		data[lhs] = rhs;
-	else if (rhs->kind == Ty::KindUnknown && data.count(rhs) == 0 && !typeOccurs(lhs, rhs))
-		data[rhs] = lhs;
+	if (lhs->kind == Ty::KindUnknown && rhs->kind == Ty::KindUnknown)
+	{
+		auto li = data.find(lhs);
+		auto ri = data.find(rhs);
+
+		if (li == data.end() && ri == data.end())
+			data[lhs] = rhs;
+		else if (li == data.end() && ri->second != lhs)
+			data[lhs] = ri->second;
+		else if (ri == data.end() && li->second != rhs)
+			data[rhs] = li->second;
+		else
+			return false;
+	}
 	else
-		return false;
+	{
+		if (lhs->kind != Ty::KindUnknown) std::swap(lhs, rhs);
+
+		if (data.count(lhs) == 0 && !typeOccurs(rhs, lhs))
+			data[lhs] = rhs;
+		else
+			return false;
+	}
 
 	return true;
 }
