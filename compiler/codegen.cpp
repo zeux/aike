@@ -159,21 +159,14 @@ static Ty* finalType(Codegen& cg, Ty* type)
 	});
 }
 
-static Value* codegenFunctionValue(Codegen& cg, const string& name, Ty* type)
+static pair<bool, Function*> codegenFunctionDecl(Codegen& cg, const string& name, Ty* type)
 {
 	if (Function* fun = cg.module->getFunction(name))
-		return fun;
+		return make_pair(false, fun);
 
 	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, type))->getElementType());
 
-	return Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
-}
-
-static Value* codegenFunctionValue(Codegen& cg, Variable* var, Ty* type, const Arr<Ty*>& tyargs)
-{
-	string name = mangle(mangleFn(var->name, type, tyargs));
-
-	return codegenFunctionValue(cg, name, type);
+	return make_pair(true, Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module));
 }
 
 static void codegenTrapIf(Codegen& cg, Value* cond)
@@ -323,10 +316,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 			for (auto& a: n->tyargs)
 				tyargs.push(finalType(cg, a));
 
-			Function* fun = cast<Function>(codegenFunctionValue(cg, target, type, tyargs));
+			auto fd = codegenFunctionDecl(cg, mangle(mangleFn(target->name, type, tyargs)), type);
 
-			// TODO: there might be a better way?
-			if (fun->empty())
+			if (fd.first)
 			{
 				vector<pair<Ty*, Ty*>> inst;
 				assert(n->tyargs.size == decl->tyargs.size);
@@ -335,10 +327,10 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 					inst.push_back(make_pair(decl->tyargs[i], tyargs[i]));
 
 				// TODO: parent=current is wrong: need to pick lexical parent
-				cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
+				cg.pendingFunctions.push_back(new FunctionInstance { fd.second, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
 			}
 
-			return fun;
+			return fd.second;
 		}
 		else
 		{
@@ -565,11 +557,12 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
 	{
 		Ty* type = finalType(cg, n->type);
 
-		Function* fun = cast<Function>(codegenFunctionValue(cg, mangle(mangleFn(n->id, type)), type));
+		auto fd = codegenFunctionDecl(cg, mangle(mangleFn(n->id, type)), type);
+		assert(fd.first);
 
-		cg.pendingFunctions.push_back(new FunctionInstance { fun, n->args, n->body, 0, Str(), cg.currentFunction });
+		cg.pendingFunctions.push_back(new FunctionInstance { fd.second, n->args, n->body, 0, Str(), cg.currentFunction });
 
-		return fun;
+		return fd.second;
 	}
 
 	if (UNION_CASE(FnDecl, n, node))
@@ -655,6 +648,8 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
+	assert(inst.value->empty());
+
 	if (inst.attributes & FnAttributeExtern)
 		return codegenFunctionExtern(cg, inst);
 
