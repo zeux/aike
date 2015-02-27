@@ -17,12 +17,7 @@ struct FunctionInstance
 {
 	Function* value;
 
-	Arr<Variable*> args;
-	Ast* body;
-
-	unsigned int attributes;
-
-	Str external;
+	Ast::FnDecl* decl;
 
 	FunctionInstance* parent;
 	vector<pair<Ty*, Ty*>> generics;
@@ -311,7 +306,7 @@ static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty
 		inst.push_back(make_pair(decl->tyargs[i], ftyargs[i]));
 
 	// TODO: parent=current is wrong: need to pick lexical parent
-	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
+	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl, cg.currentFunction, inst });
 
 	return fun;
 }
@@ -680,10 +675,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 
 static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 {
-	assert(!inst.body);
-	assert(inst.external.size > 0);
+	assert(!inst.decl->body);
 
-	Constant* external = cg.module->getOrInsertFunction(inst.external.str(), inst.value->getFunctionType());
+	Constant* external = cg.module->getOrInsertFunction(inst.decl->var->name.str(), inst.value->getFunctionType());
 
 	vector<Value*> args;
 
@@ -703,20 +697,21 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 
 static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 {
-	assert(!inst.body);
-	assert(inst.external.size > 0);
+	assert(!inst.decl->body);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.builder->SetInsertPoint(bb);
 
-	if (inst.external == "sizeof" && inst.generics.size() == 1 && inst.value->arg_size() == 0)
+	Str name = inst.decl->var->name;
+
+	if (name == "sizeof" && inst.generics.size() == 1 && inst.value->arg_size() == 0)
 	{
 		Type* type = codegenType(cg, inst.generics[0].second);
 		Value* ret = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
 
 		cg.builder->CreateRet(ret);
 	}
-	else if (inst.external == "newarr" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
+	else if (name == "newarr" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
 	{
 		Type* type = codegenType(cg, UNION_NEW(Ty, Array, { inst.generics[0].second }));
 
@@ -731,30 +726,30 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 	}
 	else
 		// TODO Location
-		cg.output->panic(Location(), "Unknown builtin function %s", inst.external.str().c_str());
+		cg.output->panic(Location(), "Unknown builtin function %s", name.str().c_str());
 }
 
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.value->empty());
 
-	if (inst.attributes & FnAttributeExtern)
+	if (inst.decl->attributes & FnAttributeExtern)
 		return codegenFunctionExtern(cg, inst);
 
-	if (inst.attributes & FnAttributeBuiltin)
+	if (inst.decl->attributes & FnAttributeBuiltin)
 		return codegenFunctionBuiltin(cg, inst);
 
-	assert(inst.body);
+	assert(inst.decl->body);
 
 	size_t argindex = 0;
 
 	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait, ++argindex)
-		cg.vars[inst.args[argindex]] = ait;
+		cg.vars[inst.decl->args[argindex]] = ait;
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.builder->SetInsertPoint(bb);
 
-	Value* ret = codegenExpr(cg, inst.body);
+	Value* ret = codegenExpr(cg, inst.decl->body);
 
 	if (!inst.value->getFunctionType()->getReturnType()->isVoidTy())
 		cg.builder->CreateRet(ret);
@@ -787,7 +782,9 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module)
 	FunctionType* entryType = FunctionType::get(Type::getVoidTy(*cg.context), false);
 	Function* entry = Function::Create(entryType, GlobalValue::InternalLinkage, "entry", module);
 
-	cg.pendingFunctions.push_back(new FunctionInstance { entry, Arr<Variable*>(), root });
+	Ast::FnDecl* entryDecl = new Ast::FnDecl { nullptr, Arr<Ty*>(), Arr<Variable*>(), 0, root };
+
+	cg.pendingFunctions.push_back(new FunctionInstance { entry, entryDecl });
 
 	while (!cg.pendingFunctions.empty())
 	{
