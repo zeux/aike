@@ -211,426 +211,469 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 	return ptr;
 }
 
-static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue)
+static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue);
+
+static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 {
-	if (UNION_CASE(LiteralBool, n, node))
+	Type* type = codegenType(cg, UNION_NEW(Ty, String, {}));
+
+	Value* result = UndefValue::get(type);
+
+	Value* string = cg.builder->CreateGlobalStringPtr(StringRef(n->value.data, n->value.size));
+
+	result = cg.builder->CreateInsertValue(result, string, 0);
+	result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->value.size), 1);
+
+	return result;
+}
+
+static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
+{
+	Type* type = codegenType(cg, n->type);
+
+	Value* ptr = codegenNewArr(cg, type, cg.builder->getInt32(n->elements.size));
+
+	for (size_t i = 0; i < n->elements.size; ++i)
 	{
-		return cg.builder->getInt1(n->value);
+		Value* expr = codegenExpr(cg, n->elements[i]);
+
+		cg.builder->CreateStore(expr, cg.builder->CreateConstInBoundsGEP1_32(ptr, i));
 	}
 
-	if (UNION_CASE(LiteralNumber, n, node))
+	Value* result = UndefValue::get(type);
+
+	result = cg.builder->CreateInsertValue(result, ptr, 0);
+	result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->elements.size), 1);
+
+	return result;
+}
+
+static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
+{
+	UNION_CASE(Instance, ti, n->type);
+	assert(ti);
+
+	UNION_CASE(Struct, td, ti->def);
+	assert(td);
+
+	Type* type = codegenType(cg, n->type);
+
+	Value* result = UndefValue::get(type);
+
+	vector<bool> fields(td->fields.size);
+
+	for (auto& f: n->fields)
 	{
-		return cg.builder->getInt32(atoi(n->value.str().c_str()));
+		assert(f.first.index >= 0);
+
+		fields[f.first.index] = true;
 	}
 
-	if (UNION_CASE(LiteralString, n, node))
-	{
-		Type* type = codegenType(cg, UNION_NEW(Ty, String, {}));
-
-		Value* result = UndefValue::get(type);
-
-		Value* string = cg.builder->CreateGlobalStringPtr(StringRef(n->value.data, n->value.size));
-
-		result = cg.builder->CreateInsertValue(result, string, 0);
-		result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->value.size), 1);
-
-		return result;
-	}
-
-	if (UNION_CASE(LiteralArray, n, node))
-	{
-		Type* type = codegenType(cg, n->type);
-
-		Value* ptr = codegenNewArr(cg, type, cg.builder->getInt32(n->elements.size));
-
-		for (size_t i = 0; i < n->elements.size; ++i)
+	for (size_t i = 0; i < fields.size(); ++i)
+		if (!fields[i])
 		{
-			Value* expr = codegenExpr(cg, n->elements[i]);
+			assert(td->fields[i].expr);
 
-			cg.builder->CreateStore(expr, cg.builder->CreateConstInBoundsGEP1_32(ptr, i));
+			Value* expr = codegenExpr(cg, td->fields[i].expr);
+
+			result = cg.builder->CreateInsertValue(result, expr, i);
 		}
 
-		Value* result = UndefValue::get(type);
+	for (auto& f: n->fields)
+	{
+		assert(f.first.index >= 0);
 
-		result = cg.builder->CreateInsertValue(result, ptr, 0);
-		result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->elements.size), 1);
+		Value* expr = codegenExpr(cg, f.second);
 
-		return result;
+		result = cg.builder->CreateInsertValue(result, expr, f.first.index);
 	}
 
-	if (UNION_CASE(LiteralStruct, n, node))
+	return result;
+}
+
+static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
+{
+	Variable* target = n->target;
+
+	if (target->kind == Variable::KindFunction)
 	{
-		UNION_CASE(Instance, ti, n->type);
-		assert(ti);
+		UNION_CASE(FnDecl, decl, target->fn);
+		assert(decl && decl->var == target);
 
-		UNION_CASE(Struct, td, ti->def);
-		assert(td);
+		Ty* type = finalType(cg, n->type);
 
-		Type* type = codegenType(cg, n->type);
+		Arr<Ty*> tyargs;
+		for (auto& a: n->tyargs)
+			tyargs.push(finalType(cg, a));
 
-		Value* result = UndefValue::get(type);
+		auto fd = codegenFunctionDecl(cg, mangle(mangleFn(target->name, type, tyargs)), type);
 
-		vector<bool> fields(td->fields.size);
-
-		for (auto& f: n->fields)
+		if (fd.first)
 		{
-			assert(f.first.index >= 0);
+			vector<pair<Ty*, Ty*>> inst;
+			assert(n->tyargs.size == decl->tyargs.size);
 
-			fields[f.first.index] = true;
+			for (size_t i = 0; i < n->tyargs.size; ++i)
+				inst.push_back(make_pair(decl->tyargs[i], tyargs[i]));
+
+			// TODO: parent=current is wrong: need to pick lexical parent
+			cg.pendingFunctions.push_back(new FunctionInstance { fd.second, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
 		}
 
-		for (size_t i = 0; i < fields.size(); ++i)
-			if (!fields[i])
-			{
-				assert(td->fields[i].expr);
-
-				Value* expr = codegenExpr(cg, td->fields[i].expr);
-
-				result = cg.builder->CreateInsertValue(result, expr, i);
-			}
-
-		for (auto& f: n->fields)
-		{
-			assert(f.first.index >= 0);
-
-			Value* expr = codegenExpr(cg, f.second);
-
-			result = cg.builder->CreateInsertValue(result, expr, f.first.index);
-		}
-
-		return result;
+		return fd.second;
 	}
-
-	if (UNION_CASE(Ident, n, node))
+	else
 	{
-		Variable* target = n->target;
+		auto it = cg.vars.find(target);
+		assert(it != cg.vars.end());
 
-		if (target->kind == Variable::KindFunction)
-		{
-			UNION_CASE(FnDecl, decl, target->fn);
-			assert(decl && decl->var == target);
-
-			Ty* type = finalType(cg, n->type);
-
-			Arr<Ty*> tyargs;
-			for (auto& a: n->tyargs)
-				tyargs.push(finalType(cg, a));
-
-			auto fd = codegenFunctionDecl(cg, mangle(mangleFn(target->name, type, tyargs)), type);
-
-			if (fd.first)
-			{
-				vector<pair<Ty*, Ty*>> inst;
-				assert(n->tyargs.size == decl->tyargs.size);
-
-				for (size_t i = 0; i < n->tyargs.size; ++i)
-					inst.push_back(make_pair(decl->tyargs[i], tyargs[i]));
-
-				// TODO: parent=current is wrong: need to pick lexical parent
-				cg.pendingFunctions.push_back(new FunctionInstance { fd.second, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
-			}
-
-			return fd.second;
-		}
+		if (target->kind == Variable::KindVariable && kind != KindRef)
+			return cg.builder->CreateLoad(it->second);
 		else
-		{
-			auto it = cg.vars.find(target);
-			assert(it != cg.vars.end());
-
-			if (target->kind == Variable::KindVariable && kind != KindRef)
-				return cg.builder->CreateLoad(it->second);
-			else
-				return it->second;
-		}
+			return it->second;
 	}
+}
 
-	if (UNION_CASE(Member, n, node))
+static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
+{
+	assert(n->field.index >= 0);
+
+	Value* expr = codegenExpr(cg, n->expr, kind);
+
+	if (kind == KindRef)
+		return cg.builder->CreateStructGEP(expr, n->field.index);
+	else
+		return cg.builder->CreateExtractValue(expr, n->field.index);
+}
+
+static Value* codegenBlock(Codegen& cg, Ast::Block* n)
+{
+	if (n->body.size == 0)
+		return nullptr;
+
+	for (size_t i = 0; i < n->body.size - 1; ++i)
+		codegenExpr(cg, n->body[i]);
+
+	return codegenExpr(cg, n->body[n->body.size - 1]);
+
+}
+
+static Value* codegenCall(Codegen& cg, Ast::Call* n)
+{
+	Value* expr = codegenExpr(cg, n->expr);
+
+	vector<Value*> args;
+	for (auto& a: n->args)
+		args.push_back(codegenExpr(cg, a));
+
+	return cg.builder->CreateCall(expr, args);
+}
+
+static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
+{
+	Value* expr = codegenExpr(cg, n->expr);
+	Value* index = codegenExpr(cg, n->index);
+
+	Value* ptr = cg.builder->CreateExtractValue(expr, 0);
+	Value* size = cg.builder->CreateExtractValue(expr, 1);
+
+	Value* cond = cg.builder->CreateICmpUGE(index, size);
+
+	codegenTrapIf(cg, cond);
+
+	if (kind == KindRef)
+		return cg.builder->CreateInBoundsGEP(ptr, index);
+	else
+		return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
+}
+
+static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
+{
+	Value* left = codegenExpr(cg, n->left, KindRef);
+	Value* right = codegenExpr(cg, n->right);
+
+	return cg.builder->CreateStore(right, left);
+}
+
+static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
+{
+	Value* expr = codegenExpr(cg, n->expr);
+
+	switch (n->op)
 	{
-		assert(n->field.index >= 0);
+	case UnaryOpPlus:
+		return expr;
 
-		Value* expr = codegenExpr(cg, n->expr, kind);
+	case UnaryOpMinus:
+		return cg.builder->CreateNeg(expr);
 
-		if (kind == KindRef)
-			return cg.builder->CreateStructGEP(expr, n->field.index);
-		else
-			return cg.builder->CreateExtractValue(expr, n->field.index);
+	case UnaryOpNot:
+		return cg.builder->CreateNot(expr);
+
+	case UnaryOpSize:
+		return cg.builder->CreateExtractValue(expr, 1);
+
+	default:
+		ICE("Unknown UnaryOp %d", n->op);
 	}
+}
 
-	if (UNION_CASE(Block, n, node))
+static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
+{
+	Function* func = cg.builder->GetInsertBlock()->getParent();
+
+	Value* left = codegenExpr(cg, n->left);
+
+	BasicBlock* currentbb = cg.builder->GetInsertBlock();
+	BasicBlock* nextbb = BasicBlock::Create(*cg.context, "next");
+	BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
+
+	if (n->op == BinaryOpAnd)
+		cg.builder->CreateCondBr(left, nextbb, afterbb);
+	else
+		cg.builder->CreateCondBr(left, afterbb, nextbb);
+
+	func->getBasicBlockList().push_back(nextbb);
+	cg.builder->SetInsertPoint(nextbb);
+
+	Value* right = codegenExpr(cg, n->right);
+	cg.builder->CreateBr(afterbb);
+	nextbb = cg.builder->GetInsertBlock();
+
+	func->getBasicBlockList().push_back(afterbb);
+	cg.builder->SetInsertPoint(afterbb);
+
+	PHINode* pn = cg.builder->CreatePHI(left->getType(), 2);
+
+	pn->addIncoming(right, nextbb);
+	pn->addIncoming(left, currentbb);
+
+	return pn;
+}
+
+static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
+{
+	Value* left = codegenExpr(cg, n->left);
+	Value* right = codegenExpr(cg, n->right);
+
+	switch (n->op)
 	{
-		if (n->body.size == 0)
-			return nullptr;
-
-		for (size_t i = 0; i < n->body.size - 1; ++i)
-			codegenExpr(cg, n->body[i]);
-
-		return codegenExpr(cg, n->body[n->body.size - 1]);
-	}
-
-	if (UNION_CASE(Call, n, node))
-	{
-		Value* expr = codegenExpr(cg, n->expr);
-
-		vector<Value*> args;
-		for (auto& a: n->args)
-			args.push_back(codegenExpr(cg, a));
-
-		return cg.builder->CreateCall(expr, args);
-	}
-
-	if (UNION_CASE(Index, n, node))
-	{
-		Value* expr = codegenExpr(cg, n->expr);
-		Value* index = codegenExpr(cg, n->index);
-
-		Value* ptr = cg.builder->CreateExtractValue(expr, 0);
-		Value* size = cg.builder->CreateExtractValue(expr, 1);
-
-		Value* cond = cg.builder->CreateICmpUGE(index, size);
-
-		codegenTrapIf(cg, cond);
-
-		if (kind == KindRef)
-			return cg.builder->CreateInBoundsGEP(ptr, index);
-		else
-			return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
-	}
-
-	if (UNION_CASE(Assign, n, node))
-	{
-		Value* left = codegenExpr(cg, n->left, KindRef);
-		Value* right = codegenExpr(cg, n->right);
-
-		return cg.builder->CreateStore(right, left);
-	}
-
-	if (UNION_CASE(Unary, n, node))
-	{
-		Value* expr = codegenExpr(cg, n->expr);
-
-		switch (n->op)
-		{
-		case UnaryOpPlus:
-			return expr;
-
-		case UnaryOpMinus:
-			return cg.builder->CreateNeg(expr);
-
-		case UnaryOpNot:
-			return cg.builder->CreateNot(expr);
-
-		case UnaryOpSize:
-			return cg.builder->CreateExtractValue(expr, 1);
-
+		case BinaryOpAddWrap: return cg.builder->CreateAdd(left, right);
+		case BinaryOpSubtractWrap: return cg.builder->CreateSub(left, right);
+		case BinaryOpMultiplyWrap: return cg.builder->CreateMul(left, right);
+		case BinaryOpAdd: return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
+		case BinaryOpSubtract: return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
+		case BinaryOpMultiply: return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
+		case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
+		case BinaryOpModulo: return cg.builder->CreateSRem(left, right);
+		case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
+		case BinaryOpLessEqual: return cg.builder->CreateICmpSLE(left, right);
+		case BinaryOpGreater: return cg.builder->CreateICmpSGT(left, right);
+		case BinaryOpGreaterEqual: return cg.builder->CreateICmpSGE(left, right);
+		case BinaryOpEqual: return cg.builder->CreateICmpEQ(left, right);
+		case BinaryOpNotEqual: return cg.builder->CreateICmpNE(left, right);
 		default:
-			ICE("Unknown UnaryOp %d", n->op);
-		}
+			ICE("Unknown BinaryOp %d", n->op);
 	}
+}
 
-	if (UNION_CASE(Binary, n, node))
+static Value* codegenIf(Codegen& cg, Ast::If* n)
+{
+	Value* cond = codegenExpr(cg, n->cond);
+
+	Function* func = cg.builder->GetInsertBlock()->getParent();
+
+	if (n->elsebody)
 	{
-		if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
+		BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
+		BasicBlock* elsebb = BasicBlock::Create(*cg.context, "else");
+		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+
+		cg.builder->CreateCondBr(cond, thenbb, elsebb);
+
+		func->getBasicBlockList().push_back(thenbb);
+		cg.builder->SetInsertPoint(thenbb);
+
+		Value* thenbody = codegenExpr(cg, n->thenbody);
+		cg.builder->CreateBr(endbb);
+		thenbb = cg.builder->GetInsertBlock();
+
+		func->getBasicBlockList().push_back(elsebb);
+		cg.builder->SetInsertPoint(elsebb);
+
+		Value* elsebody = codegenExpr(cg, n->elsebody);
+		cg.builder->CreateBr(endbb);
+		elsebb = cg.builder->GetInsertBlock();
+
+		func->getBasicBlockList().push_back(endbb);
+		cg.builder->SetInsertPoint(endbb);
+
+		if (thenbody->getType()->isVoidTy())
 		{
-			Function* func = cg.builder->GetInsertBlock()->getParent();
+			return nullptr;
+		}
+		else
+		{
+			PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
 
-			Value* left = codegenExpr(cg, n->left);
-
-			BasicBlock* currentbb = cg.builder->GetInsertBlock();
-			BasicBlock* nextbb = BasicBlock::Create(*cg.context, "next");
-			BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
-
-			if (n->op == BinaryOpAnd)
-				cg.builder->CreateCondBr(left, nextbb, afterbb);
-			else
-				cg.builder->CreateCondBr(left, afterbb, nextbb);
-
-			func->getBasicBlockList().push_back(nextbb);
-			cg.builder->SetInsertPoint(nextbb);
-
-			Value* right = codegenExpr(cg, n->right);
-			cg.builder->CreateBr(afterbb);
-			nextbb = cg.builder->GetInsertBlock();
-
-			func->getBasicBlockList().push_back(afterbb);
-			cg.builder->SetInsertPoint(afterbb);
-
-			PHINode* pn = cg.builder->CreatePHI(left->getType(), 2);
-
-			pn->addIncoming(right, nextbb);
-			pn->addIncoming(left, currentbb);
+			pn->addIncoming(thenbody, thenbb);
+			pn->addIncoming(elsebody, elsebb);
 
 			return pn;
 		}
-		else
-		{
-			Value* left = codegenExpr(cg, n->left);
-			Value* right = codegenExpr(cg, n->right);
-
-			switch (n->op)
-			{
-				case BinaryOpAddWrap: return cg.builder->CreateAdd(left, right);
-				case BinaryOpSubtractWrap: return cg.builder->CreateSub(left, right);
-				case BinaryOpMultiplyWrap: return cg.builder->CreateMul(left, right);
-				case BinaryOpAdd: return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
-				case BinaryOpSubtract: return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
-				case BinaryOpMultiply: return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
-				case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
-				case BinaryOpModulo: return cg.builder->CreateSRem(left, right);
-				case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
-				case BinaryOpLessEqual: return cg.builder->CreateICmpSLE(left, right);
-				case BinaryOpGreater: return cg.builder->CreateICmpSGT(left, right);
-				case BinaryOpGreaterEqual: return cg.builder->CreateICmpSGE(left, right);
-				case BinaryOpEqual: return cg.builder->CreateICmpEQ(left, right);
-				case BinaryOpNotEqual: return cg.builder->CreateICmpNE(left, right);
-				default:
-					ICE("Unknown BinaryOp %d", n->op);
-			}
-		}
 	}
-
-	if (UNION_CASE(If, n, node))
+	else
 	{
-		Value* cond = codegenExpr(cg, n->cond);
+		BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
+		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
 
-		Function* func = cg.builder->GetInsertBlock()->getParent();
+		cg.builder->CreateCondBr(cond, thenbb, endbb);
 
-		if (n->elsebody)
-		{
-			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
-			BasicBlock* elsebb = BasicBlock::Create(*cg.context, "else");
-			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
+		func->getBasicBlockList().push_back(thenbb);
+		cg.builder->SetInsertPoint(thenbb);
 
-			cg.builder->CreateCondBr(cond, thenbb, elsebb);
-
-			func->getBasicBlockList().push_back(thenbb);
-			cg.builder->SetInsertPoint(thenbb);
-
-			Value* thenbody = codegenExpr(cg, n->thenbody);
-			cg.builder->CreateBr(endbb);
-			thenbb = cg.builder->GetInsertBlock();
-
-			func->getBasicBlockList().push_back(elsebb);
-			cg.builder->SetInsertPoint(elsebb);
-
-			Value* elsebody = codegenExpr(cg, n->elsebody);
-			cg.builder->CreateBr(endbb);
-			elsebb = cg.builder->GetInsertBlock();
-
-			func->getBasicBlockList().push_back(endbb);
-			cg.builder->SetInsertPoint(endbb);
-
-			if (thenbody->getType()->isVoidTy())
-			{
-				return nullptr;
-			}
-			else
-			{
-				PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
-
-				pn->addIncoming(thenbody, thenbb);
-				pn->addIncoming(elsebody, elsebb);
-
-				return pn;
-			}
-		}
-		else
-		{
-			BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
-			BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
-
-			cg.builder->CreateCondBr(cond, thenbb, endbb);
-
-			func->getBasicBlockList().push_back(thenbb);
-			cg.builder->SetInsertPoint(thenbb);
-
-			Value* thenbody = codegenExpr(cg, n->thenbody);
-			cg.builder->CreateBr(endbb);
-
-			func->getBasicBlockList().push_back(endbb);
-			cg.builder->SetInsertPoint(endbb);
-
-			return nullptr;
-		}
-	}
-
-	if (UNION_CASE(For, n, node))
-	{
-		Function* func = cg.builder->GetInsertBlock()->getParent();
-
-		BasicBlock* entrybb = cg.builder->GetInsertBlock();
-		BasicBlock* loopbb = BasicBlock::Create(*cg.context, "loop");
-		BasicBlock* endbb = BasicBlock::Create(*cg.context, "forend");
-
-		Value* expr = codegenExpr(cg, n->expr);
-
-		Value* ptr = cg.builder->CreateExtractValue(expr, 0);
-		Value* size = cg.builder->CreateExtractValue(expr, 1);
-
-		cg.builder->CreateCondBr(cg.builder->CreateICmpSGT(size, cg.builder->getInt32(0)), loopbb, endbb);
-
-		func->getBasicBlockList().push_back(loopbb);
-		cg.builder->SetInsertPoint(loopbb);
-
-		PHINode* index = cg.builder->CreatePHI(Type::getInt32Ty(*cg.context), 2);
-
-		index->addIncoming(cg.builder->getInt32(0), entrybb);
-
-		Value* var = cg.builder->CreateInBoundsGEP(ptr, index);
-
-		cg.vars[n->var] = var;
-
-		if (n->index)
-			cg.vars[n->index] = index;
-
-		codegenExpr(cg, n->body);
-
-		Value* next = cg.builder->CreateAdd(index, cg.builder->getInt32(1));
-
-		BasicBlock* loopendbb = cg.builder->GetInsertBlock();
-
-		cg.builder->CreateCondBr(cg.builder->CreateICmpSLT(next, size), loopbb, endbb);
-
-		index->addIncoming(next, loopendbb);
+		Value* thenbody = codegenExpr(cg, n->thenbody);
+		cg.builder->CreateBr(endbb);
 
 		func->getBasicBlockList().push_back(endbb);
 		cg.builder->SetInsertPoint(endbb);
 
 		return nullptr;
 	}
+}
+
+static Value* codegenFor(Codegen& cg, Ast::For* n)
+{
+	Function* func = cg.builder->GetInsertBlock()->getParent();
+
+	BasicBlock* entrybb = cg.builder->GetInsertBlock();
+	BasicBlock* loopbb = BasicBlock::Create(*cg.context, "loop");
+	BasicBlock* endbb = BasicBlock::Create(*cg.context, "forend");
+
+	Value* expr = codegenExpr(cg, n->expr);
+
+	Value* ptr = cg.builder->CreateExtractValue(expr, 0);
+	Value* size = cg.builder->CreateExtractValue(expr, 1);
+
+	cg.builder->CreateCondBr(cg.builder->CreateICmpSGT(size, cg.builder->getInt32(0)), loopbb, endbb);
+
+	func->getBasicBlockList().push_back(loopbb);
+	cg.builder->SetInsertPoint(loopbb);
+
+	PHINode* index = cg.builder->CreatePHI(Type::getInt32Ty(*cg.context), 2);
+
+	index->addIncoming(cg.builder->getInt32(0), entrybb);
+
+	Value* var = cg.builder->CreateInBoundsGEP(ptr, index);
+
+	cg.vars[n->var] = var;
+
+	if (n->index)
+		cg.vars[n->index] = index;
+
+	codegenExpr(cg, n->body);
+
+	Value* next = cg.builder->CreateAdd(index, cg.builder->getInt32(1));
+
+	BasicBlock* loopendbb = cg.builder->GetInsertBlock();
+
+	cg.builder->CreateCondBr(cg.builder->CreateICmpSLT(next, size), loopbb, endbb);
+
+	index->addIncoming(next, loopendbb);
+
+	func->getBasicBlockList().push_back(endbb);
+	cg.builder->SetInsertPoint(endbb);
+
+	return nullptr;
+}
+
+static Value* codegenFn(Codegen& cg, Ast::Fn* n)
+{
+	Ty* type = finalType(cg, n->type);
+
+	auto fd = codegenFunctionDecl(cg, mangle(mangleFn(n->id, type)), type);
+	assert(fd.first);
+
+	cg.pendingFunctions.push_back(new FunctionInstance { fd.second, n->args, n->body, 0, Str(), cg.currentFunction });
+
+	return fd.second;
+}
+
+static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
+{
+	Value* expr = codegenExpr(cg, n->expr);
+
+	Value* storage = cg.builder->CreateAlloca(expr->getType());
+	cg.builder->CreateStore(expr, storage);
+
+	cg.vars[n->var] = storage;
+
+	return storage;
+}
+
+static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
+{
+	if (UNION_CASE(LiteralBool, n, node))
+		return cg.builder->getInt1(n->value);
+
+	if (UNION_CASE(LiteralNumber, n, node))
+		return cg.builder->getInt32(atoi(n->value.str().c_str()));
+
+	if (UNION_CASE(LiteralString, n, node))
+		return codegenLiteralString(cg, n);
+
+	if (UNION_CASE(LiteralArray, n, node))
+		return codegenLiteralArray(cg, n);
+
+	if (UNION_CASE(LiteralStruct, n, node))
+		return codegenLiteralStruct(cg, n);
+
+	if (UNION_CASE(Ident, n, node))
+		return codegenIdent(cg, n, kind);
+
+	if (UNION_CASE(Member, n, node))
+		return codegenMember(cg, n, kind);
+
+	if (UNION_CASE(Block, n, node))
+		return codegenBlock(cg, n);
+
+	if (UNION_CASE(Call, n, node))
+		return codegenCall(cg, n);
+
+	if (UNION_CASE(Index, n, node))
+		return codegenIndex(cg, n, kind);
+
+	if (UNION_CASE(Assign, n, node))
+		return codegenAssign(cg, n);
+
+	if (UNION_CASE(Unary, n, node))
+		return codegenUnary(cg, n);
+
+	if (UNION_CASE(Binary, n, node))
+	{
+		if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
+			return codegenBinaryAndOr(cg, n);
+		else
+			return codegenBinary(cg, n);
+	}
+
+	if (UNION_CASE(If, n, node))
+		return codegenIf(cg, n);
+
+	if (UNION_CASE(For, n, node))
+		return codegenFor(cg, n);
 
 	if (UNION_CASE(Fn, n, node))
-	{
-		Ty* type = finalType(cg, n->type);
-
-		auto fd = codegenFunctionDecl(cg, mangle(mangleFn(n->id, type)), type);
-		assert(fd.first);
-
-		cg.pendingFunctions.push_back(new FunctionInstance { fd.second, n->args, n->body, 0, Str(), cg.currentFunction });
-
-		return fd.second;
-	}
+		return codegenFn(cg, n);
 
 	if (UNION_CASE(FnDecl, n, node))
-	{
 		return nullptr;
-	}
 
 	if (UNION_CASE(VarDecl, n, node))
-	{
-		Value* expr = codegenExpr(cg, n->expr);
-
-		Value* storage = cg.builder->CreateAlloca(expr->getType());
-		cg.builder->CreateStore(expr, storage);
-
-		cg.vars[n->var] = storage;
-
-		return storage;
-	}
+		return codegenVarDecl(cg, n);
 
 	if (UNION_CASE(TyDecl, n, node))
-	{
 		return nullptr;
-	}
 
 	ICE("Unknown Ast kind %d", node->kind);
 }
