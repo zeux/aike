@@ -241,12 +241,7 @@ static void dumpNode(Ast* root, int indent)
 	}
 	else if (UNION_CASE(Fn, n, root))
 	{
-		printf("fn ");
-		dumpFunctionSignature(n->type, n->args);
-		printf("\n");
-
-		if (n->body)
-			dumpNode(n->body, indent + 1);
+		dumpNode(n->decl, indent);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{

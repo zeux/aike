@@ -166,16 +166,6 @@ static Ty* finalType(Codegen& cg, Ty* type)
 	});
 }
 
-static pair<bool, Function*> codegenFunctionDecl(Codegen& cg, const string& name, Ty* type)
-{
-	if (Function* fun = cg.module->getFunction(name))
-		return make_pair(false, fun);
-
-	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, type))->getElementType());
-
-	return make_pair(true, Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module));
-}
-
 static void codegenTrapIf(Codegen& cg, Value* cond)
 {
 	Function* func = cg.builder->GetInsertBlock()->getParent();
@@ -298,6 +288,34 @@ static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 	return result;
 }
 
+static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty, const Arr<Ty*>& tyargs)
+{
+	Ty* type = finalType(cg, ty);
+
+	Arr<Ty*> ftyargs;
+	for (auto& a: tyargs)
+		ftyargs.push(finalType(cg, a));
+
+	string name = mangle(mangleFn(decl->var->name, id, type, ftyargs));
+
+	if (Function* fun = cg.module->getFunction(name))
+		return fun;
+
+	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, ty))->getElementType());
+	Function* fun = Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
+
+	vector<pair<Ty*, Ty*>> inst;
+	assert(tyargs.size == decl->tyargs.size);
+
+	for (size_t i = 0; i < tyargs.size; ++i)
+		inst.push_back(make_pair(decl->tyargs[i], ftyargs[i]));
+
+	// TODO: parent=current is wrong: need to pick lexical parent
+	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
+
+	return fun;
+}
+
 static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 {
 	Variable* target = n->target;
@@ -307,27 +325,7 @@ static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 		UNION_CASE(FnDecl, decl, target->fn);
 		assert(decl && decl->var == target);
 
-		Ty* type = finalType(cg, n->type);
-
-		Arr<Ty*> tyargs;
-		for (auto& a: n->tyargs)
-			tyargs.push(finalType(cg, a));
-
-		auto fd = codegenFunctionDecl(cg, mangle(mangleFn(target->name, type, tyargs)), type);
-
-		if (fd.first)
-		{
-			vector<pair<Ty*, Ty*>> inst;
-			assert(n->tyargs.size == decl->tyargs.size);
-
-			for (size_t i = 0; i < n->tyargs.size; ++i)
-				inst.push_back(make_pair(decl->tyargs[i], tyargs[i]));
-
-			// TODO: parent=current is wrong: need to pick lexical parent
-			cg.pendingFunctions.push_back(new FunctionInstance { fd.second, decl->args, decl->body, decl->attributes, decl->var->name, cg.currentFunction, inst });
-		}
-
-		return fd.second;
+		return codegenFunctionDecl(cg, decl, 0, n->type, n->tyargs);
 	}
 	else
 	{
@@ -596,14 +594,9 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 static Value* codegenFn(Codegen& cg, Ast::Fn* n)
 {
-	Ty* type = finalType(cg, n->type);
+	UNION_CASE(FnDecl, decl, n->decl);
 
-	auto fd = codegenFunctionDecl(cg, mangle(mangleFn(n->id, type)), type);
-	assert(fd.first);
-
-	cg.pendingFunctions.push_back(new FunctionInstance { fd.second, n->args, n->body, 0, Str(), cg.currentFunction });
-
-	return fd.second;
+	return codegenFunctionDecl(cg, decl, n->id, decl->var->type, Arr<Ty*>());
 }
 
 static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)

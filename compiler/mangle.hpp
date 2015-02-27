@@ -3,7 +3,6 @@
 struct Ty;
 
 string mangleType(Ty* type);
-string mangleFn(const Str& name, Ty* type, const Arr<Ty*>& tyargs, const string& parent = string());
-string mangleFn(int unnamed, Ty* type, const string& parent = string());
+string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent = string());
 
 string mangle(const string& name);

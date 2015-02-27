@@ -328,17 +328,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Fn, n, root))
 	{
-		auto ret = type(output, n->body, constraints);
+		auto ret = type(output, n->decl, constraints);
 
-		if (UNION_CASE(Function, fnty, n->type))
-		{
-			if (fnty->ret->kind != Ty::KindVoid)
-				typeMustEqual(ret.first, fnty->ret, constraints, output, ret.second);
-		}
-		else
-			ICE("FnDecl type is not Function");
+		UNION_CASE(FnDecl, decl, n->decl);
+		assert(decl);
 
-		return make_pair(n->type, n->location);
+		return make_pair(decl->var->type, n->location);
 	}
 
 	if (UNION_CASE(FnDecl, n, root))
@@ -410,13 +405,6 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 
 		if (n->index)
 			n->index->type = constraints.rewrite(n->index->type);
-	}
-	else if (UNION_CASE(Fn, n, root))
-	{
-		n->type = constraints.rewrite(n->type);
-
-		for (auto& arg: n->args)
-			arg->type = constraints.rewrite(arg->type);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{

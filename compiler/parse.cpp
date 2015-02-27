@@ -322,15 +322,18 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireA
 
 static Ast* parseFn(TokenStream& ts)
 {
-	Location indent = ts.get().location;
+	Location start = ts.get().location;
 
 	ts.eat(Token::TypeIdent, "fn");
 
 	auto sig = parseFnSignature(ts, /* requireArgTypes= */ false, /* defaultRetVoid= */ false);
 
-	Ast* body = parseBlock(ts, &indent);
+	Ast* body = parseBlock(ts, &start);
 
-	return UNION_NEW(Ast, Fn, { int(ts.index), sig.first, indent, sig.second, body });
+	Variable* var = new Variable { Variable::KindFunction, Str(), sig.first, start };
+	Ast* decl = UNION_NEW(Ast, FnDecl, { var, Arr<Ty*>(), sig.second, 0, body });
+
+	return UNION_NEW(Ast, Fn, { start, int(ts.index), decl });
 }
 
 static Ast* parseFnDecl(TokenStream& ts)

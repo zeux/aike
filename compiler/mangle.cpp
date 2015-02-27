@@ -71,7 +71,7 @@ static void mangle(string& buffer, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
+string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
 {
 	string result;
 
@@ -121,16 +121,6 @@ string mangleType(Ty* type)
 	string result;
 	mangle(result, type);
 	return result;
-}
-
-string mangleFn(const Str& name, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
-{
-	return mangleFn(name, 0, type, tyargs, parent);
-}
-
-string mangleFn(int unnamed, Ty* type, const string& parent)
-{
-	return mangleFn(Str(), unnamed, type, Arr<Ty*>(), parent);
 }
 
 string mangle(const string& name)
