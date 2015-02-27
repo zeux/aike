@@ -61,6 +61,8 @@ struct ResolveNames
 	NameMap<TyDef> typedefs;
 	NameMap<Ty> generics;
 
+	vector<Ast::FnDecl*> functions;
+
 	typedef array<size_t, 3> State;
 
 	State top() const
@@ -142,6 +144,9 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
+		// establish lexical parent-child relationship
+		n->parent = rs.functions.empty() ? nullptr : rs.functions.back();
+
 		auto scope = rs.top();
 
 		for (auto& a: n->tyargs)
@@ -159,7 +164,11 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 			for (auto& a: n->args)
 				rs.variables.push(a->name, a);
 
+			rs.functions.push_back(n);
+
 			visitAstInner(root, resolveNamesNode, rs);
+
+			rs.functions.pop_back();
 		}
 
 		rs.pop(scope);

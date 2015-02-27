@@ -75,10 +75,14 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 {
 	string result;
 
+	result += "_Z";
+
 	if (!parent.empty())
 	{
+		assert(parent.size() > 2 && parent[0] == '_' && parent[1] == 'Z');
+
 		result += "Z";
-		result += parent;
+		result += parent.substr(2);
 		result += "E";
 	}
 
@@ -121,9 +125,4 @@ string mangleType(Ty* type)
 	string result;
 	mangle(result, type);
 	return result;
-}
-
-string mangle(const string& name)
-{
-	return "_Z" + name;
 }

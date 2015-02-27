@@ -70,6 +70,21 @@ static Ty* getGenericInstance(Codegen& cg, Ty* type)
 	ICE("Generic type %s was not instantiated", t->name.str().c_str());
 }
 
+static FunctionInstance* getFunctionInstance(Codegen& cg, Ast::FnDecl* decl)
+{
+	FunctionInstance* fn = cg.currentFunction;
+
+	while (fn)
+	{
+		if (fn->decl == decl)
+			return fn;
+
+		fn = fn->parent;
+	}
+
+	return nullptr;
+}
+
 static Type* codegenType(Codegen& cg, Ty* type);
 
 static Type* codegenTypeDef(Codegen& cg, Ty* type, TyDef* def)
@@ -285,13 +300,15 @@ static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 
 static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty, const Arr<Ty*>& tyargs)
 {
+	FunctionInstance* parent = getFunctionInstance(cg, decl->parent);
+
 	Ty* type = finalType(cg, ty);
 
 	Arr<Ty*> ftyargs;
 	for (auto& a: tyargs)
 		ftyargs.push(finalType(cg, a));
 
-	string name = mangle(mangleFn(decl->var->name, id, type, ftyargs));
+	string name = mangleFn(decl->var->name, id, type, ftyargs, parent ? parent->value->getName() : "");
 
 	if (Function* fun = cg.module->getFunction(name))
 		return fun;
@@ -305,8 +322,7 @@ static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty
 	for (size_t i = 0; i < tyargs.size; ++i)
 		inst.push_back(make_pair(decl->tyargs[i], ftyargs[i]));
 
-	// TODO: parent=current is wrong: need to pick lexical parent
-	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl, cg.currentFunction, inst });
+	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl, parent, inst });
 
 	return fun;
 }
