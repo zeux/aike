@@ -9,6 +9,11 @@ namespace llvm
 struct Output;
 struct Ast;
 
-llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module);
+struct CodegenOptions
+{
+	bool debugInfo;
+};
+
+llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options);
 
 void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries);

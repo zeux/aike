@@ -34,6 +34,7 @@ struct Options
 	string output;
 
 	int optimize;
+	bool debugInfo;
 
 	bool dumpParse;
 	bool dumpAst;
@@ -54,6 +55,8 @@ Options parseOptions(int argc, const char** argv)
 		{
 			if (arg == "-o" && i + 1 < argc)
 				result.output = argv[++i];
+			else if (arg == "-g")
+				result.debugInfo = true;
 			else if (arg == "--dump-parse")
 				result.dumpParse = true;
 			else if (arg == "--dump-ast")
@@ -246,7 +249,7 @@ int main(int argc, const char** argv)
 
 		timer.checkpoint();
 
-		entries.push_back(codegen(output, root, module));
+		entries.push_back(codegen(output, root, module, { options.debugInfo }));
 
 		timer.checkpoint("codegen");
 	}

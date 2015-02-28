@@ -26,6 +26,8 @@ struct FunctionInstance
 struct Codegen
 {
 	Output* output;
+	CodegenOptions options;
+
 	LLVMContext* context;
 	Module* module;
 
@@ -785,13 +787,13 @@ static void codegenPrepare(Codegen& cg)
 	cg.runtimeNewArr = cg.module->getOrInsertFunction("aike_newarr", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
-llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module)
+llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options)
 {
 	llvm::LLVMContext* context = &module->getContext();
 
 	IRBuilder<> builder(*context);
 
-	Codegen cg = { &output, context, module, &builder };
+	Codegen cg = { &output, options, context, module, &builder };
 
 	codegenPrepare(cg);
 
