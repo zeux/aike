@@ -7,6 +7,7 @@
 #include "mangle.hpp"
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Intrinsics.h"
@@ -31,7 +32,8 @@ struct Codegen
 	LLVMContext* context;
 	Module* module;
 
-	IRBuilder<>* builder;
+	IRBuilder<>* ir;
+	DIBuilder* di;
 
 	Constant* builtinTrap;
 	Constant* builtinAddOverflow;
@@ -180,31 +182,31 @@ static Ty* finalType(Codegen& cg, Ty* type)
 
 static void codegenTrapIf(Codegen& cg, Value* cond)
 {
-	Function* func = cg.builder->GetInsertBlock()->getParent();
+	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	BasicBlock* trapbb = BasicBlock::Create(*cg.context, "trap");
 	BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
 
-	cg.builder->CreateCondBr(cond, trapbb, afterbb);
+	cg.ir->CreateCondBr(cond, trapbb, afterbb);
 
 	func->getBasicBlockList().push_back(trapbb);
-	cg.builder->SetInsertPoint(trapbb);
+	cg.ir->SetInsertPoint(trapbb);
 
-	cg.builder->CreateCall(cg.builtinTrap);
-	cg.builder->CreateUnreachable();
+	cg.ir->CreateCall(cg.builtinTrap);
+	cg.ir->CreateUnreachable();
 
 	func->getBasicBlockList().push_back(afterbb);
-	cg.builder->SetInsertPoint(afterbb);
+	cg.ir->SetInsertPoint(afterbb);
 }
 
 static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
 {
-	Value* result = cg.builder->CreateCall2(overflowOp, left, right);
-	Value* cond = cg.builder->CreateExtractValue(result, 1);
+	Value* result = cg.ir->CreateCall2(overflowOp, left, right);
+	Value* cond = cg.ir->CreateExtractValue(result, 1);
 
 	codegenTrapIf(cg, cond);
 
-	return cg.builder->CreateExtractValue(result, 0);
+	return cg.ir->CreateExtractValue(result, 0);
 }
 
 static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
@@ -213,9 +215,9 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 	Type* elementType = cast<PointerType>(pointerType)->getElementType();
 
 	// TODO: refactor + fix int32/size_t
-	Value* elementSize = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.builder->getInt32Ty(), false);
-	Value* rawPtr = cg.builder->CreateCall2(cg.runtimeNewArr, count, elementSize);
-	Value* ptr = cg.builder->CreateBitCast(rawPtr, pointerType);
+	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
+	Value* rawPtr = cg.ir->CreateCall2(cg.runtimeNewArr, count, elementSize);
+	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
 
 	return ptr;
 }
@@ -228,10 +230,10 @@ static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 
 	Value* result = UndefValue::get(type);
 
-	Value* string = cg.builder->CreateGlobalStringPtr(StringRef(n->value.data, n->value.size));
+	Value* string = cg.ir->CreateGlobalStringPtr(StringRef(n->value.data, n->value.size));
 
-	result = cg.builder->CreateInsertValue(result, string, 0);
-	result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->value.size), 1);
+	result = cg.ir->CreateInsertValue(result, string, 0);
+	result = cg.ir->CreateInsertValue(result, cg.ir->getInt32(n->value.size), 1);
 
 	return result;
 }
@@ -240,19 +242,19 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 {
 	Type* type = codegenType(cg, n->type);
 
-	Value* ptr = codegenNewArr(cg, type, cg.builder->getInt32(n->elements.size));
+	Value* ptr = codegenNewArr(cg, type, cg.ir->getInt32(n->elements.size));
 
 	for (size_t i = 0; i < n->elements.size; ++i)
 	{
 		Value* expr = codegenExpr(cg, n->elements[i]);
 
-		cg.builder->CreateStore(expr, cg.builder->CreateConstInBoundsGEP1_32(ptr, i));
+		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(ptr, i));
 	}
 
 	Value* result = UndefValue::get(type);
 
-	result = cg.builder->CreateInsertValue(result, ptr, 0);
-	result = cg.builder->CreateInsertValue(result, cg.builder->getInt32(n->elements.size), 1);
+	result = cg.ir->CreateInsertValue(result, ptr, 0);
+	result = cg.ir->CreateInsertValue(result, cg.ir->getInt32(n->elements.size), 1);
 
 	return result;
 }
@@ -285,7 +287,7 @@ static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 
 			Value* expr = codegenExpr(cg, td->fields[i].expr);
 
-			result = cg.builder->CreateInsertValue(result, expr, i);
+			result = cg.ir->CreateInsertValue(result, expr, i);
 		}
 
 	for (auto& f: n->fields)
@@ -294,7 +296,7 @@ static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 
 		Value* expr = codegenExpr(cg, f.second);
 
-		result = cg.builder->CreateInsertValue(result, expr, f.first.index);
+		result = cg.ir->CreateInsertValue(result, expr, f.first.index);
 	}
 
 	return result;
@@ -346,7 +348,7 @@ static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 		assert(it != cg.vars.end());
 
 		if (target->kind == Variable::KindVariable && kind != KindRef)
-			return cg.builder->CreateLoad(it->second);
+			return cg.ir->CreateLoad(it->second);
 		else
 			return it->second;
 	}
@@ -359,9 +361,9 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 	Value* expr = codegenExpr(cg, n->expr, kind);
 
 	if (kind == KindRef)
-		return cg.builder->CreateStructGEP(expr, n->field.index);
+		return cg.ir->CreateStructGEP(expr, n->field.index);
 	else
-		return cg.builder->CreateExtractValue(expr, n->field.index);
+		return cg.ir->CreateExtractValue(expr, n->field.index);
 }
 
 static Value* codegenBlock(Codegen& cg, Ast::Block* n)
@@ -384,7 +386,7 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 	for (auto& a: n->args)
 		args.push_back(codegenExpr(cg, a));
 
-	return cg.builder->CreateCall(expr, args);
+	return cg.ir->CreateCall(expr, args);
 }
 
 static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
@@ -392,17 +394,17 @@ static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
 	Value* expr = codegenExpr(cg, n->expr);
 	Value* index = codegenExpr(cg, n->index);
 
-	Value* ptr = cg.builder->CreateExtractValue(expr, 0);
-	Value* size = cg.builder->CreateExtractValue(expr, 1);
+	Value* ptr = cg.ir->CreateExtractValue(expr, 0);
+	Value* size = cg.ir->CreateExtractValue(expr, 1);
 
-	Value* cond = cg.builder->CreateICmpUGE(index, size);
+	Value* cond = cg.ir->CreateICmpUGE(index, size);
 
 	codegenTrapIf(cg, cond);
 
 	if (kind == KindRef)
-		return cg.builder->CreateInBoundsGEP(ptr, index);
+		return cg.ir->CreateInBoundsGEP(ptr, index);
 	else
-		return cg.builder->CreateLoad(cg.builder->CreateInBoundsGEP(ptr, index));
+		return cg.ir->CreateLoad(cg.ir->CreateInBoundsGEP(ptr, index));
 }
 
 static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
@@ -410,7 +412,7 @@ static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
 	Value* left = codegenExpr(cg, n->left, KindRef);
 	Value* right = codegenExpr(cg, n->right);
 
-	return cg.builder->CreateStore(right, left);
+	return cg.ir->CreateStore(right, left);
 }
 
 static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
@@ -423,13 +425,13 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
 		return expr;
 
 	case UnaryOpMinus:
-		return cg.builder->CreateNeg(expr);
+		return cg.ir->CreateNeg(expr);
 
 	case UnaryOpNot:
-		return cg.builder->CreateNot(expr);
+		return cg.ir->CreateNot(expr);
 
 	case UnaryOpSize:
-		return cg.builder->CreateExtractValue(expr, 1);
+		return cg.ir->CreateExtractValue(expr, 1);
 
 	default:
 		ICE("Unknown UnaryOp %d", n->op);
@@ -438,30 +440,30 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
 
 static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 {
-	Function* func = cg.builder->GetInsertBlock()->getParent();
+	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	Value* left = codegenExpr(cg, n->left);
 
-	BasicBlock* currentbb = cg.builder->GetInsertBlock();
+	BasicBlock* currentbb = cg.ir->GetInsertBlock();
 	BasicBlock* nextbb = BasicBlock::Create(*cg.context, "next");
 	BasicBlock* afterbb = BasicBlock::Create(*cg.context, "after");
 
 	if (n->op == BinaryOpAnd)
-		cg.builder->CreateCondBr(left, nextbb, afterbb);
+		cg.ir->CreateCondBr(left, nextbb, afterbb);
 	else
-		cg.builder->CreateCondBr(left, afterbb, nextbb);
+		cg.ir->CreateCondBr(left, afterbb, nextbb);
 
 	func->getBasicBlockList().push_back(nextbb);
-	cg.builder->SetInsertPoint(nextbb);
+	cg.ir->SetInsertPoint(nextbb);
 
 	Value* right = codegenExpr(cg, n->right);
-	cg.builder->CreateBr(afterbb);
-	nextbb = cg.builder->GetInsertBlock();
+	cg.ir->CreateBr(afterbb);
+	nextbb = cg.ir->GetInsertBlock();
 
 	func->getBasicBlockList().push_back(afterbb);
-	cg.builder->SetInsertPoint(afterbb);
+	cg.ir->SetInsertPoint(afterbb);
 
-	PHINode* pn = cg.builder->CreatePHI(left->getType(), 2);
+	PHINode* pn = cg.ir->CreatePHI(left->getType(), 2);
 
 	pn->addIncoming(right, nextbb);
 	pn->addIncoming(left, currentbb);
@@ -476,20 +478,20 @@ static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
 
 	switch (n->op)
 	{
-		case BinaryOpAddWrap: return cg.builder->CreateAdd(left, right);
-		case BinaryOpSubtractWrap: return cg.builder->CreateSub(left, right);
-		case BinaryOpMultiplyWrap: return cg.builder->CreateMul(left, right);
+		case BinaryOpAddWrap: return cg.ir->CreateAdd(left, right);
+		case BinaryOpSubtractWrap: return cg.ir->CreateSub(left, right);
+		case BinaryOpMultiplyWrap: return cg.ir->CreateMul(left, right);
 		case BinaryOpAdd: return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
 		case BinaryOpSubtract: return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
 		case BinaryOpMultiply: return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
-		case BinaryOpDivide: return cg.builder->CreateSDiv(left, right);
-		case BinaryOpModulo: return cg.builder->CreateSRem(left, right);
-		case BinaryOpLess: return cg.builder->CreateICmpSLT(left, right);
-		case BinaryOpLessEqual: return cg.builder->CreateICmpSLE(left, right);
-		case BinaryOpGreater: return cg.builder->CreateICmpSGT(left, right);
-		case BinaryOpGreaterEqual: return cg.builder->CreateICmpSGE(left, right);
-		case BinaryOpEqual: return cg.builder->CreateICmpEQ(left, right);
-		case BinaryOpNotEqual: return cg.builder->CreateICmpNE(left, right);
+		case BinaryOpDivide: return cg.ir->CreateSDiv(left, right);
+		case BinaryOpModulo: return cg.ir->CreateSRem(left, right);
+		case BinaryOpLess: return cg.ir->CreateICmpSLT(left, right);
+		case BinaryOpLessEqual: return cg.ir->CreateICmpSLE(left, right);
+		case BinaryOpGreater: return cg.ir->CreateICmpSGT(left, right);
+		case BinaryOpGreaterEqual: return cg.ir->CreateICmpSGE(left, right);
+		case BinaryOpEqual: return cg.ir->CreateICmpEQ(left, right);
+		case BinaryOpNotEqual: return cg.ir->CreateICmpNE(left, right);
 		default:
 			ICE("Unknown BinaryOp %d", n->op);
 	}
@@ -499,7 +501,7 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 {
 	Value* cond = codegenExpr(cg, n->cond);
 
-	Function* func = cg.builder->GetInsertBlock()->getParent();
+	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	if (n->elsebody)
 	{
@@ -507,24 +509,24 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		BasicBlock* elsebb = BasicBlock::Create(*cg.context, "else");
 		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
 
-		cg.builder->CreateCondBr(cond, thenbb, elsebb);
+		cg.ir->CreateCondBr(cond, thenbb, elsebb);
 
 		func->getBasicBlockList().push_back(thenbb);
-		cg.builder->SetInsertPoint(thenbb);
+		cg.ir->SetInsertPoint(thenbb);
 
 		Value* thenbody = codegenExpr(cg, n->thenbody);
-		cg.builder->CreateBr(endbb);
-		thenbb = cg.builder->GetInsertBlock();
+		cg.ir->CreateBr(endbb);
+		thenbb = cg.ir->GetInsertBlock();
 
 		func->getBasicBlockList().push_back(elsebb);
-		cg.builder->SetInsertPoint(elsebb);
+		cg.ir->SetInsertPoint(elsebb);
 
 		Value* elsebody = codegenExpr(cg, n->elsebody);
-		cg.builder->CreateBr(endbb);
-		elsebb = cg.builder->GetInsertBlock();
+		cg.ir->CreateBr(endbb);
+		elsebb = cg.ir->GetInsertBlock();
 
 		func->getBasicBlockList().push_back(endbb);
-		cg.builder->SetInsertPoint(endbb);
+		cg.ir->SetInsertPoint(endbb);
 
 		if (thenbody->getType()->isVoidTy())
 		{
@@ -532,7 +534,7 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		}
 		else
 		{
-			PHINode* pn = cg.builder->CreatePHI(thenbody->getType(), 2);
+			PHINode* pn = cg.ir->CreatePHI(thenbody->getType(), 2);
 
 			pn->addIncoming(thenbody, thenbb);
 			pn->addIncoming(elsebody, elsebb);
@@ -545,16 +547,16 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		BasicBlock* thenbb = BasicBlock::Create(*cg.context, "then");
 		BasicBlock* endbb = BasicBlock::Create(*cg.context, "ifend");
 
-		cg.builder->CreateCondBr(cond, thenbb, endbb);
+		cg.ir->CreateCondBr(cond, thenbb, endbb);
 
 		func->getBasicBlockList().push_back(thenbb);
-		cg.builder->SetInsertPoint(thenbb);
+		cg.ir->SetInsertPoint(thenbb);
 
 		Value* thenbody = codegenExpr(cg, n->thenbody);
-		cg.builder->CreateBr(endbb);
+		cg.ir->CreateBr(endbb);
 
 		func->getBasicBlockList().push_back(endbb);
-		cg.builder->SetInsertPoint(endbb);
+		cg.ir->SetInsertPoint(endbb);
 
 		return nullptr;
 	}
@@ -562,27 +564,27 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 
 static Value* codegenFor(Codegen& cg, Ast::For* n)
 {
-	Function* func = cg.builder->GetInsertBlock()->getParent();
+	Function* func = cg.ir->GetInsertBlock()->getParent();
 
-	BasicBlock* entrybb = cg.builder->GetInsertBlock();
+	BasicBlock* entrybb = cg.ir->GetInsertBlock();
 	BasicBlock* loopbb = BasicBlock::Create(*cg.context, "loop");
 	BasicBlock* endbb = BasicBlock::Create(*cg.context, "forend");
 
 	Value* expr = codegenExpr(cg, n->expr);
 
-	Value* ptr = cg.builder->CreateExtractValue(expr, 0);
-	Value* size = cg.builder->CreateExtractValue(expr, 1);
+	Value* ptr = cg.ir->CreateExtractValue(expr, 0);
+	Value* size = cg.ir->CreateExtractValue(expr, 1);
 
-	cg.builder->CreateCondBr(cg.builder->CreateICmpSGT(size, cg.builder->getInt32(0)), loopbb, endbb);
+	cg.ir->CreateCondBr(cg.ir->CreateICmpSGT(size, cg.ir->getInt32(0)), loopbb, endbb);
 
 	func->getBasicBlockList().push_back(loopbb);
-	cg.builder->SetInsertPoint(loopbb);
+	cg.ir->SetInsertPoint(loopbb);
 
-	PHINode* index = cg.builder->CreatePHI(Type::getInt32Ty(*cg.context), 2);
+	PHINode* index = cg.ir->CreatePHI(Type::getInt32Ty(*cg.context), 2);
 
-	index->addIncoming(cg.builder->getInt32(0), entrybb);
+	index->addIncoming(cg.ir->getInt32(0), entrybb);
 
-	Value* var = cg.builder->CreateInBoundsGEP(ptr, index);
+	Value* var = cg.ir->CreateInBoundsGEP(ptr, index);
 
 	cg.vars[n->var] = var;
 
@@ -591,16 +593,16 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 	codegenExpr(cg, n->body);
 
-	Value* next = cg.builder->CreateAdd(index, cg.builder->getInt32(1));
+	Value* next = cg.ir->CreateAdd(index, cg.ir->getInt32(1));
 
-	BasicBlock* loopendbb = cg.builder->GetInsertBlock();
+	BasicBlock* loopendbb = cg.ir->GetInsertBlock();
 
-	cg.builder->CreateCondBr(cg.builder->CreateICmpSLT(next, size), loopbb, endbb);
+	cg.ir->CreateCondBr(cg.ir->CreateICmpSLT(next, size), loopbb, endbb);
 
 	index->addIncoming(next, loopendbb);
 
 	func->getBasicBlockList().push_back(endbb);
-	cg.builder->SetInsertPoint(endbb);
+	cg.ir->SetInsertPoint(endbb);
 
 	return nullptr;
 }
@@ -616,8 +618,8 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 {
 	Value* expr = codegenExpr(cg, n->expr);
 
-	Value* storage = cg.builder->CreateAlloca(expr->getType());
-	cg.builder->CreateStore(expr, storage);
+	Value* storage = cg.ir->CreateAlloca(expr->getType());
+	cg.ir->CreateStore(expr, storage);
 
 	cg.vars[n->var] = storage;
 
@@ -627,10 +629,10 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 {
 	if (UNION_CASE(LiteralBool, n, node))
-		return cg.builder->getInt1(n->value);
+		return cg.ir->getInt1(n->value);
 
 	if (UNION_CASE(LiteralNumber, n, node))
-		return cg.builder->getInt32(atoi(n->value.str().c_str()));
+		return cg.ir->getInt32(atoi(n->value.str().c_str()));
 
 	if (UNION_CASE(LiteralString, n, node))
 		return codegenLiteralString(cg, n);
@@ -703,14 +705,14 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 		args.push_back(ait);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
-	cg.builder->SetInsertPoint(bb);
+	cg.ir->SetInsertPoint(bb);
 
-	Value* ret = cg.builder->CreateCall(external, args);
+	Value* ret = cg.ir->CreateCall(external, args);
 
 	if (ret->getType()->isVoidTy())
-		cg.builder->CreateRetVoid();
+		cg.ir->CreateRetVoid();
 	else
-		cg.builder->CreateRet(ret);
+		cg.ir->CreateRet(ret);
 }
 
 static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
@@ -718,16 +720,16 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 	assert(!inst.decl->body);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
-	cg.builder->SetInsertPoint(bb);
+	cg.ir->SetInsertPoint(bb);
 
 	Str name = inst.decl->var->name;
 
 	if (name == "sizeof" && inst.generics.size() == 1 && inst.value->arg_size() == 0)
 	{
 		Type* type = codegenType(cg, inst.generics[0].second);
-		Value* ret = cg.builder->CreateIntCast(ConstantExpr::getSizeOf(type), cg.builder->getInt32Ty(), false);
+		Value* ret = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(type), cg.ir->getInt32Ty(), false);
 
-		cg.builder->CreateRet(ret);
+		cg.ir->CreateRet(ret);
 	}
 	else if (name == "newarr" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
 	{
@@ -737,10 +739,10 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 		Value* ret = UndefValue::get(type);
 
-		ret = cg.builder->CreateInsertValue(ret, codegenNewArr(cg, type, count), 0);
-		ret = cg.builder->CreateInsertValue(ret, count, 1);
+		ret = cg.ir->CreateInsertValue(ret, codegenNewArr(cg, type, count), 0);
+		ret = cg.ir->CreateInsertValue(ret, count, 1);
 
-		cg.builder->CreateRet(ret);
+		cg.ir->CreateRet(ret);
 	}
 	else
 		// TODO Location
@@ -765,14 +767,14 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 		cg.vars[inst.decl->args[argindex]] = ait;
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
-	cg.builder->SetInsertPoint(bb);
+	cg.ir->SetInsertPoint(bb);
 
 	Value* ret = codegenExpr(cg, inst.decl->body);
 
 	if (!inst.value->getFunctionType()->getReturnType()->isVoidTy())
-		cg.builder->CreateRet(ret);
+		cg.ir->CreateRet(ret);
 	else
-		cg.builder->CreateRetVoid();
+		cg.ir->CreateRetVoid();
 }
 
 static void codegenPrepare(Codegen& cg)
@@ -791,9 +793,10 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 {
 	llvm::LLVMContext* context = &module->getContext();
 
-	IRBuilder<> builder(*context);
+	IRBuilder<> ir(*context);
+	DIBuilder di(*module);
 
-	Codegen cg = { &output, options, context, module, &builder };
+	Codegen cg = { &output, options, context, module, &ir, &di };
 
 	codegenPrepare(cg);
 
@@ -823,19 +826,19 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 {
 	llvm::LLVMContext& context = module->getContext();
-	IRBuilder<> builder(context);
+	IRBuilder<> ir(context);
 
 	Function* main = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr));
 
 	BasicBlock* bb = BasicBlock::Create(context, "entry", main);
-	builder.SetInsertPoint(bb);
+	ir.SetInsertPoint(bb);
 
 	Constant* runtimeInit = module->getOrInsertFunction("aike_init", Type::getVoidTy(context), nullptr);
 
-	builder.CreateCall(runtimeInit);
+	ir.CreateCall(runtimeInit);
 
 	for (auto& e: entries)
-		builder.CreateCall(e);
+		ir.CreateCall(e);
 
-	builder.CreateRet(builder.getInt32(0));
+	ir.CreateRet(ir.getInt32(0));
 }
