@@ -368,14 +368,12 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 
 static Value* codegenBlock(Codegen& cg, Ast::Block* n)
 {
-	if (n->body.size == 0)
-		return nullptr;
+	Value* result = nullptr;
 
-	for (size_t i = 0; i < n->body.size - 1; ++i)
-		codegenExpr(cg, n->body[i]);
+	for (auto& e: n->body)
+		result = codegenExpr(cg, e);
 
-	return codegenExpr(cg, n->body[n->body.size - 1]);
-
+	return result;
 }
 
 static Value* codegenCall(Codegen& cg, Ast::Call* n)
