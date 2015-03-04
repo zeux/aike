@@ -47,6 +47,8 @@ struct Codegen
 
 	vector<FunctionInstance*> pendingFunctions;
 	FunctionInstance* currentFunction;
+
+	vector<DIScope> debugBlocks;
 };
 
 enum CodegenKind
@@ -222,6 +224,14 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 	return ptr;
 }
 
+static Value* codegenDebugLocation(Codegen& cg, Value* value, const Location& location)
+{
+	if (cg.di && isa<Instruction>(value))
+		cast<Instruction>(value)->setDebugLoc(DebugLoc::get(location.line + 1, location.column + 1, cg.debugBlocks.back()));
+
+	return value;
+}
+
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue);
 
 static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
@@ -384,7 +394,7 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 	for (auto& a: n->args)
 		args.push_back(codegenExpr(cg, a));
 
-	return cg.ir->CreateCall(expr, args);
+	return codegenDebugLocation(cg, cg.ir->CreateCall(expr, args), n->location);
 }
 
 static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
@@ -570,7 +580,6 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 	Value* expr = codegenExpr(cg, n->expr);
 
-	Value* ptr = cg.ir->CreateExtractValue(expr, 0);
 	Value* size = cg.ir->CreateExtractValue(expr, 1);
 
 	cg.ir->CreateCondBr(cg.ir->CreateICmpSGT(size, cg.ir->getInt32(0)), loopbb, endbb);
@@ -582,7 +591,7 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 	index->addIncoming(cg.ir->getInt32(0), entrybb);
 
-	Value* var = cg.ir->CreateInBoundsGEP(ptr, index);
+	Value* var = cg.ir->CreateInBoundsGEP(cg.ir->CreateExtractValue(expr, 0), index);
 
 	cg.vars[n->var] = var;
 
@@ -747,16 +756,8 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.output->panic(Location(), "Unknown builtin function %s", name.str().c_str());
 }
 
-static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
+static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
 {
-	assert(inst.value->empty());
-
-	if (inst.decl->attributes & FnAttributeExtern)
-		return codegenFunctionExtern(cg, inst);
-
-	if (inst.decl->attributes & FnAttributeBuiltin)
-		return codegenFunctionBuiltin(cg, inst);
-
 	assert(inst.decl->body);
 
 	size_t argindex = 0;
@@ -773,6 +774,35 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRet(ret);
 	else
 		cg.ir->CreateRetVoid();
+}
+
+static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
+{
+	assert(inst.value->empty());
+
+	if (inst.decl->var && cg.di)
+	{
+		const Location& loc = inst.decl->var->location;
+
+		auto file = cg.di->createFile(loc.source, StringRef());
+		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateArray({}));
+		auto func = cg.di->createFunction(
+			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
+			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
+			DIDescriptor::FlagPrototyped, /* isOptimized= */ false, inst.value);
+
+		cg.debugBlocks.push_back(func);
+	}
+
+	if (inst.decl->attributes & FnAttributeExtern)
+		codegenFunctionExtern(cg, inst);
+	else if (inst.decl->attributes & FnAttributeBuiltin)
+		codegenFunctionBuiltin(cg, inst);
+	else
+		codegenFunctionImpl(cg, inst);
+
+	if (inst.decl->var && cg.di)
+		cg.debugBlocks.pop_back();
 }
 
 static void codegenPrepare(Codegen& cg)
@@ -794,9 +824,15 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 	IRBuilder<> ir(*context);
 	DIBuilder di(*module);
 
-	Codegen cg = { &output, options, context, module, &ir, &di };
+	Codegen cg = { &output, options, context, module, &ir, options.debugInfo ? &di : nullptr };
 
 	codegenPrepare(cg);
+
+	if (cg.di)
+	{
+		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, "?", ".", "aikec", false, "", 0);
+		cg.debugBlocks.push_back(DIScope(cu));
+	}
 
 	FunctionType* entryType = FunctionType::get(Type::getVoidTy(*cg.context), false);
 	Function* entry = Function::Create(entryType, GlobalValue::InternalLinkage, "entry", module);
@@ -817,6 +853,9 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 		cg.currentFunction = nullptr;
 	}
+
+	if (cg.di)
+		di.finalize();
 
 	return entry;
 }
