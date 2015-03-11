@@ -7,15 +7,16 @@
 #include <dlfcn.h>
 #include <unwind.h>
 
-struct DumpBacktraceData
+struct BacktraceData
 {
 	FILE* file;
+	unsigned int flags;
 	int frame;
 };
 
 static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void* _data)
 {
-	auto data = static_cast<DumpBacktraceData*>(_data);
+	auto data = static_cast<BacktraceData*>(_data);
 
 	uintptr_t ip = _Unwind_GetIP(context);
 
@@ -40,9 +41,9 @@ static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void*
 	return _URC_NO_REASON;
 }
 
-void dumpBacktrace(FILE* file)
+void backtraceDump(FILE* file, unsigned int flags)
 {
-	DumpBacktraceData data = { file, 0 };
+	BacktraceData data = { file, flags, 0 };
 
 	auto result = _Unwind_Backtrace(dumpBacktraceCallback, &data);
 

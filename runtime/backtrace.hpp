@@ -2,4 +2,8 @@
 
 #include <stdio.h>
 
-void dumpBacktrace(FILE* file);
+enum BacktraceFlags
+{
+};
+
+void backtraceDump(FILE* file, unsigned int flags);

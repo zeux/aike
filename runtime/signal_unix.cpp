@@ -25,7 +25,7 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 
 	fprintf(stderr, "\n");
 
-	dumpBacktrace(stderr);
+	backtraceDump(stderr, 0);
 	abort();
 }
 
