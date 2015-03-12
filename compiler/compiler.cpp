@@ -179,7 +179,11 @@ int main(int argc, const char** argv)
 
 	Module* module = new Module("main", context);
 
+#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 37
 	module->setDataLayout(machine->getDataLayout());
+#else
+	module->setDataLayout(*machine->getDataLayout());
+#endif
 
 	vector<Value*> entries;
 
