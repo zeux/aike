@@ -11,5 +11,5 @@ void panic(const char* format, ...)
 	va_end(args);
 
 	fputc('\n', stderr);
-	abort();
+	exit(1);
 }

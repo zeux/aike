@@ -56,5 +56,5 @@ void Output::panic(Location loc, const char* format, ...)
 	print(stderr, this, loc, format, args);
 	va_end(args);
 
-	abort();
+	exit(1);
 }
