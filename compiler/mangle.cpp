@@ -36,6 +36,13 @@ static void mangle(string& buffer, Ty* type)
 		return;
 	}
 
+	if (UNION_CASE(Pointer, t, type))
+	{
+		buffer += "U3ptr"; // TODO
+		mangle(buffer, t->element);
+		return;
+	}
+
 	if (UNION_CASE(Function, t, type))
 	{
 		buffer += "F";

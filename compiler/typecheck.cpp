@@ -55,6 +55,8 @@ static bool isAssignable(Ast* node)
 		return isAssignable(n->expr);
 	else if (UNION_CASE(Index, n, node))
 		return true;
+	else if (UNION_CASE(Unary, n, node))
+		return n->op == UnaryOpDeref;
 	else
 		return false;
 }
@@ -203,7 +205,22 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		case UnaryOpSize:
 			if (expr.first->kind != Ty::KindArray)
 				typeMustEqual(expr.first, UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) }), constraints, output, expr.second);
-			return make_pair(UNION_NEW(Ty, Integer, {}), Location()); // TODO: Location
+			return make_pair(UNION_NEW(Ty, Integer, {}), expr.second); // TODO: Location
+
+		case UnaryOpDeref:
+			if (UNION_CASE(Pointer, t, expr.first))
+				return make_pair(t->element, expr.second); // TODO: Location
+			else
+			{
+				Ty* ret = UNION_NEW(Ty, Unknown, {});
+
+				typeMustEqual(expr.first, UNION_NEW(Ty, Pointer, { ret }), constraints, output, expr.second);
+
+				return make_pair(ret, expr.second); // TODO: Location
+			}
+
+		case UnaryOpNew:
+			return make_pair(UNION_NEW(Ty, Pointer, { expr.first }), expr.second); // TODO: Location
 
 		default:
 			ICE("Unknown UnaryOp %d", n->op);

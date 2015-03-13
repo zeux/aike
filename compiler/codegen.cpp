@@ -144,6 +144,13 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		return StructType::get(*cg.context, { fields, 2 });
 	}
 
+	if (UNION_CASE(Pointer, t, type))
+	{
+		Type* element = codegenType(cg, t->element);
+
+		return PointerType::get(element, 0);
+	}
+
 	if (UNION_CASE(Function, t, type))
 	{
 		Type* ret = codegenType(cg, t->ret);
@@ -209,6 +216,18 @@ static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Const
 	codegenTrapIf(cg, cond);
 
 	return cg.ir->CreateExtractValue(result, 0);
+}
+
+static Value* codegenNew(Codegen& cg, Type* elementType)
+{
+	Type* pointerType = PointerType::get(elementType, 0);
+
+	// TODO: refactor + fix int32/size_t
+	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
+	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNew, elementSize);
+	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
+
+	return ptr;
 }
 
 static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
@@ -423,7 +442,7 @@ static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
 	return cg.ir->CreateStore(right, left);
 }
 
-static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
+static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 {
 	Value* expr = codegenExpr(cg, n->expr);
 
@@ -440,6 +459,21 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n)
 
 	case UnaryOpSize:
 		return cg.ir->CreateExtractValue(expr, 1);
+
+	case UnaryOpDeref:
+		if (kind == KindRef)
+			return expr;
+		else
+			return cg.ir->CreateLoad(expr);
+
+	case UnaryOpNew:
+	{
+		Value* ptr = codegenNew(cg, expr->getType());
+
+		cg.ir->CreateStore(expr, ptr);
+
+		return ptr;
+	}
 
 	default:
 		ICE("Unknown UnaryOp %d", n->op);
@@ -669,7 +703,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 		return codegenAssign(cg, n);
 
 	if (UNION_CASE(Unary, n, node))
-		return codegenUnary(cg, n);
+		return codegenUnary(cg, n, kind);
 
 	if (UNION_CASE(Binary, n, node))
 	{

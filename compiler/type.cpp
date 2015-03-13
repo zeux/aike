@@ -52,6 +52,13 @@ Ty* TypeConstraints::rewrite(Ty* type)
 		return UNION_NEW(Ty, Array, { element });
 	}
 
+	if (UNION_CASE(Pointer, t, type))
+	{
+		Ty* element = rewrite(t->element);
+
+		return UNION_NEW(Ty, Pointer, { element });
+	}
+
 	if (UNION_CASE(Function, t, type))
 	{
 		Arr<Ty*> args;
@@ -93,6 +100,13 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 		UNION_CASE(Array, ra, rhs);
 
 		return typeUnify(la->element, ra->element, constraints);
+	}
+
+	if (UNION_CASE(Pointer, lp, lhs))
+	{
+		UNION_CASE(Pointer, rp, rhs);
+
+		return typeUnify(lp->element, rp->element, constraints);
 	}
 
 	if (UNION_CASE(Function, lf, lhs))
@@ -147,6 +161,11 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 		return typeOccurs(la->element, rhs);
 	}
 
+	if (UNION_CASE(Pointer, lp, lhs))
+	{
+		return typeOccurs(lp->element, rhs);
+	}
+
 	if (UNION_CASE(Function, lf, lhs))
 	{
 		for (auto& a: lf->args)
@@ -175,6 +194,13 @@ Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 		Ty* element = typeInstantiate(t->element, inst);
 
 		return UNION_NEW(Ty, Array, { element });
+	}
+
+	if (UNION_CASE(Pointer, t, type))
+	{
+		Ty* element = typeInstantiate(t->element, inst);
+
+		return UNION_NEW(Ty, Pointer, { element });
 	}
 
 	if (UNION_CASE(Function, t, type))
@@ -280,6 +306,13 @@ static void typeName(string& buffer, Ty* type)
 		buffer += "[";
 		typeName(buffer, t->element);
 		buffer += "]";
+		return;
+	}
+
+	if (UNION_CASE(Pointer, t, type))
+	{
+		buffer += "*";
+		typeName(buffer, t->element);
 		return;
 	}
 

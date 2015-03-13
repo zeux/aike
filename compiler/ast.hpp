@@ -33,6 +33,8 @@ enum UnaryOp
 	UnaryOpMinus,
 	UnaryOpNot,
 	UnaryOpSize,
+	UnaryOpDeref,
+	UnaryOpNew,
 };
 
 enum BinaryOp

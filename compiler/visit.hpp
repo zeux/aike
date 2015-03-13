@@ -142,6 +142,10 @@ template <typename F, typename FC> inline void visitType(Ty* type, F f, FC& fc)
 	{
 		visitType(t->element, f, fc);
 	}
+	else if (UNION_CASE(Pointer, t, type))
+	{
+		visitType(t->element, f, fc);
+	}
 	else if (UNION_CASE(Function, t, type))
 	{
 		for (auto& a: t->args)

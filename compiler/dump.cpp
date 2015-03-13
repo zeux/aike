@@ -11,6 +11,8 @@ static const char* getOpName(UnaryOp op)
 		case UnaryOpMinus: return "-";
 		case UnaryOpNot: return "not";
 		case UnaryOpSize: return "#";
+		case UnaryOpDeref: return "*";
+		case UnaryOpNew: return "new";
 		default: ICE("Unknown UnaryOp %d", op);
 	}
 }

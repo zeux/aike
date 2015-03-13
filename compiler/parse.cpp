@@ -133,6 +133,15 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, Array, { element });
 	}
 
+	if (ts.is(Token::TypeAtom, "*"))
+	{
+		ts.move();
+
+		Ty* element = parseType(ts);
+
+		return UNION_NEW(Ty, Pointer, { element });
+	}
+
 	if (ts.is(Token::TypeIdent, "fn"))
 	{
 		ts.move();
@@ -710,6 +719,8 @@ static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
 	if (ts.is(Token::TypeAtom, "-")) return make_pair(1, UnaryOpMinus);
 	if (ts.is(Token::TypeIdent, "not")) return make_pair(1, UnaryOpNot);
 	if (ts.is(Token::TypeAtom, "#")) return make_pair(1, UnaryOpSize);
+	if (ts.is(Token::TypeAtom, "*")) return make_pair(1, UnaryOpDeref);
+	if (ts.is(Token::TypeIdent, "new")) return make_pair(1, UnaryOpNew);
 
 	return make_pair(0, UnaryOpNot);
 }
