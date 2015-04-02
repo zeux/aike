@@ -15,11 +15,7 @@ $(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC
 $(RUNTIME_BIN): LDFLAGS=-shared -ldl
 
 ifeq ($(LLVMCONFIG),)
-ifeq ($(shell uname),Darwin)
-LLVMCONFIG=/usr/local/opt/llvm/bin/llvm-config
-else
-LLVMCONFIG=llvm-config
-endif
+LLVMCONFIG:=$(firstword $(shell which llvm-config /usr/local/opt/llvm/bin/llvm-config))
 endif
 
 $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
