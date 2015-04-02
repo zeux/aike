@@ -8,23 +8,22 @@
 #include "typecheck.hpp"
 #include "codegen.hpp"
 #include "optimize.hpp"
+#include "target.hpp"
 #include "dump.hpp"
 #include "timer.hpp"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Target/TargetOptions.h"
+
 #include "llvm/Target/TargetMachine.h"
 
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Timer.h"
+
+#include "llvm/ADT/Statistic.h"
 
 #include <fstream>
 
@@ -106,78 +105,22 @@ Str readFile(const char* path)
 	return Str(result, length);
 }
 
-using namespace llvm;
-
-CodeGenOpt::Level getCodeGenOptLevel(int optimize)
-{
-	if (optimize >= 3)
-		return CodeGenOpt::Aggressive;
-	else if (optimize >= 2)
-		return CodeGenOpt::Default;
-	else if (optimize >= 1)
-		return CodeGenOpt::Less;
-	else
-		return CodeGenOpt::None;
-}
-
-TargetMachine* createTargetMachine(int optimize)
-{
-	string triple = sys::getDefaultTargetTriple();
-	string error;
-	const Target* target = TargetRegistry::lookupTarget(triple, error);
-
-	if (!target)
-		panic("Can't find target for triple %s: %s", triple.c_str(), error.c_str());
-
-	TargetOptions options;
-
-	return target->createTargetMachine(triple, "", "", options, Reloc::Default, CodeModel::Default, getCodeGenOptLevel(optimize));
-}
-
-string getModuleIR(Module* module)
-{
-	string result;
-	raw_string_ostream rs(result);
-
-	module->print(rs, 0);
-
-	return result;
-}
-
-string generateModule(TargetMachine* machine, Module* module, TargetMachine::CodeGenFileType type)
-{
-	string result;
-
-	raw_string_ostream rs(result);
-	formatted_raw_ostream frs(rs);
-
-	legacy::PassManager pm;
-
-	machine->addPassesToEmitFile(pm, frs, type);
-
-	pm.run(*module);
-
-	frs.flush();
-
-	return result;
-}
-
 int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
 
-	::Timer timer;
+	Timer timer;
 
 	Output output;
 
-	InitializeNativeTarget();
-	InitializeNativeTargetAsmPrinter();
+	llvm::InitializeNativeTarget();
+	llvm::InitializeNativeTargetAsmPrinter();
 
-	TargetMachine* machine = createTargetMachine(options.optimize);
+	llvm::TargetMachine* machine = targetCreate(options.optimize);
 
-	LLVMContext context;
+	llvm::LLVMContext context;
 
-	Module* module = new Module("main", context);
+	llvm::Module* module = new llvm::Module("main", context);
 
 #if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 37
 	module->setDataLayout(machine->getDataLayout());
@@ -185,7 +128,7 @@ int main(int argc, const char** argv)
 	module->setDataLayout(*machine->getDataLayout());
 #endif
 
-	vector<Value*> entries;
+	vector<llvm::Value*> entries;
 
 	timer.checkpoint("startup");
 
@@ -262,13 +205,6 @@ int main(int argc, const char** argv)
 
 	timer.checkpoint();
 
-	if (options.dumpLLVM)
-	{
-		string result = getModuleIR(module);
-
-		puts(result.c_str());
-	}
-
 	assert(!verifyModule(*module, &llvm::errs()));
 
 	timer.checkpoint("verify");
@@ -279,14 +215,12 @@ int main(int argc, const char** argv)
 
 	if (options.dumpLLVM)
 	{
-		string result = getModuleIR(module);
-
-		puts(result.c_str());
+		module->print(llvm::outs(), 0);
 	}
 
 	if (options.dumpAsm)
 	{
-		string result = generateModule(machine, module, TargetMachine::CGFT_AssemblyFile);
+		string result = targetAssembleText(machine, module);
 
 		puts(result.c_str());
 	}
@@ -295,7 +229,7 @@ int main(int argc, const char** argv)
 	{
 		timer.checkpoint();
 
-		string result = generateModule(machine, module, TargetMachine::CGFT_ObjectFile);
+		string result = targetAssembleBinary(machine, module);
 
 		timer.checkpoint("assemble");
 
