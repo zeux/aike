@@ -26,8 +26,6 @@ void optimize(Module* module, int level)
 
 #if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 36
 	pm.add(new DataLayoutPass(module));
-#elif LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 37
-	pm.add(new DataLayoutPass());
 #endif
 
 	pmb.populateModulePassManager(pm);
