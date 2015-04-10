@@ -820,11 +820,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 
 		auto file = cg.di->createFile(loc.source, StringRef());
 
-	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 36
-		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateArray({}));
-	#else
 		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateTypeArray({}));
-	#endif
 
 		auto func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,

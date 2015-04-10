@@ -24,10 +24,6 @@ void optimize(Module* module, int level)
 
 	legacy::PassManager pm;
 
-#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 36
-	pm.add(new DataLayoutPass(module));
-#endif
-
 	pmb.populateModulePassManager(pm);
 
 	fpm.doInitialization();
