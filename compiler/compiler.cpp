@@ -122,10 +122,8 @@ int main(int argc, const char** argv)
 
 	llvm::Module* module = new llvm::Module("main", context);
 
-#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 37
+#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 36
 	module->setDataLayout(machine->getDataLayout());
-#else
-	module->setDataLayout(*machine->getDataLayout());
 #endif
 
 	vector<llvm::Value*> entries;
