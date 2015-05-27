@@ -74,10 +74,19 @@ static void targetLinkFillArgs(vector<const char*>& args)
 	args.push_back("-arch");
 	args.push_back("x86_64");
 
+#if defined(__APPLE__)
 	args.push_back("-macosx_version_min");
 	args.push_back("10.10");
 
 	args.push_back("-lSystem");
+#elif defined(__linux__)
+	args.push_back("-dynamic-linker");
+	args.push_back("/lib64/ld-linux-x86-64.so.2");
+	args.push_back("/usr/lib/x86_64-linux-gnu/crt1.o");
+	args.push_back("-lc");
+#else
+#error Unsupported platform
+#endif
 }
 
 static void targetLinkExternal(const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
