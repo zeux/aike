@@ -7,14 +7,14 @@
 
 #define UNION_MAKE(type, kindname, ...) \
 		([&]() -> type { \
-			type __result = { type::Kind##kindname, 0 }; \
+			type __result = { type::Kind##kindname, { 0 } }; \
 			__result.data##kindname = { __VA_ARGS__ }; \
 			return __result; \
 		})()
 
 #define UNION_NEW(type, kindname, ...) \
 		([&]() -> type* { \
-			type* __result = new type { type::Kind##kindname, 0 }; \
+			type* __result = new type { type::Kind##kindname, { 0 } }; \
 			__result->data##kindname = __VA_ARGS__; \
 			return __result; \
 		})()

@@ -1,6 +1,8 @@
 #include "common.hpp"
 #include "output.hpp"
 
+#include <stdarg.h>
+
 static pair<size_t, size_t> findLine(const Str& data, size_t offset)
 {
 	size_t begin = offset;

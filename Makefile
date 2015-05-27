@@ -22,7 +22,7 @@ $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
 
-$(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread
+$(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
 
