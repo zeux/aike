@@ -12,7 +12,18 @@
 #include <unistd.h>
 #include <fstream>
 
+#ifdef AIKE_USE_LLD
+#include "lld/ReaderWriter/MachOLinkingContext.h"
+#include "lld/ReaderWriter/ELFLinkingContext.h"
+#include "lld/ReaderWriter/PECOFFLinkingContext.h"
+#include "lld/Driver/Driver.h"
+#endif
+
 using namespace llvm;
+
+#ifdef AIKE_USE_LLD
+using namespace lld;
+#endif
 
 static CodeGenOpt::Level getCodeGenOptLevel(int optimizationLevel)
 {
@@ -58,7 +69,6 @@ static string assemble(TargetMachine* target, Module* module, TargetMachine::Cod
 	return result;
 }
 
-
 string targetAssembleBinary(TargetMachine* target, Module* module)
 {
 	return assemble(target, module, TargetMachine::CGFT_ObjectFile);
@@ -89,7 +99,7 @@ static void targetLinkFillArgs(vector<const char*>& args)
 #endif
 }
 
-static void targetLinkExternal(const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+static void targetLinkLD(const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
 	vector<string> inputFiles;
 
@@ -132,7 +142,78 @@ static void targetLinkExternal(const string& ld, const string& outputPath, const
 		panic("Error linking output: %s returned %d", command.c_str(), rc);
 }
 
+#ifdef AIKE_USE_LLD
+static void targetLinkLLD(const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+{
+	class CustomDriver: public Driver
+	{
+	public:
+		static bool link(int argc, const char* argv[], const vector<string>& inputs)
+		{
+		#if defined(__APPLE__)
+			unique_ptr<MachOLinkingContext> ctx(new MachOLinkingContext());
+			if (!DarwinLdDriver::parse(argc, argv, *ctx))
+				return false;
+
+			ctx->registry().addSupportMachOObjects(*ctx);
+		#elif defined(__linux__)
+			unique_ptr<ELFLinkingContext> ctx;
+			if (!GnuLdDriver::parse(argc, argv, ctx) || !ctx)
+				return false;
+
+			ctx->registry().addSupportELFObjects(ctx->mergeCommonStrings(), ctx->targetHandler());
+			ctx->registry().addSupportELFDynamicSharedObjects(ctx->useShlibUndefines(), ctx->targetHandler());
+		#elif defined(_WIN32)
+			unique_ptr<PECOFFLinkingContext> ctx(new PECOFFLinkingContext());
+			if (!WinLinkDriver::parse(argc, argv, *ctx))
+				return false;
+
+			ctx->registry().addSupportCOFFObjects(*ctx);
+			ctx->registry().addSupportCOFFImportLibraries(*ctx);
+		#else
+		#error Unsupported platform
+		#endif
+
+			ctx->registry().addSupportArchives(ctx->logInputFiles());
+			ctx->registry().addSupportNativeObjects();
+			ctx->registry().addSupportYamlFiles();
+
+			for (auto& i: inputs)
+			{
+				auto mb = MemoryBuffer::getMemBuffer(i, "input");
+
+				vector<unique_ptr<File>> files;
+				if (error_code ec = ctx->registry().parseFile(move(mb), files))
+					return false;
+
+				for (unique_ptr<File>& file: files)
+					ctx->getInputGraph().addInputElement(unique_ptr<FileNode>(new SimpleFileNode("input", std::move(file))));
+			}
+
+			return Driver::link(*ctx);
+		}
+	};
+
+	std::vector<const char*> args;
+
+	args.push_back("lld");
+	targetLinkFillArgs(args);
+
+	args.push_back("-o");
+	args.push_back(outputPath.c_str());
+
+	args.push_back(runtimePath.c_str());
+
+	if (!CustomDriver::link(args.size(), args.data(), inputs))
+		panic("Error linking output");
+}
+#endif
+
 void targetLink(const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
-	targetLinkExternal("/usr/bin/ld", outputPath, inputs, runtimePath);
+#ifdef AIKE_USE_LLD
+	targetLinkLLD(outputPath, inputs, runtimePath);
+#else
+	targetLinkLD("/usr/bin/ld", outputPath, inputs, runtimePath);
+#endif
 }

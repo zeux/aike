@@ -22,6 +22,14 @@ $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
 
+ifneq ($(wildcard $(shell $(LLVMCONFIG) --includedir)/lld/.),)
+$(COMPILER_OBJ): CXXFLAGS+=-DAIKE_USE_LLD
+$(COMPILER_BIN): LDFLAGS+=-llldConfig -llldCore -llldDriver -llldNative -llldPasses -llldReaderWriter -llldYAML
+$(COMPILER_BIN): LDFLAGS+=-llldMachO
+$(COMPILER_BIN): LDFLAGS+=-llldELF -llldAArch64ELFTarget -llldHexagonELFTarget -llldMipsELFTarget -llldPPCELFTarget -llldX86_64ELFTarget -llldX86ELFTarget
+$(COMPILER_BIN): LDFLAGS+=-llldPECOFF
+endif
+
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
