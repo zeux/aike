@@ -20,15 +20,16 @@ endif
 
 $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
-$(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all) -lz -lcurses -lpthread
+$(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
+
+$(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ)
 
 all: $(COMPILER_BIN) $(RUNTIME_BIN)
 
 test: all
-	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple.obj $(flags)
-	$(CC) $(BUILD)/simple.obj $(RUNTIME_BIN) -o $(BUILD)/simple
+	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple $(flags)
 	./$(BUILD)/simple
 
 clean:

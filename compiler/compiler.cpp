@@ -34,6 +34,7 @@ struct Options
 
 	int optimize;
 	bool debugInfo;
+	bool compileOnly;
 
 	bool dumpParse;
 	bool dumpAst;
@@ -56,6 +57,8 @@ Options parseOptions(int argc, const char** argv)
 				result.output = argv[++i];
 			else if (arg == "-g")
 				result.debugInfo = true;
+			else if (arg == "-c")
+				result.compileOnly = true;
 			else if (arg == "--dump-parse")
 				result.dumpParse = true;
 			else if (arg == "--dump-ast")
@@ -227,8 +230,23 @@ int main(int argc, const char** argv)
 
 		timer.checkpoint("assemble");
 
-		std::ofstream of(options.output, std::ios::out | std::ios::binary);
-		of.write(result.c_str(), result.size());
+		if (options.compileOnly)
+		{
+			ofstream of(options.output, ios::out | ios::binary);
+			of.write(result.c_str(), result.size());
+		}
+		else
+		{
+			string compilerPath = argv[0];
+			string::size_type compilerPathSlash = compilerPath.find_last_of('/');
+			string runtimePath = (compilerPathSlash == string::npos ? "" : compilerPath.substr(0, compilerPathSlash + 1)) + "aike-runtime.so";
+
+			timer.checkpoint();
+
+			targetLink(options.output, { result }, runtimePath);
+
+			timer.checkpoint("link");
+		}
 	}
 
 	if (options.time)
