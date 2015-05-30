@@ -3,9 +3,10 @@ extern fn printfn(str: string, val: int, val: int)
 
 builtin fn newarr<T>(size: int): [T]
 builtin fn sizeof<T>(): int
+builtin fn length<T>(arr: [T]): int
 
 fn map<T, U>(a: [T], f: fn(T): U): [U]
-    var b = newarr(#a)
+    var b = newarr(length(a))
 
     for e, i in a
         b[i] = f(e)
@@ -13,13 +14,13 @@ fn map<T, U>(a: [T], f: fn(T): U): [U]
     b
 
 fn concat<T>(a: [T], b: [T]): [T]
-    var c = newarr(#a + #b)
+    var c = newarr(length(a) + length(b))
 
     for e, i in a
         c[i] = e
 
     for e, i in b
-        c[#a + i] = e
+        c[length(a) + i] = e
 
     c
 
@@ -52,7 +53,7 @@ fn world(dbg: string, print: bool): string
 
 fn iter<T>(data: [T], f: fn(int, T))
     fn helper(data: _, f: _, offset: _)
-        if offset < #data
+        if offset < length(data)
             f(offset, data[offset])
             helper(data, f, offset + 1)
 

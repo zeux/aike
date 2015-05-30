@@ -457,9 +457,6 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 	case UnaryOpNot:
 		return cg.ir->CreateNot(expr);
 
-	case UnaryOpSize:
-		return cg.ir->CreateExtractValue(expr, 1);
-
 	case UnaryOpDeref:
 		if (kind == KindRef)
 			return expr;
@@ -782,6 +779,13 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 		ret = cg.ir->CreateInsertValue(ret, codegenNewArr(cg, type, count), 0);
 		ret = cg.ir->CreateInsertValue(ret, count, 1);
+
+		cg.ir->CreateRet(ret);
+	}
+	else if (name == "length" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
+	{
+		Value* array = inst.value->arg_begin();
+		Value* ret = cg.ir->CreateExtractValue(array, 1);
 
 		cg.ir->CreateRet(ret);
 	}

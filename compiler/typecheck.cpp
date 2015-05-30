@@ -202,11 +202,6 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 			typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
 			return expr;
 
-		case UnaryOpSize:
-			if (expr.first->kind != Ty::KindArray)
-				typeMustEqual(expr.first, UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) }), constraints, output, expr.second);
-			return make_pair(UNION_NEW(Ty, Integer, {}), expr.second); // TODO: Location
-
 		case UnaryOpDeref:
 			if (UNION_CASE(Pointer, t, expr.first))
 				return make_pair(t->element, expr.second); // TODO: Location
