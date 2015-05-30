@@ -42,7 +42,7 @@ static bool isAtom(char ch)
 {
 	return
 		ch == '!' ||
-		ch == '#' || ch == '$' || ch == '%' || ch == '&' ||
+		ch == '$' || ch == '%' || ch == '&' ||
 		ch == '*' || ch == '+' || ch == ',' || ch == '-' || ch == '.' || ch == '/' ||
 		ch == ':' || ch == ';' || ch == '<' || ch == '<' || ch == '=' || ch == '>' || ch == '?' || ch == '@' ||
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
@@ -115,44 +115,45 @@ static Arr<Token> parseTokens(Output& output, const char* source, const Str& dat
 
 	while (offset < data.size)
 	{
-		while (offset < data.size && isspace(data[offset]))
+		size_t start = offset;
+
+		if (isSpace(data[offset]))
+			offset++;
+		else if (data[offset] == '#')
+		{
+			while (offset < data.size && data[offset] != '\n')
+				offset++;
+		}
+		else if (isIdentStart(data[offset]))
+			result.push({Token::TypeIdent, scan(data, offset, isIdent), start});
+		else if (isdigit(data[offset]))
+			result.push({Token::TypeNumber, scan(data, offset, isNumber), start});
+		else if (data[offset] == '"' || data[offset] == '\'')
+		{
+			char terminator = data[offset];
+			offset++;
+			Str contents = scan(data, offset, [=](char ch) { return ch != terminator; });
 			offset++;
 
-		if (offset < data.size)
+			result.push({terminator == '"' ? Token::TypeString : Token::TypeCharacter, contents, start });
+		}
+		else if (isBracket(data[offset]))
 		{
-			size_t start = offset;
+			result.push({Token::TypeBracket, Str(data.data + offset, 1), start});
+			offset++;
+		}
+		else if (isAtom(data[offset]))
+		{
+			result.push({Token::TypeAtom, scan(data, offset, isAtom), start});
+		}
+		else
+		{
+			Location loc = getLocation(source, lines, offset, 1);
 
-			if (isIdentStart(data[offset]))
-				result.push({Token::TypeIdent, scan(data, offset, isIdent), start});
-			else if (isdigit(data[offset]))
-				result.push({Token::TypeNumber, scan(data, offset, isNumber), start});
-			else if (data[offset] == '"' || data[offset] == '\'')
-			{
-				char terminator = data[offset];
-				offset++;
-				Str contents = scan(data, offset, [=](char ch) { return ch != terminator; });
-				offset++;
-
-				result.push({terminator == '"' ? Token::TypeString : Token::TypeCharacter, contents, start });
-			}
-			else if (isBracket(data[offset]))
-			{
-				result.push({Token::TypeBracket, Str(data.data + offset, 1), start});
-				offset++;
-			}
-			else if (isAtom(data[offset]))
-			{
-				result.push({Token::TypeAtom, scan(data, offset, isAtom), start});
-			}
+			if (inRange(data[offset], 0, 32))
+				output.panic(loc, "Unknown character %d", data[offset]);
 			else
-			{
-				Location loc = getLocation(source, lines, offset, 1);
-
-				if (inRange(data[offset], 0, 32))
-					output.panic(loc, "Unknown character %d", data[offset]);
-				else
-					output.panic(loc, "Unknown character '%c'", data[offset]);
-			}
+				output.panic(loc, "Unknown character '%c'", data[offset]);
 		}
 	}
 
