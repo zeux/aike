@@ -2,6 +2,7 @@
 #include "resolve.hpp"
 
 #include "ast.hpp"
+#include "modules.hpp"
 #include "visit.hpp"
 #include "output.hpp"
 
@@ -57,6 +58,8 @@ struct ResolveNames
 {
 	Output* output;
 
+	ModuleResolver* moduleResolver;
+
 	NameMap<Variable> variables;
 	NameMap<TyDef> typedefs;
 	NameMap<Ty> generics;
@@ -106,6 +109,15 @@ static void resolveTypeInstance(ResolveNames& rs, Ty* type)
 static void resolveType(ResolveNames& rs, Ty* type)
 {
 	visitType(type, resolveTypeInstance, rs);
+}
+
+static void resolveImport(ResolveNames& rs, Ast* root)
+{
+	UNION_CASE(Module, mn, root);
+	UNION_CASE(Block, bn, mn->body);
+
+	for (auto& c: bn->body)
+		resolveDecl(rs, c);
 }
 
 static bool resolveNamesNode(ResolveNames& rs, Ast* root)
@@ -217,9 +229,12 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	return true;
 }
 
-void resolveNames(Output& output, Ast* root)
+void resolveNames(Output& output, Ast* root, ModuleResolver* moduleResolver)
 {
-	ResolveNames rs = { &output };
+	ResolveNames rs = { &output, moduleResolver };
+
+	if (moduleResolver && moduleResolver->prelude)
+		resolveImport(rs, moduleResolver->prelude);
 
 	visitAst(root, resolveNamesNode, rs);
 }

@@ -1,0 +1,4 @@
+builtin fn newarr<T>(size: int): [T]
+builtin fn sizeof<T>(): int
+builtin fn length<T>(arr: [T]): int
+builtin fn assert(expr: bool)

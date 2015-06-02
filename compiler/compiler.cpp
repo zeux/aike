@@ -5,6 +5,7 @@
 #include "tokenize.hpp"
 #include "parse.hpp"
 #include "resolve.hpp"
+#include "modules.hpp"
 #include "typecheck.hpp"
 #include "codegen.hpp"
 #include "optimize.hpp"
@@ -108,6 +109,87 @@ Str readFile(const char* path)
 	return Str(result, length);
 }
 
+Str getModuleName(const char* path)
+{
+	const char* fs = strrchr(path, '/');
+	const char* bs = strrchr(path, '\\');
+	const char* slash = (fs && bs) ? std::min(fs, bs) : fs ? fs : bs;
+
+	const char* dot = strrchr(path, '.');
+
+	if (slash && dot && slash < dot)
+		return Str(slash + 1, dot - slash - 1);
+	else if (slash)
+		return Str(slash);
+	else
+		return Str(path);
+}
+
+pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Module* module, const char* source, const Str& contents, const Str& moduleName, ModuleResolver* moduleResolver, const Options& options)
+{
+	timer.checkpoint();
+
+	Tokens tokens = tokenize(output, source, contents);
+
+	timer.checkpoint("tokenize");
+
+	Ast* root = parse(output, tokens, moduleName);
+
+	timer.checkpoint("parse");
+
+	if (options.dumpParse)
+	{
+		dump(root);
+	}
+
+	timer.checkpoint();
+
+	resolveNames(output, root, moduleResolver);
+
+	timer.checkpoint("resolveNames");
+
+	typeckInstantiate(output, root);
+
+	timer.checkpoint("instantiate");
+
+	int fixpoint;
+
+	do
+	{
+		fixpoint = 0;
+
+		timer.checkpoint();
+
+		fixpoint += typeckPropagate(output, root);
+
+		timer.checkpoint("typeckPropagate");
+
+		fixpoint += resolveMembers(output, root);
+
+		timer.checkpoint("resolveMembers");
+	}
+	while (fixpoint != 0);
+
+	timer.checkpoint();
+
+	typeckVerify(output, root);
+
+	timer.checkpoint("typeckVerify");
+
+	if (options.dumpAst)
+	{
+		dump(root);
+	}
+
+	timer.checkpoint();
+
+	llvm::Value* entry = codegen(output, root, module, { options.debugInfo });
+
+	timer.checkpoint("codegen");
+
+	return make_pair(root, entry);
+}
+
 int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
@@ -125,9 +207,25 @@ int main(int argc, const char** argv)
 
 	llvm::Module* module = new llvm::Module("main", context);
 
+	ModuleResolver resolver = {};
 	vector<llvm::Value*> entries;
 
 	timer.checkpoint("startup");
+
+	{
+		const char* source = "library/prelude.aike";
+
+		Str contents = readFile(source);
+
+		output.sources[source] = contents;
+
+		Str moduleName = getModuleName(source);
+
+		auto p = compileModule(timer, output, module, source, contents, moduleName, &resolver, options);
+
+		resolver.prelude = p.first;
+		entries.push_back(p.second);
+	}
 
 	for (auto& file: options.inputs)
 	{
@@ -137,65 +235,11 @@ int main(int argc, const char** argv)
 
 		output.sources[source] = contents;
 
-		timer.checkpoint();
+		Str moduleName = getModuleName(source);
 
-		Tokens tokens = tokenize(output, source, contents);
+		auto p = compileModule(timer, output, module, source, contents, moduleName, &resolver, options);
 
-		timer.checkpoint("tokenize");
-
-		Ast* root = parse(output, tokens, Str("testmod"));
-
-		timer.checkpoint("parse");
-
-		if (options.dumpParse)
-		{
-			dump(root);
-		}
-
-		timer.checkpoint();
-
-		resolveNames(output, root);
-
-		timer.checkpoint("resolveNames");
-
-		typeckInstantiate(output, root);
-
-		timer.checkpoint("instantiate");
-
-		int fixpoint;
-
-		do
-		{
-			fixpoint = 0;
-
-			timer.checkpoint();
-
-			fixpoint += typeckPropagate(output, root);
-
-			timer.checkpoint("typeckPropagate");
-
-			fixpoint += resolveMembers(output, root);
-
-			timer.checkpoint("resolveMembers");
-		}
-		while (fixpoint != 0);
-
-		timer.checkpoint();
-
-		typeckVerify(output, root);
-
-		timer.checkpoint("typeckVerify");
-
-		if (options.dumpAst)
-		{
-			dump(root);
-		}
-
-		timer.checkpoint();
-
-		entries.push_back(codegen(output, root, module, { options.debugInfo }));
-
-		timer.checkpoint("codegen");
+		entries.push_back(p.second);
 	}
 
 	codegenMain(module, entries);

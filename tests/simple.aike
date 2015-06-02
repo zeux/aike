@@ -1,11 +1,6 @@
 extern fn println(str: string)
 extern fn printfn(str: string, val: int, val: int)
 
-builtin fn newarr<T>(size: int): [T]
-builtin fn sizeof<T>(): int
-builtin fn length<T>(arr: [T]): int
-builtin fn assert(expr: bool)
-
 fn map<T, U>(a: [T], f: fn(T): U): [U]
     var b = newarr(length(a))
 
