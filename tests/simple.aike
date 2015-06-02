@@ -1,14 +1,6 @@
 extern fn println(str: string)
 extern fn printfn(str: string, val: int, val: int)
 
-fn map<T, U>(a: [T], f: fn(T): U): [U]
-    var b = newarr(length(a))
-
-    for e, i in a
-        b[i] = f(e)
-
-    b
-
 fn concat<T>(a: [T], b: [T]): [T]
     var c = newarr(length(a) + length(b))
 
@@ -97,6 +89,10 @@ fn test(): int
     iter(append([], "foo"), fn(i,x) println(x))
 
     printfn("pair %d", first({ first = 1, second = "hey"}), 0)
+
+    dump([1, 2, 3, 4, 5, 6].map(fn (x) x * 4).filter(fn (x) x % 8 == 0))
+
+    printfn("sum %d", [1, 2, 3, 4, 5, 6].reduce(fn (a, b) a + b, 0), 0)
 
     assert(1 == 1)
 
