@@ -36,6 +36,7 @@ struct Codegen
 	DIBuilder* di;
 
 	Constant* builtinTrap;
+	Constant* builtinDebugTrap;
 	Constant* builtinAddOverflow;
 	Constant* builtinSubOverflow;
 	Constant* builtinMulOverflow;
@@ -189,7 +190,7 @@ static Ty* finalType(Codegen& cg, Ty* type)
 	});
 }
 
-static void codegenTrapIf(Codegen& cg, Value* cond)
+static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 {
 	Function* func = cg.ir->GetInsertBlock()->getParent();
 
@@ -201,7 +202,7 @@ static void codegenTrapIf(Codegen& cg, Value* cond)
 	func->getBasicBlockList().push_back(trapbb);
 	cg.ir->SetInsertPoint(trapbb);
 
-	cg.ir->CreateCall(cg.builtinTrap);
+	cg.ir->CreateCall(debug ? cg.builtinDebugTrap : cg.builtinTrap);
 	cg.ir->CreateUnreachable();
 
 	func->getBasicBlockList().push_back(afterbb);
@@ -789,6 +790,14 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 		cg.ir->CreateRet(ret);
 	}
+	else if (name == "assert" && inst.value->arg_size() == 1)
+	{
+		Value* expr = inst.value->arg_begin();
+
+		codegenTrapIf(cg, cg.ir->CreateNot(expr), /* debug= */ true);
+
+		cg.ir->CreateRetVoid();
+	}
 	else
 		// TODO Location
 		cg.output->panic(Location(), "Unknown builtin function %s", name.str().c_str());
@@ -848,6 +857,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 static void codegenPrepare(Codegen& cg)
 {
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
+	cg.builtinDebugTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::debugtrap);
 
 	cg.builtinAddOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::sadd_with_overflow, Type::getInt32Ty(*cg.context));
 	cg.builtinSubOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::ssub_with_overflow, Type::getInt32Ty(*cg.context));
