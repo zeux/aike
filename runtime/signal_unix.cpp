@@ -40,5 +40,6 @@ void installSignalHandler()
 	sigaction(SIGILL, &new_action, NULL);
 	sigaction(SIGSEGV, &new_action, NULL);
 	sigaction(SIGFPE, &new_action, NULL);
+	sigaction(SIGTRAP, &new_action, NULL);
 }
 #endif
