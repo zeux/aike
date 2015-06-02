@@ -842,3 +842,13 @@ Ast* parse(Output& output, const Tokens& tokens)
 
 	return result;
 }
+
+Ast* parse(Output& output, const Tokens& tokens, const Str& moduleName)
+{
+	Ast* result = parse(output, tokens);
+
+	if (tokens.tokens.size == 0)
+		return result;
+
+	return UNION_NEW(Ast, Module, { moduleName, tokens.tokens[0].location, result });
+}

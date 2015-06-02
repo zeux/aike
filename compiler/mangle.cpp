@@ -133,3 +133,12 @@ string mangleType(Ty* type)
 	mangle(result, type);
 	return result;
 }
+
+string mangleModule(const Str& name)
+{
+	string result;
+	result += "_Z";
+	result += to_string(name.size);
+	result += name.str();
+	return result;
+}

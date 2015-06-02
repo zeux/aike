@@ -72,6 +72,7 @@ struct FieldRef
 	X(Ident, { Str name; Location location; Ty* type; Variable* target; Arr<Ty*> tyargs; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; FieldRef field; }) \
 	X(Block, { Arr<Ast*> body; }) \
+	X(Module, { Str name; Location location; Ast* body; }) \
 	X(Call, { Ast* expr; Arr<Ast*> args; Location location; }) \
 	X(Unary, { UnaryOp op; Ast* expr; }) \
 	X(Binary, { BinaryOp op; Ast* left; Ast* right; }) \
@@ -80,7 +81,7 @@ struct FieldRef
 	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
 	X(For, { Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
 	X(Fn, { Location location; int id; Ast* decl; }) \
-	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; }) \
+	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; Ast::Module* module; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; }) \
 

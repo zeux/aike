@@ -143,7 +143,7 @@ int main(int argc, const char** argv)
 
 		timer.checkpoint("tokenize");
 
-		Ast* root = parse(output, tokens);
+		Ast* root = parse(output, tokens, Str("testmod"));
 
 		timer.checkpoint("parse");
 

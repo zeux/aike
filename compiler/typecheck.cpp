@@ -154,6 +154,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		return type(output, n->body[n->body.size - 1], constraints);
 	}
 
+	if (UNION_CASE(Module, n, root))
+	{
+		return type(output, n->body, constraints);
+	}
+
 	if (UNION_CASE(Call, n, root))
 	{
 		auto expr = type(output, n->expr, constraints);

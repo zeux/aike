@@ -174,6 +174,10 @@ static void dumpNode(Ast* root, int indent)
 			printf("\n");
 		}
 	}
+	else if (UNION_CASE(Module, n, root))
+	{
+		dumpNode(n->body, indent);
+	}
 	else if (UNION_CASE(Call, n, root))
 	{
 		dumpNode(n->expr, indent);

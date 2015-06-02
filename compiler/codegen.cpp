@@ -342,7 +342,8 @@ static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty
 	for (auto& a: tyargs)
 		ftyargs.push(finalType(cg, a));
 
-	string name = mangleFn(decl->var->name, id, type, ftyargs, parent ? parent->value->getName() : "");
+	string parentName = parent ? string(parent->value->getName()) : decl->module ? mangleModule(decl->module->name) : "";
+	string name = mangleFn(decl->var->name, id, type, ftyargs, parentName);
 
 	if (Function* fun = cg.module->getFunction(name))
 		return fun;
@@ -690,6 +691,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 
 	if (UNION_CASE(Block, n, node))
 		return codegenBlock(cg, n);
+
+	if (UNION_CASE(Module, n, node))
+		return codegenExpr(cg, n->body, kind);
 
 	if (UNION_CASE(Call, n, node))
 		return codegenCall(cg, n);

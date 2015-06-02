@@ -63,6 +63,8 @@ struct ResolveNames
 
 	vector<Ast::FnDecl*> functions;
 
+	Ast::Module* module;
+
 	typedef array<size_t, 3> State;
 
 	State top() const
@@ -131,6 +133,13 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 		rs.pop(scope);
 	}
+	else if (UNION_CASE(Module, n, root))
+	{
+		assert(!rs.module);
+		rs.module = n;
+
+		visitAst(n->body, resolveNamesNode, rs);
+	}
 	else if (UNION_CASE(For, n, root))
 	{
 		visitAst(n->expr, resolveNamesNode, rs);
@@ -146,6 +155,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	{
 		// establish lexical parent-child relationship
 		n->parent = rs.functions.empty() ? nullptr : rs.functions.back();
+		n->module = rs.module;
 
 		auto scope = rs.top();
 

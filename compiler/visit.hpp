@@ -25,6 +25,10 @@ template <typename F, typename FC> inline void visitAstInner(Ast* node, F f, FC&
 		for (auto& c: n->body)
 			visitAst(c, f, fc);
 	}
+	else if (UNION_CASE(Module, n, node))
+	{
+		visitAst(n->body, f, fc);
+	}
 	else if (UNION_CASE(Call, n, node))
 	{
 		visitAst(n->expr, f, fc);
