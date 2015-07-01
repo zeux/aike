@@ -916,25 +916,27 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 {
-	llvm::LLVMContext& context = module->getContext();
+	LLVMContext& context = module->getContext();
 	IRBuilder<> ir(context);
 
-	Function* main = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr));
+	Function* main = cast<Function>(module->getOrInsertFunction("aike_main", Type::getVoidTy(context), nullptr));
 
-	BasicBlock* bb = BasicBlock::Create(context, "entry", main);
-	ir.SetInsertPoint(bb);
+	BasicBlock* mainbb = BasicBlock::Create(context, "entry", main);
+	ir.SetInsertPoint(mainbb);
 
-	FunctionType* entryType = FunctionType::get(Type::getVoidTy(context), false);
-	PointerType* entryPtrType = PointerType::get(entryType, 0);
+	for (auto& e: entries)
+		ir.CreateCall(e);
 
-	Value* entryArray = ir.CreateAlloca(entryPtrType, ir.getInt32(entries.size()));
+	ir.CreateRetVoid();
 
-	for (size_t i = 0; i < entries.size(); ++i)
-		ir.CreateStore(entries[i], ir.CreateConstInBoundsGEP1_32(entryArray, i));
+	Function* entry = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr));
 
-	Constant* runtimeMain = module->getOrInsertFunction("aike_main", Type::getInt32Ty(context), Type::getInt32Ty(context), PointerType::get(entryPtrType, 0), nullptr);
+	BasicBlock* entrybb = BasicBlock::Create(context, "entry", entry);
+	ir.SetInsertPoint(entrybb);
 
-	Value* ret = ir.CreateCall2(runtimeMain, ir.getInt32(entries.size()), entryArray);
+	Constant* runtimeEntry = module->getOrInsertFunction("aike_entry", Type::getInt32Ty(context), main->getType(), nullptr);
+
+	Value* ret = ir.CreateCall(runtimeEntry, main);
 
 	ir.CreateRet(ret);
 }

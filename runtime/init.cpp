@@ -3,12 +3,11 @@
 #include "signal.hpp"
 #include "scheduler.hpp"
 
-AIKE_EXTERN int aike_main(int moduleCount, void (**moduleArray)())
+AIKE_EXTERN int aike_entry(void (*main)())
 {
 	installSignalHandler();
 
-	for (int module = 0; module < moduleCount; ++module)
-		spawn(moduleArray[module]);
+	spawn(main);
 
 	schedulerRun();
 
