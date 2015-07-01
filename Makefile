@@ -1,4 +1,6 @@
-BUILD=build
+config=debug
+
+BUILD=build/$(config)
 
 COMPILER_SRC=$(wildcard compiler/*.cpp)
 COMPILER_BIN=$(BUILD)/aikec
@@ -35,6 +37,20 @@ $(COMPILER_BIN): LDFLAGS+=-llldPECOFF
 endif
 
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
+
+ifeq ($(config),releaze)
+$(COMPILER_OBJ): CXXFLAGS+=-O3
+
+$(RUNTIME_OBJ): CXXFLAGS+=-O3
+endif
+
+ifeq ($(config),sanitize)
+$(COMPILER_OBJ): CXXFLAGS+=-fsanitize=address
+$(COMPILER_BIN): LDFLAGS+=-fsanitize=address
+
+$(RUNTIME_OBJ): CXXFLAGS+=-fsanitize=address
+$(RUNTIME_BIN): LDFLAGS+=-fsanitize=address
+endif
 
 $(RUNNER_OBJ): CXXFLAGS=-g -std=c++11
 
