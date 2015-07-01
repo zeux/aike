@@ -41,7 +41,7 @@ $(RUNNER_OBJ): CXXFLAGS=-g -std=c++11
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ) $(RUNNER_OBJ)
 
 TEST_SRC=$(wildcard tests/*/*.aike)
-TEST_OBJ=$(TEST_SRC:%=$(BUILD)/%.o)
+TEST_OUT=$(TEST_SRC:%=$(BUILD)/%.out)
 
 all: $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 
@@ -49,7 +49,7 @@ test: all
 	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple $(flags)
 	./$(BUILD)/simple
 
-check: all $(TEST_OBJ)
+check: all $(TEST_OUT)
 
 clean:
 	rm -rf $(BUILD)
@@ -71,9 +71,10 @@ $(BUILD)/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $< $(CFLAGS) -c -MMD -MP -o $@
 
-$(BUILD)/%.aike.o: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
+$(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 	@mkdir -p $(dir $@)
-	$(RUNNER_BIN) $< $@ $(COMPILER_BIN) $(flags)
+	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(flags) --robot
+	@touch $@
 
 -include $(OBJECTS:.o=.d)
 
