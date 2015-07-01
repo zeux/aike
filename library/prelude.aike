@@ -34,3 +34,15 @@ fn reduce<T, S>(a: [T], f: fn(S, T): S, s: S): S
         r = f(r, e)
 
     r
+
+fn scan<T, S>(a: [T], f: fn(S, T): S, s: S): [S]
+    var r = newarr(length(a) + 1)
+    var t = s
+
+    for e, i in a
+        r[i] = t
+        t = f(t, e)
+
+    r[length(a)] = t
+
+    r
