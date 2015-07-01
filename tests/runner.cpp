@@ -40,14 +40,20 @@ TestType parseTest(const char* path, std::string& output)
 
 	while (fgets(line, sizeof(line), f))
 	{
+		size_t length = strlen(line);
+
+		// trim the newline
+		if (length > 0 && line[length - 1] == '\n')
+			line[length - 1] = 0;
+
 		if (line[0] == '#' && line[1] == '#')
 		{
-			if (strcmp(line, "## OK\n") == 0)
+			if (strcmp(line, "## OK") == 0)
 			{
 				error |= (type != TestType::Unknown);
 				type = TestType::Ok;
 			}
-			else if (strcmp(line, "## FAIL\n") == 0)
+			else if (strcmp(line, "## FAIL") == 0)
 			{
 				error |= (type != TestType::Unknown);
 				type = TestType::Fail;
@@ -60,9 +66,7 @@ TestType parseTest(const char* path, std::string& output)
 		else if (line[0] == '#' && line[1] == ' ' && type != TestType::Unknown)
 		{
 			output += line + 2;
-
-			if (!output.empty() && output.back() != '\n')
-				output += '\n';
+			output += "\n";
 		}
 	}
 
