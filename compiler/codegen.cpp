@@ -924,12 +924,17 @@ void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 	BasicBlock* bb = BasicBlock::Create(context, "entry", main);
 	ir.SetInsertPoint(bb);
 
-	Constant* runtimeInit = module->getOrInsertFunction("aike_init", Type::getVoidTy(context), nullptr);
+	FunctionType* entryType = FunctionType::get(Type::getVoidTy(context), false);
+	PointerType* entryPtrType = PointerType::get(entryType, 0);
 
-	ir.CreateCall(runtimeInit);
+	Value* entryArray = ir.CreateAlloca(entryPtrType, ir.getInt32(entries.size()));
 
-	for (auto& e: entries)
-		ir.CreateCall(e);
+	for (size_t i = 0; i < entries.size(); ++i)
+		ir.CreateStore(entries[i], ir.CreateConstInBoundsGEP1_32(entryArray, i));
 
-	ir.CreateRet(ir.getInt32(0));
+	Constant* runtimeMain = module->getOrInsertFunction("aike_main", Type::getInt32Ty(context), Type::getInt32Ty(context), PointerType::get(entryPtrType, 0), nullptr);
+
+	Value* ret = ir.CreateCall2(runtimeMain, ir.getInt32(entries.size()), entryArray);
+
+	ir.CreateRet(ret);
 }
