@@ -885,7 +885,7 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 	if (cg.di)
 	{
 		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, "?", ".", "aikec", false, "", 0);
-		cg.debugBlocks.push_back(DIScope(cu));
+		cg.debugBlocks.push_back(cu);
 	}
 
 	FunctionType* entryType = FunctionType::get(Type::getVoidTy(*cg.context), false);
