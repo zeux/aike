@@ -1,0 +1,7 @@
+extern fn println(str: string)
+
+if 2 + 2 == 4
+    println("hello")
+
+## OK
+# hello
