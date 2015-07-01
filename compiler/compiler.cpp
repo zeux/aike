@@ -37,6 +37,8 @@ struct Options
 	bool debugInfo;
 	bool compileOnly;
 
+	bool robot;
+
 	bool dumpParse;
 	bool dumpAst;
 	bool dumpLLVM;
@@ -70,6 +72,8 @@ Options parseOptions(int argc, const char** argv)
 				result.dumpAsm = true;
 			else if (arg == "--time")
 				result.time = true;
+			else if (arg == "--robot")
+				result.robot = true;
 			else if (arg.str().compare(0, 2, "-O") == 0)
 				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
 			else if (arg.str().compare(0, 6, "--llvm") == 0)
@@ -197,6 +201,7 @@ int main(int argc, const char** argv)
 	Timer timer;
 
 	Output output;
+	output.robot = options.robot;
 
 	llvm::InitializeNativeTarget();
 	llvm::InitializeNativeTargetAsmPrinter();

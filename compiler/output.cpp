@@ -18,11 +18,14 @@ static pair<size_t, size_t> findLine(const Str& data, size_t offset)
 	return make_pair(begin, end);
 }
 
-static void print(FILE* file, Output* output, Location loc, const char* format, va_list args)
+static void print(FILE* file, Output* output, bool robot, Location loc, const char* format, va_list args)
 {
-	fprintf(file, "%s(%d,%d): ", loc.source, loc.line + 1, loc.column + 1);
+	fprintf(file, "%s(%d,%d): ", robot ? "" : loc.source, loc.line + 1, loc.column + 1);
 	vfprintf(file, format, args);
 	fputc('\n', file);
+
+	if (robot)
+		return;
 
 	auto it = output->sources.find(loc.source);
 
@@ -55,7 +58,7 @@ void Output::panic(Location loc, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	print(stderr, this, loc, format, args);
+	print(stderr, this, robot, loc, format, args);
 	va_end(args);
 
 	exit(1);
