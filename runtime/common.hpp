@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cassert>
 
 #if defined(__APPLE__)
 	#define AIKE_UNIX
