@@ -16,7 +16,7 @@ contexts:
            1: keyword.control.aike
            2: entity.name.type.aike
 
-        - match: \b(extern|builtin|fn|var|if|else|for|in)\b
+        - match: \b(extern|builtin|fn|var|if|else|for|in|while)\b
           scope: keyword.control.aike
 
         - match: \b(not|and|or)\b
