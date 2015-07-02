@@ -587,6 +587,18 @@ static Ast* parseFor(TokenStream& ts)
 	return UNION_NEW(Ast, For, { start, var, index, expr, body });
 }
 
+static Ast* parseWhile(TokenStream& ts)
+{
+	Location start = ts.get().location;
+
+	ts.eat(Token::TypeIdent, "while");
+
+	Ast* expr = parseExpr(ts);
+	Ast* body = parseBlock(ts, &start);
+
+	return UNION_NEW(Ast, While, { start, expr, body });
+}
+
 static Ast* parseLiteralArray(TokenStream& ts)
 {
 	Location start = ts.get().location;
@@ -776,6 +788,9 @@ static Ast* parsePrimary(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent, "for"))
 		return parseFor(ts);
+
+	if (ts.is(Token::TypeIdent, "while"))
+		return parseWhile(ts);
 
 	Location start = ts.get().location;
 

@@ -336,9 +336,21 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		auto body = type(output, n->body, constraints);
 
 		typeMustEqual(expr.first, UNION_NEW(Ty, Array, { n->var->type }), constraints, output, expr.second);
+		typeMustEqual(body.first, UNION_NEW(Ty, Void, {}), constraints, output, body.second);
 
 		if (n->index)
 			typeMustEqual(n->index->type, UNION_NEW(Ty, Integer, {}), constraints, output, n->index->location);
+
+		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+	}
+
+	if (UNION_CASE(While, n, root))
+	{
+		auto expr = type(output, n->expr, constraints);
+		auto body = type(output, n->body, constraints);
+
+		typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
+		typeMustEqual(body.first, UNION_NEW(Ty, Void, {}), constraints, output, body.second);
 
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}

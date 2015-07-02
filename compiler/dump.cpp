@@ -244,6 +244,13 @@ static void dumpNode(Ast* root, int indent)
 		printf("\n");
 		dumpNode(n->body, indent + 1);
 	}
+	else if (UNION_CASE(While, n, root))
+	{
+		printf("while ");
+		dumpNode(n->expr, indent);
+		printf("\n");
+		dumpNode(n->body, indent + 1);
+	}
 	else if (UNION_CASE(Fn, n, root))
 	{
 		dumpNode(n->decl, indent);

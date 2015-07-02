@@ -647,6 +647,37 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 	return nullptr;
 }
 
+static Value* codegenWhile(Codegen& cg, Ast::While* n)
+{
+	Function* func = cg.ir->GetInsertBlock()->getParent();
+
+	BasicBlock* entrybb = cg.ir->GetInsertBlock();
+	BasicBlock* loopbb = BasicBlock::Create(*cg.context, "loop");
+	BasicBlock* bodybb = BasicBlock::Create(*cg.context, "whilebody");
+	BasicBlock* endbb = BasicBlock::Create(*cg.context, "whileend");
+
+	cg.ir->CreateBr(loopbb);
+
+	func->getBasicBlockList().push_back(loopbb);
+	cg.ir->SetInsertPoint(loopbb);
+
+	Value* expr = codegenExpr(cg, n->expr);
+
+	cg.ir->CreateCondBr(expr, bodybb, endbb);
+
+	func->getBasicBlockList().push_back(bodybb);
+	cg.ir->SetInsertPoint(bodybb);
+
+	codegenExpr(cg, n->body);
+
+	cg.ir->CreateBr(loopbb);
+
+	func->getBasicBlockList().push_back(endbb);
+	cg.ir->SetInsertPoint(endbb);
+
+	return nullptr;
+}
+
 static Value* codegenFn(Codegen& cg, Ast::Fn* n)
 {
 	UNION_CASE(FnDecl, decl, n->decl);
@@ -720,6 +751,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 
 	if (UNION_CASE(For, n, node))
 		return codegenFor(cg, n);
+
+	if (UNION_CASE(While, n, node))
+		return codegenWhile(cg, n);
 
 	if (UNION_CASE(Fn, n, node))
 		return codegenFn(cg, n);
