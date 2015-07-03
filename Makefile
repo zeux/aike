@@ -38,7 +38,7 @@ endif
 
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 
-ifeq ($(config),releaze)
+ifeq ($(config),release)
 $(COMPILER_OBJ): CXXFLAGS+=-O3
 
 $(RUNTIME_OBJ): CXXFLAGS+=-O3
