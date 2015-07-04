@@ -1,15 +1,13 @@
-// Need to define this before all other includes to get correct definition of ucontext_t
-#define _XOPEN_SOURCE
-
 #include "common.hpp"
 #include "scheduler.hpp"
 
-#include <ucontext.h>
+#include "context.hpp"
+
 #include <sys/mman.h>
 
 struct Coro
 {
-	ucontext_t uc;
+	Context context;
 
 	void (*fn)();
 
@@ -22,9 +20,9 @@ static Coro* readyTail;
 
 static Coro* current;
 
-static ucontext_t worker;
+static Context worker;
 
-static void queueCoro(Coro* coro)
+static void coroQueue(Coro* coro)
 {
 	coro->next = 0;
 
@@ -42,39 +40,9 @@ static void queueCoro(Coro* coro)
 	}
 }
 
-void spawn(void (*fn)())
+static void coroDispatch()
 {
-	Coro* coro = new Coro();
-
-	getcontext(&coro->uc);
-
-	size_t sz = 64*1024;
-
-	coro->uc.uc_stack.ss_sp = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-	coro->uc.uc_stack.ss_size = sz;
-	coro->uc.uc_stack.ss_flags = 0;
-
-	coro->uc.uc_link = &worker;
-
-	makecontext(&coro->uc, fn, 0);
-
-	queueCoro(coro);
-}
-
-void yield()
-{
-	assert(current);
-
-	queueCoro(current);
-
-	swapcontext(&current->uc, &worker);
-}
-
-void schedulerRun()
-{
-	getcontext(&worker);
-
-	while (readyHead)
+	if (readyHead)
 	{
 		Coro* c = readyHead;
 		assert(!c->prev);
@@ -94,8 +62,54 @@ void schedulerRun()
 		assert(!current);
 		current = c;
 
-		swapcontext(&worker, &c->uc);
-
-		current = 0;
+		contextResume(&c->context);
 	}
+}
+
+static void coroReturn()
+{
+	contextResume(&worker);
+}
+
+static void coroEntry()
+{
+	current->fn();
+	current = 0;
+
+	coroReturn();
+}
+
+void spawn(void (*fn)())
+{
+	Coro* coro = new Coro();
+
+	coro->fn = fn;
+
+	size_t sz = 64*1024;
+	void* stack = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+	contextCreate(&coro->context, coroEntry, stack, sz);
+
+	coroQueue(coro);
+}
+
+void yield()
+{
+	assert(current);
+
+	coroQueue(current);
+
+	if (contextCapture(&current->context))
+	{
+		current = 0;
+
+		coroReturn();
+	}
+}
+
+void schedulerRun()
+{
+	contextCapture(&worker);
+
+	coroDispatch();
 }
