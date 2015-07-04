@@ -1,3 +1,6 @@
+.SUFFIXES:
+MAKEFLAGS+=-r
+
 config=debug
 
 BUILD=build/$(config)
