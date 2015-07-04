@@ -12,7 +12,7 @@ COMPILER_OBJ=$(COMPILER_SRC:%=$(BUILD)/%.o)
 $(COMPILER_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti
 $(COMPILER_BIN): LDFLAGS=
 
-RUNTIME_SRC=$(wildcard runtime/*.cpp)
+RUNTIME_SRC=$(wildcard runtime/*.cpp) $(wildcard runtime/*.s)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
@@ -43,7 +43,6 @@ $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 
 ifeq ($(config),release)
 $(COMPILER_OBJ): CXXFLAGS+=-O3
-
 $(RUNTIME_OBJ): CXXFLAGS+=-O3
 endif
 
@@ -89,6 +88,10 @@ $(BUILD)/%.cpp.o: %.cpp
 $(BUILD)/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $< $(CFLAGS) -c -MMD -MP -o $@
+
+$(BUILD)/%.s.o: %.s
+	@mkdir -p $(dir $@)
+	$(CC) $< -c -o $@
 
 $(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 	@mkdir -p $(dir $@)
