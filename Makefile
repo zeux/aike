@@ -16,7 +16,7 @@ RUNTIME_SRC=$(wildcard runtime/*.cpp) $(wildcard runtime/*.s)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
-$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC
+$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC -fvisibility=hidden
 $(RUNTIME_BIN): LDFLAGS=-shared -ldl
 
 RUNNER_SRC=tests/runner.cpp
