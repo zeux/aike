@@ -16,6 +16,6 @@ struct Context
 #error Unknown ABI
 #endif
 
-extern "C" bool contextCapture(Context* context);
-extern "C" void contextResume(Context* context);
-extern "C" void contextCreate(Context* context, void (*entry)(), void* stack, size_t size);
+extern "C" bool contextCapture(Context* context) asm("contextCapture");
+extern "C" void contextResume(Context* context) asm("contextResume");
+extern "C" void contextCreate(Context* context, void (*entry)(), void* stack, size_t size) asm("contextCreate");

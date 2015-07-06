@@ -7,12 +7,12 @@
 .set C_R15, 48
 .set C_RIP, 56
 
-.global _contextCapture
-.global _contextResume
-.global _contextCreate
+.global contextCapture
+.global contextResume
+.global contextCreate
 
 # %rdi = context
-_contextCapture:
+contextCapture:
 	mov 0(%rsp), %rax # rip = return address
 	lea 8(%rsp), %rcx # rsp was adjusted by the call insn
 	mov %rbx, C_RBX(%rdi)
@@ -27,7 +27,7 @@ _contextCapture:
 	ret
 
 # %rdi = context
-_contextResume:
+contextResume:
 	mov C_RBX(%rdi), %rbx
 	mov C_RBP(%rdi), %rbp
 	mov C_RSP(%rdi), %rsp
@@ -37,15 +37,11 @@ _contextResume:
 	mov C_R15(%rdi), %r15
 	jmp *C_RIP(%rdi)
 
-# trap for returning
-_contextExit:
-	hlt
-
 # %rdi = context
 # %rsi = entry
 # %rdx = stack
 # %rcx = stack size
-_contextCreate:
+contextCreate:
 	xor %eax, %eax
 	lea -8(%rcx, %rdx), %rdx # stack has to have offset 8 mod 16 in the function prologue
 	mov %rax, 0(%rdx) # protect against entry returning
