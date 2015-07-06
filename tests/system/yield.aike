@@ -1,0 +1,25 @@
+extern fn println(str: string)
+
+spawn(fn ()
+      println("2")
+      yield()
+      println("5")
+)
+
+spawn(fn ()
+      println("3")
+      yield()
+      println("6")
+)
+
+println("1")
+yield()
+println("4")
+
+## OK
+# 1
+# 2
+# 3
+# 4
+# 5
+# 6
