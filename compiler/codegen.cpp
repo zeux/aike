@@ -42,7 +42,7 @@ struct Codegen
 	Constant* builtinMulOverflow;
 
 	Constant* runtimeNew;
-	Constant* runtimeNewArr;
+	Constant* runtimeNewArray;
 
 	unordered_map<Variable*, Value*> vars;
 
@@ -238,7 +238,7 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
-	Value* rawPtr = cg.ir->CreateCall2(cg.runtimeNewArr, count, elementSize);
+	Value* rawPtr = cg.ir->CreateCall2(cg.runtimeNewArray, count, elementSize);
 	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
 
 	return ptr;
@@ -901,8 +901,8 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinSubOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::ssub_with_overflow, Type::getInt32Ty(*cg.context));
 	cg.builtinMulOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::smul_with_overflow, Type::getInt32Ty(*cg.context));
 
-	cg.runtimeNew = cg.module->getOrInsertFunction("aike_new", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
-	cg.runtimeNewArr = cg.module->getOrInsertFunction("aike_newarr", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNew = cg.module->getOrInsertFunction("aikeNew", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNewArray = cg.module->getOrInsertFunction("aikeNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
 llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options)
@@ -953,7 +953,7 @@ void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 	LLVMContext& context = module->getContext();
 	IRBuilder<> ir(context);
 
-	Function* main = cast<Function>(module->getOrInsertFunction("aike_main", Type::getVoidTy(context), nullptr));
+	Function* main = cast<Function>(module->getOrInsertFunction("aikeMain", Type::getVoidTy(context), nullptr));
 
 	BasicBlock* mainbb = BasicBlock::Create(context, "entry", main);
 	ir.SetInsertPoint(mainbb);
@@ -968,7 +968,7 @@ void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 	BasicBlock* entrybb = BasicBlock::Create(context, "entry", entry);
 	ir.SetInsertPoint(entrybb);
 
-	Constant* runtimeEntry = module->getOrInsertFunction("aike_entry", Type::getInt32Ty(context), main->getType(), nullptr);
+	Constant* runtimeEntry = module->getOrInsertFunction("aikeEntry", Type::getInt32Ty(context), main->getType(), nullptr);
 
 	Value* ret = ir.CreateCall(runtimeEntry, main);
 

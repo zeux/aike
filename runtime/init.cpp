@@ -3,7 +3,7 @@
 #include "signal.hpp"
 #include "scheduler.hpp"
 
-AIKE_EXTERN int aike_entry(void (*main)())
+AIKE_EXTERN int aikeEntry(void (*main)())
 {
 	installSignalHandler();
 
