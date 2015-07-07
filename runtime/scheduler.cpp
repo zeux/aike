@@ -11,6 +11,9 @@ struct Coro
 
 	void (*fn)();
 
+	void* stack;
+	size_t stackSize;
+
 	Coro* prev;
 	Coro* next;
 };
@@ -19,6 +22,7 @@ static Coro* readyHead;
 static Coro* readyTail;
 
 static Coro* current;
+static Coro* cleanup;
 
 static Context worker;
 
@@ -73,22 +77,27 @@ static void coroReturn()
 
 static void coroEntry()
 {
+	Coro* coro = current;
+
 	current->fn();
 	current = 0;
+
+	assert(!cleanup);
+	cleanup = coro;
 
 	coroReturn();
 }
 
 void spawn(void (*fn)())
 {
-	Coro* coro = new Coro();
+	Coro* coro = static_cast<Coro*>(malloc(sizeof(Coro)));
 
 	coro->fn = fn;
 
-	size_t sz = 64*1024;
-	void* stack = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	coro->stackSize = 64*1024;
+	coro->stack = mmap(0, coro->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 
-	contextCreate(&coro->context, coroEntry, stack, sz);
+	contextCreate(&coro->context, coroEntry, coro->stack, coro->stackSize);
 
 	coroQueue(coro);
 }
@@ -110,6 +119,13 @@ void yield()
 void schedulerRun()
 {
 	contextCapture(&worker);
+
+	if (cleanup)
+	{
+		munmap(cleanup->stack, cleanup->stackSize);
+		free(cleanup);
+		cleanup = 0;
+	}
 
 	coroDispatch();
 }
