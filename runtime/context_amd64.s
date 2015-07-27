@@ -28,6 +28,7 @@ contextCapture:
 
 # %rdi = context
 contextResume:
+	xor %eax, %eax
 	mov C_RBX(%rdi), %rbx
 	mov C_RBP(%rdi), %rbp
 	mov C_RSP(%rdi), %rsp
