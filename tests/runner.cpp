@@ -10,6 +10,8 @@ int system(const char* command, std::string& output)
 	if (!p)
 		return -1;
 
+	output.clear();
+
 	while (!feof(p))
 	{
 		char buf[256];
