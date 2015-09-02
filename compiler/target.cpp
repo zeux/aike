@@ -53,20 +53,16 @@ TargetMachine* targetCreate(int optimizationLevel)
 
 static string assemble(TargetMachine* target, Module* module, TargetMachine::CodeGenFileType type)
 {
-	string result;
-
-	raw_string_ostream rs(result);
-	formatted_raw_ostream frs(rs);
+	SmallVector<char, 0> buffer;
+	raw_svector_ostream rs(buffer);
 
 	legacy::PassManager pm;
 
-	target->addPassesToEmitFile(pm, frs, type);
+	target->addPassesToEmitFile(pm, rs, type);
 
 	pm.run(*module);
 
-	frs.flush();
-
-	return result;
+	return rs.str();
 }
 
 string targetAssembleBinary(TargetMachine* target, Module* module)
