@@ -24,7 +24,7 @@ RUNNER_BIN=$(BUILD)/runner
 RUNNER_OBJ=$(RUNNER_SRC:%=$(BUILD)/%.o)
 
 ifeq ($(LLVMCONFIG),)
-LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.6 /usr/local/opt/llvm/bin/llvm-config))
+LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.7 /usr/local/opt/llvm/bin/llvm-config))
 endif
 
 $(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
