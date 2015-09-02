@@ -15,7 +15,6 @@
 #ifdef AIKE_USE_LLD
 #include "lld/ReaderWriter/MachOLinkingContext.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
-#include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "lld/Driver/Driver.h"
 #endif
 
@@ -144,24 +143,24 @@ static void targetLinkLLD(const string& outputPath, const vector<string>& inputs
 	class CustomDriver: public Driver
 	{
 	public:
-		static bool link(int argc, const char* argv[], const vector<string>& inputs)
+		static bool link(ArrayRef<const char*> args, const vector<string>& inputs)
 		{
 		#if defined(__APPLE__)
 			unique_ptr<MachOLinkingContext> ctx(new MachOLinkingContext());
-			if (!DarwinLdDriver::parse(argc, argv, *ctx))
+			if (!DarwinLdDriver::parse(args, *ctx))
 				return false;
 
 			ctx->registry().addSupportMachOObjects(*ctx);
 		#elif defined(__linux__)
 			unique_ptr<ELFLinkingContext> ctx;
-			if (!GnuLdDriver::parse(argc, argv, ctx) || !ctx)
+			if (!GnuLdDriver::parse(args, ctx) || !ctx)
 				return false;
 
-			ctx->registry().addSupportELFObjects(ctx->mergeCommonStrings(), ctx->targetHandler());
-			ctx->registry().addSupportELFDynamicSharedObjects(ctx->useShlibUndefines(), ctx->targetHandler());
+			ctx->registry().addSupportELFObjects(*ctx);
+			ctx->registry().addSupportELFDynamicSharedObjects(*ctx);
 		#elif defined(_WIN32)
 			unique_ptr<PECOFFLinkingContext> ctx(new PECOFFLinkingContext());
-			if (!WinLinkDriver::parse(argc, argv, *ctx))
+			if (!WinLinkDriver::parse(args, *ctx))
 				return false;
 
 			ctx->registry().addSupportCOFFObjects(*ctx);
@@ -171,19 +170,17 @@ static void targetLinkLLD(const string& outputPath, const vector<string>& inputs
 		#endif
 
 			ctx->registry().addSupportArchives(ctx->logInputFiles());
-			ctx->registry().addSupportNativeObjects();
 			ctx->registry().addSupportYamlFiles();
 
 			for (auto& i: inputs)
 			{
 				auto mb = MemoryBuffer::getMemBuffer(i, "input");
 
-				vector<unique_ptr<File>> files;
-				if (error_code ec = ctx->registry().parseFile(move(mb), files))
+				ErrorOr<unique_ptr<File>> file = ctx->registry().loadFile(move(mb));
+				if (!file)
 					return false;
 
-				for (unique_ptr<File>& file: files)
-					ctx->getInputGraph().addInputElement(unique_ptr<FileNode>(new SimpleFileNode("input", std::move(file))));
+				ctx->getNodes().push_back(unique_ptr<FileNode>(new FileNode(std::move(*file))));
 			}
 
 			return Driver::link(*ctx);
@@ -200,7 +197,7 @@ static void targetLinkLLD(const string& outputPath, const vector<string>& inputs
 
 	args.push_back(runtimePath.c_str());
 
-	if (!CustomDriver::link(args.size(), args.data(), inputs))
+	if (!CustomDriver::link(args, inputs))
 		panic("Error linking output");
 }
 #endif

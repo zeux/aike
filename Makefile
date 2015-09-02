@@ -33,10 +33,9 @@ $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
 
 ifneq ($(wildcard $(shell $(LLVMCONFIG) --includedir)/lld/.),)
 $(COMPILER_OBJ): CXXFLAGS+=-DAIKE_USE_LLD
-$(COMPILER_BIN): LDFLAGS+=-llldConfig -llldCore -llldDriver -llldNative -llldPasses -llldReaderWriter -llldYAML
+$(COMPILER_BIN): LDFLAGS+=-llldConfig -llldCore -llldDriver -llldReaderWriter -llldYAML
 $(COMPILER_BIN): LDFLAGS+=-llldMachO
-$(COMPILER_BIN): LDFLAGS+=-llldELF -llldAArch64ELFTarget -llldHexagonELFTarget -llldMipsELFTarget -llldPPCELFTarget -llldX86_64ELFTarget -llldX86ELFTarget
-$(COMPILER_BIN): LDFLAGS+=-llldPECOFF
+$(COMPILER_BIN): LDFLAGS+=-llldELF -llldAArch64ELFTarget -llldAMDGPUELFTarget -llldARMELFTarget -llldExampleSubTarget -llldHexagonELFTarget -llldMipsELFTarget -llldX86_64ELFTarget -llldX86ELFTarget
 endif
 
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
