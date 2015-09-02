@@ -49,7 +49,7 @@ struct Codegen
 	vector<FunctionInstance*> pendingFunctions;
 	FunctionInstance* currentFunction;
 
-	vector<DIScope> debugBlocks;
+	vector<DIScope*> debugBlocks;
 };
 
 enum CodegenKind
@@ -211,7 +211,7 @@ static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 
 static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
 {
-	Value* result = cg.ir->CreateCall2(overflowOp, left, right);
+	Value* result = cg.ir->CreateCall(overflowOp, { left, right });
 	Value* cond = cg.ir->CreateExtractValue(result, 1);
 
 	codegenTrapIf(cg, cond);
@@ -238,7 +238,7 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
-	Value* rawPtr = cg.ir->CreateCall2(cg.runtimeNewArray, count, elementSize);
+	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNewArray, { count, elementSize });
 	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
 
 	return ptr;
@@ -278,7 +278,7 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 	{
 		Value* expr = codegenExpr(cg, n->elements[i]);
 
-		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(ptr, i));
+		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(type, ptr, i));
 	}
 
 	Value* result = UndefValue::get(type);
@@ -392,7 +392,11 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 	Value* expr = codegenExpr(cg, n->expr, kind);
 
 	if (kind == KindRef)
-		return cg.ir->CreateStructGEP(expr, n->field.index);
+	{
+		Type* type = codegenType(cg, n->exprty);
+
+		return cg.ir->CreateStructGEP(PointerType::get(type, 0), expr, n->field.index);
+	}
 	else
 		return cg.ir->CreateExtractValue(expr, n->field.index);
 }
@@ -876,7 +880,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 		auto func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
 			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
-			DIDescriptor::FlagPrototyped, /* isOptimized= */ false, inst.value);
+			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
 
 		cg.debugBlocks.push_back(func);
 	}

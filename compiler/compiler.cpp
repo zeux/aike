@@ -212,6 +212,8 @@ int main(int argc, const char** argv)
 
 	llvm::Module* module = new llvm::Module("main", context);
 
+	module->setDataLayout(machine->createDataLayout());
+
 	ModuleResolver resolver = {};
 	vector<llvm::Value*> entries;
 
