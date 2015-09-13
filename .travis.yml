@@ -1,6 +1,6 @@
 language: cpp
 compiler: clang
-script: make check -k -j2
+script: make test -k -j2
 
 sudo: false
 before_install:
