@@ -214,6 +214,14 @@ int main(int argc, const char** argv)
 
 	module->setDataLayout(machine->createDataLayout());
 
+	if (options.debugInfo)
+	{
+		module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+
+		if (machine->getTargetTriple().isOSDarwin())
+			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+	}
+
 	ModuleResolver resolver = {};
 	vector<llvm::Value*> entries;
 
