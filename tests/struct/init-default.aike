@@ -1,0 +1,24 @@
+extern fn printfn(str: string, val: int, val: int, val: int)
+
+struct Point2
+    x, y: int = 7
+
+struct Point3
+    x: int = 1
+    y: int = 2
+    z: int
+
+var p0 = Point3 { x = 1, y = 2, z = 3 }
+printfn("%d %d %d", p0.x, p0.y, p0.z)
+var p1 = Point3 { x = 4, z = 5 }
+printfn("%d %d %d", p1.x, p1.y, p1.z)
+var p2 = Point3 { z = 8 }
+printfn("%d %d %d", p2.x, p2.y, p2.z)
+var p3 = Point2 {}
+printfn("%d %d", 7, 7, 0)
+
+## OK
+# 1 2 3
+# 4 2 5
+# 1 2 8
+# 7 7

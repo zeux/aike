@@ -1,0 +1,8 @@
+struct Point
+    x: int = 1
+    y: int
+
+var p = Point {}
+
+## FAIL
+# (5,9): Field y does not have an initializer
