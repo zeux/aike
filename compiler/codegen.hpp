@@ -11,7 +11,7 @@ struct Ast;
 
 struct CodegenOptions
 {
-	bool debugInfo;
+	int debugInfo;
 };
 
 llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options);

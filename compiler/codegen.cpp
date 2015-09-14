@@ -971,7 +971,8 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 	if (cg.di)
 	{
-		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, entryLocation.source, StringRef(), "aikec", /* isOptimized= */ false, StringRef(), 0);
+		auto kind = options.debugInfo > 1 ? DIBuilder::FullDebug : DIBuilder::LineTablesOnly;
+		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, entryLocation.source, StringRef(), "aikec", /* isOptimized= */ false, StringRef(), 0, StringRef(), kind);
 		cg.debugBlocks.push_back(cu);
 	}
 

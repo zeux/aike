@@ -34,7 +34,7 @@ struct Options
 	string output;
 
 	int optimize;
-	bool debugInfo;
+	int debugInfo;
 	bool compileOnly;
 
 	bool robot;
@@ -58,8 +58,6 @@ Options parseOptions(int argc, const char** argv)
 		{
 			if (arg == "-o" && i + 1 < argc)
 				result.output = argv[++i];
-			else if (arg == "-g")
-				result.debugInfo = true;
 			else if (arg == "-c")
 				result.compileOnly = true;
 			else if (arg == "--dump-parse")
@@ -76,6 +74,8 @@ Options parseOptions(int argc, const char** argv)
 				result.robot = true;
 			else if (arg.str().compare(0, 2, "-O") == 0)
 				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
+			else if (arg.str().compare(0, 2, "-g") == 0)
+				result.debugInfo = (arg == "-g") ? 2 : atoi(arg.str().c_str() + 2);
 			else if (arg.str().compare(0, 6, "--llvm") == 0)
 			{
 				string opt = arg.str().substr(6);
