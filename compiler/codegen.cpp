@@ -392,11 +392,7 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 	Value* expr = codegenExpr(cg, n->expr, kind);
 
 	if (kind == KindRef)
-	{
-		Type* type = codegenType(cg, n->exprty);
-
-		return cg.ir->CreateStructGEP(PointerType::get(type, 0), expr, n->field.index);
-	}
+		return cg.ir->CreateStructGEP(cast<PointerType>(expr->getType())->getElementType(), expr, n->field.index);
 	else
 		return cg.ir->CreateExtractValue(expr, n->field.index);
 }
