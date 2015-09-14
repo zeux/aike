@@ -58,6 +58,24 @@ enum CodegenKind
 	KindRef,
 };
 
+struct CodegenDebugLocation
+{
+	Codegen& cg;
+	DebugLoc debugLoc;
+
+	CodegenDebugLocation(Codegen& cg, const Location& location): cg(cg), debugLoc(cg.ir->getCurrentDebugLocation())
+	{
+		if (cg.di)
+			cg.ir->SetCurrentDebugLocation(DebugLoc::get(location.line + 1, location.column + 1, cg.debugBlocks.back()));
+	}
+
+	~CodegenDebugLocation()
+	{
+		if (cg.di)
+			cg.ir->SetCurrentDebugLocation(debugLoc);
+	}
+};
+
 static Ty* getGenericInstance(Codegen& cg, Ty* type)
 {
 	FunctionInstance* fn = cg.currentFunction;
@@ -244,18 +262,12 @@ static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 	return ptr;
 }
 
-static Value* codegenDebugLocation(Codegen& cg, Value* value, const Location& location)
-{
-	if (cg.di && isa<Instruction>(value))
-		cast<Instruction>(value)->setDebugLoc(DebugLoc::get(location.line + 1, location.column + 1, cg.debugBlocks.back()));
-
-	return value;
-}
-
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue);
 
 static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Type* type = codegenType(cg, UNION_NEW(Ty, String, {}));
 
 	Value* result = UndefValue::get(type);
@@ -270,6 +282,8 @@ static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 
 static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Type* type = codegenType(cg, n->type);
 
 	Value* ptr = codegenNewArr(cg, type, cg.ir->getInt32(n->elements.size));
@@ -291,6 +305,8 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 
 static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	UNION_CASE(Instance, ti, n->type);
 	assert(ti);
 
@@ -364,6 +380,8 @@ static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty
 
 static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Variable* target = n->target;
 
 	if (target->kind == Variable::KindFunction)
@@ -387,6 +405,8 @@ static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 
 static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	assert(n->field.index >= 0);
 
 	Value* expr = codegenExpr(cg, n->expr, kind);
@@ -409,17 +429,21 @@ static Value* codegenBlock(Codegen& cg, Ast::Block* n)
 
 static Value* codegenCall(Codegen& cg, Ast::Call* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* expr = codegenExpr(cg, n->expr);
 
 	vector<Value*> args;
 	for (auto& a: n->args)
 		args.push_back(codegenExpr(cg, a));
 
-	return codegenDebugLocation(cg, cg.ir->CreateCall(expr, args), n->location);
+	return cg.ir->CreateCall(expr, args);
 }
 
 static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* expr = codegenExpr(cg, n->expr);
 	Value* index = codegenExpr(cg, n->index);
 
@@ -438,6 +462,8 @@ static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
 
 static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* left = codegenExpr(cg, n->left, KindRef);
 	Value* right = codegenExpr(cg, n->right);
 
@@ -446,6 +472,8 @@ static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
 
 static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* expr = codegenExpr(cg, n->expr);
 
 	switch (n->op)
@@ -514,6 +542,8 @@ static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 
 static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* left = codegenExpr(cg, n->left);
 	Value* right = codegenExpr(cg, n->right);
 
@@ -540,6 +570,8 @@ static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
 
 static Value* codegenIf(Codegen& cg, Ast::If* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Value* cond = codegenExpr(cg, n->cond);
 
 	Function* func = cg.ir->GetInsertBlock()->getParent();
@@ -605,6 +637,8 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 
 static Value* codegenFor(Codegen& cg, Ast::For* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	BasicBlock* entrybb = cg.ir->GetInsertBlock();
@@ -649,6 +683,8 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 static Value* codegenWhile(Codegen& cg, Ast::While* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	BasicBlock* entrybb = cg.ir->GetInsertBlock();
@@ -680,6 +716,8 @@ static Value* codegenWhile(Codegen& cg, Ast::While* n)
 
 static Value* codegenFn(Codegen& cg, Ast::Fn* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	UNION_CASE(FnDecl, decl, n->decl);
 
 	return codegenFunctionDecl(cg, decl, n->id, decl->var->type, Arr<Ty*>());
@@ -687,6 +725,8 @@ static Value* codegenFn(Codegen& cg, Ast::Fn* n)
 
 static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 {
+	CodegenDebugLocation dbg(cg, n->var->location);
+
 	Value* expr = codegenExpr(cg, n->expr);
 
 	Value* storage = cg.ir->CreateAlloca(expr->getType());
@@ -841,7 +881,7 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.output->panic(Location(), "Unknown builtin function %s", name.str().c_str());
 }
 
-static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
+static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.decl->body);
 
@@ -859,6 +899,18 @@ static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRet(ret);
 	else
 		cg.ir->CreateRetVoid();
+}
+
+static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
+{
+	CodegenDebugLocation dbg(cg, inst.decl->var->location);
+
+	if (inst.decl->attributes & FnAttributeExtern)
+		codegenFunctionExtern(cg, inst);
+	else if (inst.decl->attributes & FnAttributeBuiltin)
+		codegenFunctionBuiltin(cg, inst);
+	else
+		codegenFunctionBody(cg, inst);
 }
 
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
@@ -879,17 +931,15 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
 
 		cg.debugBlocks.push_back(func);
-	}
 
-	if (inst.decl->attributes & FnAttributeExtern)
-		codegenFunctionExtern(cg, inst);
-	else if (inst.decl->attributes & FnAttributeBuiltin)
-		codegenFunctionBuiltin(cg, inst);
-	else
 		codegenFunctionImpl(cg, inst);
 
-	if (cg.di)
 		cg.debugBlocks.pop_back();
+	}
+	else
+	{
+		codegenFunctionImpl(cg, inst);
+	}
 }
 
 static void codegenPrepare(Codegen& cg)
