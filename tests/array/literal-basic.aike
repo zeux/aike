@@ -1,0 +1,10 @@
+extern fn printfn(str: string, val: int)
+
+for e in [0, 1, 2, 3]
+    printfn("%d", e)
+
+## OK
+# 0
+# 1
+# 2
+# 3
