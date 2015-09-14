@@ -74,11 +74,11 @@ struct FieldRef
 	X(Block, { Arr<Ast*> body; }) \
 	X(Module, { Str name; Location location; Ast* body; }) \
 	X(Call, { Ast* expr; Arr<Ast*> args; Location location; }) \
-	X(Unary, { UnaryOp op; Ast* expr; }) \
-	X(Binary, { BinaryOp op; Ast* left; Ast* right; }) \
+	X(Unary, { UnaryOp op; Ast* expr; Location location; }) \
+	X(Binary, { BinaryOp op; Ast* left; Ast* right; Location location; }) \
 	X(Index, { Ast* expr; Ast* index; Location location; }) \
 	X(Assign, { Location location; Ast* left; Ast* right; }) \
-	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; }) \
+	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; Location location; }) \
 	X(For, { Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
 	X(While, { Location location; Ast* expr; Ast* body; }) \
 	X(Fn, { Location location; int id; Ast* decl; }) \

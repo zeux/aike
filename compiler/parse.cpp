@@ -557,7 +557,7 @@ static Ast* parseIf(TokenStream& ts)
 		elsebody = parseBlock(ts, &start);
 	}
 
-	return UNION_NEW(Ast, If, { cond, thenbody, elsebody });
+	return UNION_NEW(Ast, If, { cond, thenbody, elsebody, start });
 }
 
 static Ast* parseFor(TokenStream& ts)
@@ -764,11 +764,13 @@ static Ast* parsePrimary(TokenStream& ts)
 
 	if (uop.first)
 	{
+		Location start = ts.get().location;
+
 		ts.move();
 
 		Ast* expr = parsePrimary(ts);
 
-		return UNION_NEW(Ast, Unary, { uop.second, expr });
+		return UNION_NEW(Ast, Unary, { uop.second, expr, start });
 	}
 
 	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "builtin"))
@@ -821,6 +823,8 @@ Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 
 	while (op.first && op.first >= limit)
 	{
+		Location start = ts.get().location;
+
 		ts.move();
 
 		Ast* right = parsePrimary(ts);
@@ -834,7 +838,7 @@ Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 			nextop = parseBinaryOp(ts);
 		}
 
-		left = UNION_NEW(Ast, Binary, { op.second, left, right });
+		left = UNION_NEW(Ast, Binary, { op.second, left, right, start });
 
 		op = parseBinaryOp(ts);
 	}
