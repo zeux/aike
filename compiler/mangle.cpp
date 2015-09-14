@@ -3,6 +3,15 @@
 
 #include "type.hpp"
 
+// This implementation is based on Itanium C++ ABI
+// https://mentorembedded.github.io/cxx-abi/abi.html#mangling
+
+static void mangleName(string& result, const Str& name)
+{
+	result += to_string(name.size);
+	result += name.str();
+}
+
 static void mangle(string& buffer, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))
@@ -38,7 +47,7 @@ static void mangle(string& buffer, Ty* type)
 
 	if (UNION_CASE(Pointer, t, type))
 	{
-		buffer += "U3ptr"; // TODO
+		buffer += "U3ptr";
 		mangle(buffer, t->element);
 		return;
 	}
@@ -60,8 +69,7 @@ static void mangle(string& buffer, Ty* type)
 	{
 		assert(!t->generic);
 
-		buffer += to_string(t->name.size);
-		buffer += t->name.str();
+		mangleName(buffer, t->name);
 
 		if (t->tyargs.size > 0)
 		{
@@ -78,6 +86,21 @@ static void mangle(string& buffer, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static void mangleFnName(string& result, const Str& name, int unnamed)
+{
+	if (name.size > 0)
+	{
+		mangleName(result, name);
+	}
+	else
+	{
+		// <unnamed-type-name>
+		result += "Ut";
+		result += to_string(unnamed);
+		result += "_";
+	}
+}
+
 string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
 {
 	string result;
@@ -86,23 +109,29 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 
 	if (!parent.empty())
 	{
-		assert(parent.size() > 2 && parent[0] == '_' && parent[1] == 'Z');
+		// Nested names have different mangling based on whether parent is a function or a namespace
+		// See <nested-name> vs <local-name>
+		if (parent.size() > 2 && parent[0] == '_' && parent[1] == 'Z')
+		{
+			result += "Z";
+			result += parent.substr(2);
+			result += "E";
 
-		result += "Z";
-		result += parent.substr(2);
-		result += "E";
-	}
+			mangleFnName(result, name, unnamed);
+		}
+		else
+		{
+			result += "N";
+			result += parent;
 
-	if (name.size > 0)
-	{
-		result += to_string(name.size);
-		result += name.str();
+			mangleFnName(result, name, unnamed);
+
+			result += "E";
+		}
 	}
 	else
 	{
-		result += "Ut";
-		result += to_string(unnamed);
-		result += "_";
+		mangleFnName(result, name, unnamed);
 	}
 
 	UNION_CASE(Function, t, type);
@@ -137,8 +166,6 @@ string mangleType(Ty* type)
 string mangleModule(const Str& name)
 {
 	string result;
-	result += "_Z";
-	result += to_string(name.size);
-	result += name.str();
+	mangleName(result, name);
 	return result;
 }
