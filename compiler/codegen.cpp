@@ -278,7 +278,7 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 	{
 		Value* expr = codegenExpr(cg, n->elements[i]);
 
-		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(type, ptr, i));
+		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(expr->getType(), ptr, i));
 	}
 
 	Value* result = UndefValue::get(type);
