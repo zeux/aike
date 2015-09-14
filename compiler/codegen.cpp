@@ -865,7 +865,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.value->empty());
 
-	if (inst.decl->var && cg.di)
+	if (cg.di)
 	{
 		const Location& loc = inst.decl->var->location;
 
@@ -888,7 +888,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 	else
 		codegenFunctionImpl(cg, inst);
 
-	if (inst.decl->var && cg.di)
+	if (cg.di)
 		cg.debugBlocks.pop_back();
 }
 
@@ -916,16 +916,20 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 	codegenPrepare(cg);
 
+	UNION_CASE(Module, rootModule, root);
+	Location entryLocation = rootModule->location;
+
 	if (cg.di)
 	{
-		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, "?", ".", "aikec", false, "", 0);
+		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, entryLocation.source, StringRef(), "aikec", /* isOptimized= */ false, StringRef(), 0);
 		cg.debugBlocks.push_back(cu);
 	}
 
 	FunctionType* entryType = FunctionType::get(Type::getVoidTy(*cg.context), false);
 	Function* entry = Function::Create(entryType, GlobalValue::InternalLinkage, "entry", module);
 
-	Ast::FnDecl* entryDecl = new Ast::FnDecl { nullptr, Arr<Ty*>(), Arr<Variable*>(), 0, root };
+	Variable* entryVar = new Variable { Variable::KindFunction, Str("entry"), nullptr, entryLocation, nullptr };
+	Ast::FnDecl* entryDecl = new Ast::FnDecl { entryVar, Arr<Ty*>(), Arr<Variable*>(), 0, root };
 
 	cg.pendingFunctions.push_back(new FunctionInstance { entry, entryDecl });
 
