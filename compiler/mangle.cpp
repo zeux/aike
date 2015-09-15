@@ -34,7 +34,7 @@ static void mangle(string& buffer, Ty* type)
 
 	if (UNION_CASE(String, t, type))
 	{
-		buffer += "6string";
+		buffer += "N6stringE";
 		return;
 	}
 
@@ -69,6 +69,7 @@ static void mangle(string& buffer, Ty* type)
 	{
 		assert(!t->generic);
 
+		buffer += "N";
 		mangleName(buffer, t->name);
 
 		if (t->tyargs.size > 0)
@@ -80,6 +81,7 @@ static void mangle(string& buffer, Ty* type)
 
 			buffer += "E";
 		}
+		buffer += "E";
 		return;
 	}
 
