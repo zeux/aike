@@ -153,8 +153,15 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 		mangle(result, t->ret);
 	}
 
-	for (auto& a: t->args)
-		mangle(result, a);
+	if (t->args.size > 0)
+	{
+		for (auto& a: t->args)
+			mangle(result, a);
+	}
+	else
+	{
+		result += "v";
+	}
 
 	return result;
 }
