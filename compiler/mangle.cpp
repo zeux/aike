@@ -86,7 +86,7 @@ static void mangle(string& buffer, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static void mangleFnName(string& result, const Str& name, int unnamed)
+static void mangleFnName(string& result, const Str& name, int unnamed, const Arr<Ty*>& tyargs)
 {
 	if (name.size > 0)
 	{
@@ -99,10 +99,23 @@ static void mangleFnName(string& result, const Str& name, int unnamed)
 		result += to_string(unnamed);
 		result += "_";
 	}
+
+	if (tyargs.size > 0)
+	{
+		result += "I";
+
+		for (auto& a: tyargs)
+			mangle(result, a);
+
+		result += "E";
+	}
 }
 
 string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
 {
+	UNION_CASE(Function, t, type);
+	assert(t);
+
 	string result;
 
 	result += "_Z";
@@ -117,35 +130,25 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 			result += parent.substr(2);
 			result += "E";
 
-			mangleFnName(result, name, unnamed);
+			mangleFnName(result, name, unnamed, tyargs);
 		}
 		else
 		{
 			result += "N";
 			result += parent;
 
-			mangleFnName(result, name, unnamed);
+			mangleFnName(result, name, unnamed, tyargs);
 
 			result += "E";
 		}
 	}
 	else
 	{
-		mangleFnName(result, name, unnamed);
+		mangleFnName(result, name, unnamed, tyargs);
 	}
-
-	UNION_CASE(Function, t, type);
-	assert(t);
 
 	if (tyargs.size > 0)
 	{
-		result += "I";
-
-		for (auto& a: tyargs)
-			mangle(result, a);
-
-		result += "E";
-
 		// Itanium mangling rules are... weird
 		mangle(result, t->ret);
 	}
