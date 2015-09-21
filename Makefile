@@ -5,26 +5,39 @@ config=debug
 
 BUILD=build/$(config)
 
+CXXFLAGS=-g -std=c++11
+LDFLAGS=
+
+ifeq ($(config),release)
+CXXFLAGS+=-O3
+endif
+
+ifeq ($(config),sanitize)
+CXXFLAGS+=-fsanitize=address
+LDFLAGS+=-fsanitize=address
+endif
+
+ifeq ($(config),coverage)
+CXXFLAGS+=-coverage
+LDFLAGS+=-coverage
+endif
+
 COMPILER_SRC=$(wildcard compiler/*.cpp)
 COMPILER_BIN=$(BUILD)/aikec
 COMPILER_OBJ=$(COMPILER_SRC:%=$(BUILD)/%.o)
 
-$(COMPILER_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti
-$(COMPILER_BIN): LDFLAGS=
+$(COMPILER_OBJ): CXXFLAGS+=-fno-rtti
 
 RUNTIME_SRC=$(wildcard runtime/*.cpp) $(wildcard runtime/*.s)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
-$(RUNTIME_OBJ): CXXFLAGS=-g -std=c++11 -fno-rtti -fno-exceptions -fPIC -fvisibility=hidden
-$(RUNTIME_BIN): LDFLAGS=-shared -ldl
+$(RUNTIME_OBJ): CXXFLAGS+=-fno-rtti -fno-exceptions -fPIC -fvisibility=hidden
+$(RUNTIME_BIN): LDFLAGS+=-shared -ldl
 
 RUNNER_SRC=tests/runner.cpp
 RUNNER_BIN=$(BUILD)/runner
 RUNNER_OBJ=$(RUNNER_SRC:%=$(BUILD)/%.o)
-
-$(RUNNER_OBJ): CXXFLAGS=-g -std=c++11
-$(RUNNER_BIN): LDFLAGS=
 
 ifeq ($(LLVMCONFIG),)
 LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.7 /usr/local/opt/llvm/bin/llvm-config))
@@ -42,27 +55,6 @@ $(COMPILER_BIN): LDFLAGS+=-llldELF -llldAArch64ELFTarget -llldAMDGPUELFTarget -l
 endif
 
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
-
-ifeq ($(config),release)
-$(COMPILER_OBJ): CXXFLAGS+=-O3
-$(RUNTIME_OBJ): CXXFLAGS+=-O3
-endif
-
-ifeq ($(config),sanitize)
-$(COMPILER_OBJ): CXXFLAGS+=-fsanitize=address
-$(COMPILER_BIN): LDFLAGS+=-fsanitize=address
-
-$(RUNTIME_OBJ): CXXFLAGS+=-fsanitize=address
-$(RUNTIME_BIN): LDFLAGS+=-fsanitize=address
-endif
-
-ifeq ($(config),coverage)
-$(COMPILER_OBJ): CXXFLAGS+=-coverage
-$(COMPILER_BIN): LDFLAGS+=-coverage
-
-$(RUNTIME_OBJ): CXXFLAGS+=-coverage
-$(RUNTIME_BIN): LDFLAGS+=-coverage
-endif
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ) $(RUNNER_OBJ)
 
