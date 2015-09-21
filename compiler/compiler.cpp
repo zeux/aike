@@ -33,6 +33,8 @@ struct Options
 	vector<string> inputs;
 	string output;
 
+	string triple;
+
 	int optimize;
 	int debugInfo;
 	bool compileOnly;
@@ -83,6 +85,8 @@ Options parseOptions(int argc, const char** argv)
 				const char* opts[] = { argv[0], opt.c_str() };
 				llvm::cl::ParseCommandLineOptions(2, opts);
 			}
+			else if (arg == "-triple" && i + 1 < argc)
+				result.triple = argv[++i];
 			else
 				panic("Unknown argument %s", arg.str().c_str());
 		}
@@ -206,7 +210,8 @@ int main(int argc, const char** argv)
 	llvm::InitializeNativeTarget();
 	llvm::InitializeNativeTargetAsmPrinter();
 
-	llvm::TargetMachine* machine = targetCreate(targetHostTriple(), options.optimize);
+	string triple = options.triple.empty() ? targetHostTriple() : options.triple;
+	llvm::TargetMachine* machine = targetCreate(triple, options.optimize);
 
 	llvm::LLVMContext context;
 
