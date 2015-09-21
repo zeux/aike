@@ -18,14 +18,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
-#include "llvm/Target/TargetMachine.h"
-
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Timer.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 
 #include <fstream>
 
@@ -212,19 +211,18 @@ int main(int argc, const char** argv)
 	llvm::InitializeNativeTargetAsmPrinter();
 
 	string triple = options.triple.empty() ? targetHostTriple() : options.triple;
-	llvm::TargetMachine* machine = targetCreate(triple, options.optimize);
 
 	llvm::LLVMContext context;
 
 	llvm::Module* module = new llvm::Module("main", context);
 
-	module->setDataLayout(machine->createDataLayout());
+	module->setDataLayout(targetDataLayout(triple));
 
 	if (options.debugInfo)
 	{
 		module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
 
-		if (machine->getTargetTriple().isOSDarwin())
+		if (llvm::Triple(triple).isOSDarwin())
 			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 	}
 
@@ -289,7 +287,7 @@ int main(int argc, const char** argv)
 
 	if (options.dumpAsm)
 	{
-		string result = targetAssembleText(machine, module);
+		string result = targetAssembleText(triple, module, options.optimize);
 
 		puts(result.c_str());
 	}
@@ -298,7 +296,7 @@ int main(int argc, const char** argv)
 	{
 		timer.checkpoint();
 
-		string result = targetAssembleBinary(machine, module);
+		string result = targetAssembleBinary(triple, module, options.optimize);
 
 		timer.checkpoint("assemble");
 

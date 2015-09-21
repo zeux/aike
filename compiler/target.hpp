@@ -4,12 +4,14 @@ namespace llvm
 {
 	class TargetMachine;
 	class Module;
+	class DataLayout;
 }
 
 string targetHostTriple();
-llvm::TargetMachine* targetCreate(const string& triple, int optimizationLevel);
 
-string targetAssembleBinary(llvm::TargetMachine* target, llvm::Module* module);
-string targetAssembleText(llvm::TargetMachine* target, llvm::Module* module);
+llvm::DataLayout targetDataLayout(const string& triple);
+
+string targetAssembleBinary(const string& triple, llvm::Module* module, int optimizationLevel);
+string targetAssembleText(const string& triple, llvm::Module* module, int optimizationLevel);
 
 void targetLink(const string& triple, const string& outputPath, const vector<string>& inputs, const string& runtimePath, bool debugInfo);

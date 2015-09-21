@@ -36,6 +36,20 @@ static CodeGenOpt::Level getCodeGenOptLevel(int optimizationLevel)
 		return CodeGenOpt::None;
 }
 
+static unique_ptr<TargetMachine> createTargetMachine(const string& triple, CodeGenOpt::Level optimizationLevel)
+{
+	string error;
+	const Target* target = TargetRegistry::lookupTarget(triple, error);
+
+	if (!target)
+		panic("Can't find target for triple %s: %s", triple.c_str(), error.c_str());
+
+	TargetOptions options;
+
+	return unique_ptr<TargetMachine>(target->createTargetMachine(
+		triple, StringRef(), StringRef(), options, Reloc::Default, CodeModel::Default, optimizationLevel));
+}
+
 string targetHostTriple()
 {
 #if defined(__APPLE__)
@@ -47,41 +61,35 @@ string targetHostTriple()
 #endif
 }
 
-TargetMachine* targetCreate(const string& triple, int optimizationLevel)
+DataLayout targetDataLayout(const string& triple)
 {
-	string error;
-	const Target* target = TargetRegistry::lookupTarget(triple, error);
-
-	if (!target)
-		panic("Can't find target for triple %s: %s", triple.c_str(), error.c_str());
-
-	TargetOptions options;
-
-	return target->createTargetMachine(triple, "", "", options, Reloc::Default, CodeModel::Default, getCodeGenOptLevel(optimizationLevel));
+	return createTargetMachine(triple, CodeGenOpt::Default)->createDataLayout();
 }
 
-static string assemble(TargetMachine* target, Module* module, TargetMachine::CodeGenFileType type)
+static string assemble(const string& triple, Module* module, int optimizationLevel, TargetMachine::CodeGenFileType type)
 {
+	unique_ptr<TargetMachine> machine = createTargetMachine(triple, getCodeGenOptLevel(optimizationLevel));
+
 	SmallVector<char, 0> buffer;
 	raw_svector_ostream rs(buffer);
 
 	legacy::PassManager pm;
 
-	target->addPassesToEmitFile(pm, rs, type);
+	machine->addPassesToEmitFile(pm, rs, type);
 
 	pm.run(*module);
 
 	return rs.str();
 }
 
-string targetAssembleBinary(TargetMachine* target, Module* module)
+string targetAssembleBinary(const string& triple, Module* module, int optimizationLevel)
 {
-	return assemble(target, module, TargetMachine::CGFT_ObjectFile);
+	return assemble(triple, module, optimizationLevel, TargetMachine::CGFT_ObjectFile);
 }
 
-string targetAssembleText(TargetMachine* target, Module* module)
+string targetAssembleText(const string& triple, Module* module, int optimizationLevel)
 {
-	return assemble(target, module, TargetMachine::CGFT_AssemblyFile);
+	return assemble(triple, module, optimizationLevel, TargetMachine::CGFT_AssemblyFile);
 }
 
 static string targetMakeFolder(const string& outputPath)
