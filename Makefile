@@ -23,6 +23,9 @@ RUNNER_SRC=tests/runner.cpp
 RUNNER_BIN=$(BUILD)/runner
 RUNNER_OBJ=$(RUNNER_SRC:%=$(BUILD)/%.o)
 
+$(RUNNER_OBJ): CXXFLAGS=-g -std=c++11
+$(RUNNER_BIN): LDFLAGS=
+
 ifeq ($(LLVMCONFIG),)
 LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.7 /usr/local/opt/llvm/bin/llvm-config))
 endif
@@ -53,7 +56,13 @@ $(RUNTIME_OBJ): CXXFLAGS+=-fsanitize=address
 $(RUNTIME_BIN): LDFLAGS+=-fsanitize=address
 endif
 
-$(RUNNER_OBJ): CXXFLAGS=-g -std=c++11
+ifeq ($(config),coverage)
+$(COMPILER_OBJ): CXXFLAGS+=-coverage
+$(COMPILER_BIN): LDFLAGS+=-coverage
+
+$(RUNTIME_OBJ): CXXFLAGS+=-coverage
+$(RUNTIME_BIN): LDFLAGS+=-coverage
+endif
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ) $(RUNNER_OBJ)
 
