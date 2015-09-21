@@ -55,7 +55,7 @@ string targetHostTriple()
 #if defined(__APPLE__)
 	return "x86_64-apple-darwin";
 #elif defined(__linux__)
-	return "x86_64-linux-gnu";
+	return "x86_64-pc-linux-gnu";
 #else
 #error Unsupported platform
 #endif
