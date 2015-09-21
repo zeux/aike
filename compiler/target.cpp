@@ -36,9 +36,19 @@ static CodeGenOpt::Level getCodeGenOptLevel(int optimizationLevel)
 		return CodeGenOpt::None;
 }
 
-TargetMachine* targetCreate(int optimizationLevel)
+string targetHostTriple()
 {
-	string triple = sys::getDefaultTargetTriple();
+#if defined(__APPLE__)
+	return "x86_64-apple-darwin";
+#elif defined(__linux__)
+	return "x86_64-linux-gnu";
+#else
+#error Unsupported platform
+#endif
+}
+
+TargetMachine* targetCreate(const string& triple, int optimizationLevel)
+{
 	string error;
 	const Target* target = TargetRegistry::lookupTarget(triple, error);
 
@@ -220,11 +230,13 @@ static void targetLinkLLD(const string& outputPath, const vector<string>& inputs
 }
 #endif
 
-void targetLink(const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+void targetLink(const string& outputPath, const vector<string>& inputs, const string& runtimePath, bool debugInfo)
 {
 #ifdef AIKE_USE_LLD
-	targetLinkLLD(outputPath, inputs, runtimePath);
-#else
-	targetLinkLD("/usr/bin/ld", outputPath, inputs, runtimePath);
+	// lld does not support debug maps for OSX
+	if (!debugInfo)
+		return targetLinkLLD(outputPath, inputs, runtimePath);
 #endif
+
+	targetLinkLD("/usr/bin/ld", outputPath, inputs, runtimePath);
 }

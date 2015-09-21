@@ -206,7 +206,7 @@ int main(int argc, const char** argv)
 	llvm::InitializeNativeTarget();
 	llvm::InitializeNativeTargetAsmPrinter();
 
-	llvm::TargetMachine* machine = targetCreate(options.optimize);
+	llvm::TargetMachine* machine = targetCreate(targetHostTriple(), options.optimize);
 
 	llvm::LLVMContext context;
 
@@ -302,7 +302,7 @@ int main(int argc, const char** argv)
 
 			timer.checkpoint();
 
-			targetLink(options.output, { result }, runtimePath);
+			targetLink(options.output, { result }, runtimePath, options.debugInfo);
 
 			timer.checkpoint("link");
 		}
