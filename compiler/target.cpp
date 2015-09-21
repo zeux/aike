@@ -74,6 +74,37 @@ string targetAssembleText(TargetMachine* target, Module* module)
 	return assemble(target, module, TargetMachine::CGFT_AssemblyFile);
 }
 
+static string targetMakeFolder(const string& outputPath)
+{
+	string outputName = outputPath;
+
+	string::size_type slash = outputName.find_last_of('/');
+	if (slash != string::npos) outputName.erase(0, slash + 1);
+
+	string result = "/tmp/aikec-" + outputName + "-XXXXXX";
+
+	return mkdtemp(&result[0]);
+}
+
+static vector<string> targetDumpObjects(const string& outputPath, const vector<string>& inputs)
+{
+	string tempPath = targetMakeFolder(outputPath);
+
+	vector<string> files;
+
+	for (auto& data: inputs)
+	{
+		string file = tempPath + "/input" + to_string(files.size()) + ".o";
+
+		ofstream of(file, ios::out | ios::binary);
+		of.write(data.data(), data.size());
+
+		files.push_back(file);
+	}
+
+	return files;
+}
+
 static void targetLinkFillArgs(vector<const char*>& args)
 {
 	args.push_back("-arch");
@@ -96,17 +127,7 @@ static void targetLinkFillArgs(vector<const char*>& args)
 
 static void targetLinkLD(const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
-	vector<string> inputFiles;
-
-	for (auto& data: inputs)
-	{
-		string file = outputPath + "-in" + to_string(inputFiles.size()) + ".o";
-
-		ofstream of(file, ios::out | ios::binary);
-		of.write(data.data(), data.size());
-
-		inputFiles.push_back(file);
-	}
+	vector<string> files = targetDumpObjects(outputPath, inputs);
 
 	vector<const char*> args;
 
@@ -115,7 +136,7 @@ static void targetLinkLD(const string& ld, const string& outputPath, const vecto
 	args.push_back("-o");
 	args.push_back(outputPath.c_str());
 
-	for (auto& file: inputFiles)
+	for (auto& file: files)
 		args.push_back(file.c_str());
 
 	args.push_back(runtimePath.c_str());
@@ -129,9 +150,6 @@ static void targetLinkLD(const string& ld, const string& outputPath, const vecto
 	}
 
 	int rc = system(command.c_str());
-
-	for (auto& file: inputFiles)
-		unlink(file.c_str());
 
 	if (rc != 0)
 		panic("Error linking output: %s returned %d", command.c_str(), rc);
