@@ -20,7 +20,7 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 	if (mc->__es.__err == 4 || mc->__es.__err == 6)
 		fprintf(stderr, " (%s %016llx)", mc->__es.__err == 4 ? "load" : "store", mc->__es.__faultvaddr);
 #else
-	fprintf(stderr, " at %016llx", mc.gregs[REG_RIP]);
+	fprintf(stderr, " at %016lx", mc.gregs[REG_RIP]);
 #endif
 
 	fprintf(stderr, "\n");
