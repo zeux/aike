@@ -115,33 +115,34 @@ static vector<string> targetDumpObjects(const string& outputPath, const vector<s
 	return files;
 }
 
-static void targetLinkFillArgs(vector<const char*>& args)
+static void targetLinkFillArgs(const Triple& triple, vector<const char*>& args)
 {
-	args.push_back("-arch");
-	args.push_back("x86_64");
+	if (triple.getOS() == Triple::Linux)
+	{
+		args.push_back("-dynamic-linker");
+		args.push_back("/lib64/ld-linux-x86-64.so.2");
+		args.push_back("/usr/lib/x86_64-linux-gnu/crt1.o");
+		args.push_back("-lc");
+	}
+	else if (triple.getOS() == Triple::Darwin)
+	{
+		args.push_back("-arch");
+		args.push_back("x86_64");
 
-#if defined(__APPLE__)
-	args.push_back("-macosx_version_min");
-	args.push_back("10.10");
+		args.push_back("-macosx_version_min");
+		args.push_back("10.10");
 
-	args.push_back("-lSystem");
-#elif defined(__linux__)
-	args.push_back("-dynamic-linker");
-	args.push_back("/lib64/ld-linux-x86-64.so.2");
-	args.push_back("/usr/lib/x86_64-linux-gnu/crt1.o");
-	args.push_back("-lc");
-#else
-#error Unsupported platform
-#endif
+		args.push_back("-lSystem");
+	}
 }
 
-static void targetLinkLD(const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+static void targetLinkLD(const Triple& triple, const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
 	vector<string> files = targetDumpObjects(outputPath, inputs);
 
 	vector<const char*> args;
 
-	targetLinkFillArgs(args);
+	targetLinkFillArgs(triple, args);
 
 	args.push_back("-o");
 	args.push_back(outputPath.c_str());
@@ -166,77 +167,82 @@ static void targetLinkLD(const string& ld, const string& outputPath, const vecto
 }
 
 #ifdef AIKE_USE_LLD
-static void targetLinkLLD(const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+class CustomDriver: public Driver
 {
-	class CustomDriver: public Driver
+public:
+	static bool link(const Triple& triple, ArrayRef<const char*> args, const vector<string>& inputs)
 	{
-	public:
-		static bool link(ArrayRef<const char*> args, const vector<string>& inputs)
+		unique_ptr<LinkingContext> ctx;
+
+		if (triple.getObjectFormat() == Triple::MachO)
 		{
-		#if defined(__APPLE__)
-			unique_ptr<MachOLinkingContext> ctx(new MachOLinkingContext());
-			if (!DarwinLdDriver::parse(args, *ctx))
+			unique_ptr<MachOLinkingContext> tctx(new MachOLinkingContext());
+			if (!DarwinLdDriver::parse(args, *tctx))
 				return false;
 
-			ctx->registry().addSupportMachOObjects(*ctx);
-		#elif defined(__linux__)
-			unique_ptr<ELFLinkingContext> ctx;
-			if (!GnuLdDriver::parse(args, ctx) || !ctx)
-				return false;
+			tctx->registry().addSupportMachOObjects(*tctx);
 
-			ctx->registry().addSupportELFObjects(*ctx);
-			ctx->registry().addSupportELFDynamicSharedObjects(*ctx);
-		#elif defined(_WIN32)
-			unique_ptr<PECOFFLinkingContext> ctx(new PECOFFLinkingContext());
-			if (!WinLinkDriver::parse(args, *ctx))
-				return false;
-
-			ctx->registry().addSupportCOFFObjects(*ctx);
-			ctx->registry().addSupportCOFFImportLibraries(*ctx);
-		#else
-		#error Unsupported platform
-		#endif
-
-			ctx->registry().addSupportArchives(ctx->logInputFiles());
-			ctx->registry().addSupportYamlFiles();
-
-			for (auto& i: inputs)
-			{
-				auto mb = MemoryBuffer::getMemBuffer(i, "input");
-
-				ErrorOr<unique_ptr<File>> file = ctx->registry().loadFile(move(mb));
-				if (!file)
-					return false;
-
-				ctx->getNodes().push_back(unique_ptr<FileNode>(new FileNode(std::move(*file))));
-			}
-
-			return Driver::link(*ctx);
+			ctx = move(tctx);
 		}
-	};
+		else if (triple.getObjectFormat() == Triple::ELF)
+		{
+			unique_ptr<ELFLinkingContext> tctx;
 
+			if (!GnuLdDriver::parse(args, tctx) || !tctx)
+				return false;
+
+			tctx->registry().addSupportELFObjects(*tctx);
+			tctx->registry().addSupportELFDynamicSharedObjects(*tctx);
+
+			ctx = move(tctx);
+		}
+		else
+		{
+			return false;
+		}
+
+		ctx->registry().addSupportArchives(ctx->logInputFiles());
+		ctx->registry().addSupportYamlFiles();
+
+		for (auto& i: inputs)
+		{
+			auto mb = MemoryBuffer::getMemBuffer(i, "input");
+
+			ErrorOr<unique_ptr<File>> file = ctx->registry().loadFile(move(mb));
+			if (!file)
+				return false;
+
+			ctx->getNodes().push_back(unique_ptr<FileNode>(new FileNode(std::move(*file))));
+		}
+
+		return Driver::link(*ctx);
+	}
+};
+
+static void targetLinkLLD(const Triple& triple, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
+{
 	std::vector<const char*> args;
 
 	args.push_back("lld");
-	targetLinkFillArgs(args);
+	targetLinkFillArgs(triple, args);
 
 	args.push_back("-o");
 	args.push_back(outputPath.c_str());
 
 	args.push_back(runtimePath.c_str());
 
-	if (!CustomDriver::link(args, inputs))
+	if (!CustomDriver::link(triple, args, inputs))
 		panic("Error linking output");
 }
 #endif
 
-void targetLink(const string& outputPath, const vector<string>& inputs, const string& runtimePath, bool debugInfo)
+void targetLink(const string& triple, const string& outputPath, const vector<string>& inputs, const string& runtimePath, bool debugInfo)
 {
 #ifdef AIKE_USE_LLD
 	// lld does not support debug maps for OSX
 	if (!debugInfo)
-		return targetLinkLLD(outputPath, inputs, runtimePath);
+		return targetLinkLLD(Triple(triple), outputPath, inputs, runtimePath);
 #endif
 
-	targetLinkLD("/usr/bin/ld", outputPath, inputs, runtimePath);
+	targetLinkLD(Triple(triple), "/usr/bin/ld", outputPath, inputs, runtimePath);
 }

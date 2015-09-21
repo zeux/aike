@@ -307,7 +307,7 @@ int main(int argc, const char** argv)
 
 			timer.checkpoint();
 
-			targetLink(options.output, { result }, runtimePath, options.debugInfo);
+			targetLink(triple, options.output, { result }, runtimePath, options.debugInfo);
 
 			timer.checkpoint("link");
 		}
