@@ -1,0 +1,12 @@
+extern fn printfn(str: string, val: int)
+
+var x =
+    [1, 2, 3]
+    .map(fn (x) x * x)
+    .filter(fn (x) x > 1)
+    .reduce(fn (s, e) s + e, 0)
+
+printfn("%d", x)
+
+## OK
+# 13
