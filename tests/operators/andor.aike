@@ -1,0 +1,51 @@
+extern fn println(str: string)
+
+fn t(): _
+    println("t")
+    true
+
+fn tt(): _
+    println("tt")
+    true
+
+fn f(): _
+    println("f")
+    false
+
+fn ff(): _
+    println("ff")
+    false
+
+println("0")
+if t() and f() println("!")
+println("1")
+if f() and t() println("!")
+println("2")
+if t() and tt() println("!")
+println("3")
+if t() or f() println("!")
+println("4")
+if f() or t() println("!")
+println("5")
+if f() or ff() println("!")
+
+## OK
+# 0
+# t
+# f
+# 1
+# f
+# 2
+# t
+# tt
+# !
+# 3
+# t
+# !
+# 4
+# f
+# t
+# !
+# 5
+# f
+# ff

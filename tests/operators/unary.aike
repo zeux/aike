@@ -1,0 +1,9 @@
+extern fn printfn(str: string, val: int)
+
+var foo = new 5
+
+if not false
+    printfn("%d", - *foo)
+
+## OK
+# -5
