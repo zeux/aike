@@ -67,7 +67,7 @@ simple: all
 	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple $(flags)
 	./$(BUILD)/simple
 
-test: all $(TEST_OUT)
+test: $(TEST_OUT)
 
 clean:
 	rm -rf $(BUILD)

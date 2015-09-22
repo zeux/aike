@@ -1,11 +1,12 @@
+sudo: false
 language: cpp
 compiler: clang
 script: make config=coverage test -k -j2
 
-sudo: false
 before_install:
  - export LLVM=3.7.0
  - export LLVMCONFIG=./clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04/bin/llvm-config
  - if [ ! -f $LLVMCONFIG ]; then wget -nv -O- http://llvm.org/releases/$LLVM/clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xJ; fi
 after_success:
-- bash <(curl -s https://codecov.io/bash)
+- find . -type f -name '*.gcno' -exec ./clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04/bin/llvm-cov gcov {} +
+- bash <(curl -s https://codecov.io/bash) -f "`echo *.gcov`"
