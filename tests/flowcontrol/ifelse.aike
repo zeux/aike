@@ -1,0 +1,9 @@
+extern fn printfn(str: string, val: int)
+
+var x = if (1 < 2) 3 else 4
+
+if x > 2
+    printfn("%d", x)
+
+## OK
+# 3

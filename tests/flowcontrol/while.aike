@@ -1,0 +1,16 @@
+extern fn printfn(str: string, val: int)
+
+var i = 0
+
+while i < 4
+    printfn("%d", i)
+    i = i + 1
+
+while i < 4
+    printfn("FAIL", 0)
+
+## OK
+# 0
+# 1
+# 2
+# 3
