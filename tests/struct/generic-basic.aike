@@ -1,0 +1,13 @@
+extern fn printfn(str: string, val: int)
+
+struct Pair<T, U>
+    first: T
+    second: U
+
+var p1 = Pair { first = 1, second = true }
+var p2 = Pair { first = "%d", second = p1.first }
+
+if p1.second printfn(p2.first, p2.second)
+
+## OK
+# 1
