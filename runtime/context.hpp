@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(AIKE_UNIX)
+#if defined(AIKE_ABI_AMD64)
 struct Context
 {
 	uint64_t rbx;

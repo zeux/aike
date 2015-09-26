@@ -8,15 +8,21 @@
 #include <cassert>
 
 #if defined(__APPLE__)
-	#define AIKE_UNIX
-	#define AIKE_MAC
+	#define AIKE_OS_UNIX
+	#define AIKE_OS_MAC
 #elif defined(__linux__)
-	#define AIKE_UNIX
-	#define AIKE_LINUX
+	#define AIKE_OS_UNIX
+	#define AIKE_OS_LINUX
 #elif defined(_WIN32)
-	#define AIKE_WINDOWS
+	#define AIKE_OS_WINDOWS
 #else
 	#error Unknown platform
+#endif
+
+#if defined(__x86_64__)
+	#define AIKE_ABI_AMD64
+#else
+	#error Unknown architecture
 #endif
 
 #ifdef AIKE_WINDOWS

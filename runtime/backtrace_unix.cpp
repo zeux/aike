@@ -2,7 +2,7 @@
 
 #include "backtrace.hpp"
 
-#ifdef AIKE_UNIX
+#ifdef AIKE_OS_UNIX
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <unwind.h>
