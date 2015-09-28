@@ -1,6 +1,6 @@
 #include "common.hpp"
 
-#include <cstdarg>
+#include "types.hpp"
 
 AIKE_EXTERN void println(AikeString str)
 {

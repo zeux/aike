@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdarg>
 #include <cassert>
 
 #if defined(__APPLE__)
@@ -25,20 +26,18 @@
 	#error Unknown architecture
 #endif
 
-#ifdef AIKE_WINDOWS
+#ifdef AIKE_OS_WINDOWS
 	#define AIKE_EXTERN extern "C" __declspec(dllexport)
 #else
 	#define AIKE_EXTERN extern "C" __attribute__ ((visibility("default")))
 #endif
 
-struct AikeString
-{
-	const char* data;
-	size_t size;
-};
+#ifdef __GNUC__
+#define ATTR_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#define ATTR_NORETURN __attribute__((noreturn))
+#else
+#define ATTR_PRINTF(fmt, args)
+#define ATTR_NORETURN
+#endif
 
-template <typename T> struct AikeArray
-{
-	T* data;
-	size_t size;
-};
+ATTR_NORETURN ATTR_PRINTF(1, 2) void panic(const char* format, ...);
