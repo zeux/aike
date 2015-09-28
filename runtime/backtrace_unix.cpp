@@ -20,6 +20,8 @@ static void dumpBacktraceFrame(FILE* file, int frame, uintptr_t ip)
 			fname_slash ? fname_slash + 1 : di.dli_fname,
 			sname_dem ? sname_dem : di.dli_sname,
 			ip - reinterpret_cast<uintptr_t>(di.dli_saddr));
+
+		free(sname_dem);
 	}
 
 	fprintf(file, "\n");
