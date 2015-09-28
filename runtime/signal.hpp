@@ -1,3 +1,4 @@
 #pragma once
 
-void installSignalHandler();
+void signalSetup();
+void signalTeardown();

@@ -44,17 +44,23 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 	abort();
 }
 
-void installSignalHandler()
+const int kSignalActions[] = { SIGILL, SIGSEGV, SIGFPE, SIGTRAP };
+
+void signalSetup()
 {
-	struct sigaction new_action;
+	struct sigaction action;
 
-	new_action.sa_sigaction = signalHandler;
-	sigemptyset(&new_action.sa_mask);
-	new_action.sa_flags = SA_SIGINFO;
+	action.sa_sigaction = signalHandler;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = SA_SIGINFO;
 
-	sigaction(SIGILL, &new_action, NULL);
-	sigaction(SIGSEGV, &new_action, NULL);
-	sigaction(SIGFPE, &new_action, NULL);
-	sigaction(SIGTRAP, &new_action, NULL);
+	for (int id: kSignalActions)
+		sigaction(id, &action, NULL);
+}
+
+void signalTeardown()
+{
+	for (int id: kSignalActions)
+		sigaction(id, NULL, NULL);
 }
 #endif

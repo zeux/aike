@@ -5,11 +5,13 @@
 
 AIKE_EXTERN int aikeEntry(void (*main)())
 {
-	installSignalHandler();
+	signalSetup();
 
 	spawn(main);
 
 	schedulerRun();
+
+	signalTeardown();
 
 	return 0;
 }
