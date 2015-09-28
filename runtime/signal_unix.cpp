@@ -45,7 +45,7 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 	abort();
 }
 
-const int kSignalActions[] = { SIGILL, SIGSEGV, SIGFPE, SIGTRAP };
+const int kSignalActions[] = { SIGILL, SIGTRAP, SIGFPE, SIGBUS, SIGSEGV };
 
 void signalSetup()
 {
