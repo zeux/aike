@@ -2,8 +2,7 @@
 #include "scheduler.hpp"
 
 #include "context.hpp"
-
-#include <sys/mman.h>
+#include "stack.hpp"
 
 struct Coro
 {
@@ -95,7 +94,7 @@ void spawn(void (*fn)())
 	coro->fn = fn;
 
 	coro->stackSize = 64*1024;
-	coro->stack = mmap(0, coro->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	coro->stack = stackCreate(coro->stackSize);
 
 	contextCreate(&coro->context, coroEntry, coro->stack, coro->stackSize);
 
@@ -122,7 +121,7 @@ void schedulerRun()
 
 	if (cleanup)
 	{
-		munmap(cleanup->stack, cleanup->stackSize);
+		stackDestroy(cleanup->stack, cleanup->stackSize);
 		free(cleanup);
 		cleanup = 0;
 	}
