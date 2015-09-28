@@ -129,3 +129,16 @@ void schedulerRun()
 
 	coroDispatch();
 }
+
+bool schedulerGetStack(void** stack, size_t* stackSize)
+{
+	if (current)
+	{
+		*stack = current->stack;
+		*stackSize = current->stackSize;
+
+		return true;
+	}
+
+	return false;
+}
