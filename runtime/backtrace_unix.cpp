@@ -14,13 +14,9 @@ struct BacktraceData
 	int frame;
 };
 
-static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void* _data)
+static void dumpBacktraceFrame(FILE* file, int frame, uintptr_t ip)
 {
-	auto data = static_cast<BacktraceData*>(_data);
-
-	uintptr_t ip = _Unwind_GetIP(context);
-
-	fprintf(data->file, "#%02d: %016lx", data->frame, ip);
+	fprintf(file, "#%02d: %016lx", frame, ip);
 
 	Dl_info di;
 	if (dladdr(reinterpret_cast<void*>(ip), &di) && di.dli_fname && di.dli_sname)
@@ -28,13 +24,20 @@ static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void*
 		const char* fname_slash = strrchr(di.dli_fname, '/');
 		char* sname_dem = abi::__cxa_demangle(di.dli_sname, 0, 0, 0);
 
-		fprintf(data->file, " %s`%s + %ld",
+		fprintf(file, " %s`%s + %ld",
 			fname_slash ? fname_slash + 1 : di.dli_fname,
 			sname_dem ? sname_dem : di.dli_sname,
 			ip - reinterpret_cast<uintptr_t>(di.dli_saddr));
 	}
 
-	fprintf(data->file, "\n");
+	fprintf(file, "\n");
+}
+
+static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void* _data)
+{
+	auto data = static_cast<BacktraceData*>(_data);
+
+	dumpBacktraceFrame(data->file, data->frame, _Unwind_GetIP(context));
 
 	data->frame++;
 
@@ -50,4 +53,5 @@ void backtraceDump(FILE* file, unsigned int flags)
 	if (result != _URC_END_OF_STACK)
 		fprintf(file, "unwind failed: %d\n", result);
 }
+
 #endif
