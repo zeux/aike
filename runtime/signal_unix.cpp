@@ -3,6 +3,7 @@
 
 #ifdef AIKE_OS_UNIX
 #include "backtrace.hpp"
+#include "scheduler.hpp"
 
 #include <sys/ucontext.h>
 #include <signal.h>
@@ -27,7 +28,19 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 
 	fprintf(stderr, "\n");
 
-	backtraceDump(stderr, 0);
+	void* stack;
+	size_t stackSize;
+	if (schedulerGetStack(&stack, &stackSize))
+	{
+	#if defined(AIKE_OS_MAC) && defined(AIKE_ABI_AMD64)
+		backtraceDump(stderr, stack, stackSize, mc->__ss.__rip, mc->__ss.__rbp);
+	#endif
+
+	#if defined(AIKE_OS_LINUX) && defined(AIKE_ABI_AMD64)
+		backtraceDump(stderr, stack, stackSize, mc.gregs[REG_RIP], mc.gregs[REG_RBP]);
+	#endif
+	}
+
 	abort();
 }
 

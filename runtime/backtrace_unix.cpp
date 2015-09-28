@@ -5,14 +5,6 @@
 #ifdef AIKE_OS_UNIX
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <unwind.h>
-
-struct BacktraceData
-{
-	FILE* file;
-	unsigned int flags;
-	int frame;
-};
 
 static void dumpBacktraceFrame(FILE* file, int frame, uintptr_t ip)
 {
@@ -33,25 +25,33 @@ static void dumpBacktraceFrame(FILE* file, int frame, uintptr_t ip)
 	fprintf(file, "\n");
 }
 
-static _Unwind_Reason_Code dumpBacktraceCallback(_Unwind_Context* context, void* _data)
+static bool isReadable(void* stack, size_t stackSize, uintptr_t address, size_t addressSize)
 {
-	auto data = static_cast<BacktraceData*>(_data);
-
-	dumpBacktraceFrame(data->file, data->frame, _Unwind_GetIP(context));
-
-	data->frame++;
-
-	return _URC_NO_REASON;
+	return
+		address >= reinterpret_cast<uintptr_t>(stack) &&
+		(address - reinterpret_cast<uintptr_t>(stack)) + addressSize <= stackSize;
 }
 
-void backtraceDump(FILE* file, unsigned int flags)
+void backtraceDump(FILE* file, void* stack, size_t stackSize, uintptr_t ip, uintptr_t fp)
 {
-	BacktraceData data = { file, flags, 0 };
+	int frame = 0;
+	dumpBacktraceFrame(file, frame++, ip);
 
-	auto result = _Unwind_Backtrace(dumpBacktraceCallback, &data);
+	uintptr_t stackAlignment = 16;
 
-	if (result != _URC_END_OF_STACK)
-		fprintf(file, "unwind failed: %d\n", result);
+	while (isReadable(stack, stackSize, fp, sizeof(uintptr_t) * 2) && (fp & (stackAlignment - 1)) == 0)
+	{
+		uintptr_t* fpd = reinterpret_cast<uintptr_t*>(fp);
+
+		uintptr_t nextip = fpd[1];
+		uintptr_t nextfp = fpd[0];
+
+		if (nextip == 0 || nextfp <= fp)
+			break;
+
+		dumpBacktraceFrame(file, frame++, nextip);
+
+		fp = nextfp;
+	}
 }
-
 #endif
