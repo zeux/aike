@@ -4,6 +4,7 @@
 #ifdef AIKE_OS_UNIX
 #include "backtrace.hpp"
 #include "scheduler.hpp"
+#include "stack.hpp"
 
 #include <sys/ucontext.h>
 #include <signal.h>
@@ -48,19 +49,33 @@ const int kSignalActions[] = { SIGILL, SIGSEGV, SIGFPE, SIGTRAP };
 
 void signalSetup()
 {
-	struct sigaction action;
+	stack_t stack = {};
+	stack.ss_size = SIGSTKSZ;
+	stack.ss_sp = stackCreate(stack.ss_size);
 
+	sigaltstack(&stack, nullptr);
+
+	struct sigaction action = {};
 	action.sa_sigaction = signalHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = SA_SIGINFO;
+	action.sa_flags = SA_SIGINFO | SA_ONSTACK;
 
 	for (int id: kSignalActions)
-		sigaction(id, &action, NULL);
+		sigaction(id, &action, nullptr);
 }
 
 void signalTeardown()
 {
 	for (int id: kSignalActions)
-		sigaction(id, NULL, NULL);
+		sigaction(id, nullptr, nullptr);
+
+	stack_t stack = {};
+	stack.ss_size = MINSIGSTKSZ; // Work around an OSX bug: https://code.google.com/p/nativeclient/issues/detail?id=1053#c1
+	stack.ss_flags = SS_DISABLE;
+
+	stack_t oldStack = {};
+
+	sigaltstack(&stack, &oldStack);
+
+	stackDestroy(oldStack.ss_sp, oldStack.ss_size);
 }
 #endif
