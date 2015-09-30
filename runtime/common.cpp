@@ -1,5 +1,7 @@
 #include "common.hpp"
 
+#include <errno.h>
+
 void panic(const char* format, ...)
 {
 	fprintf(stderr, "PANIC: ");
@@ -11,4 +13,9 @@ void panic(const char* format, ...)
 
 	fprintf(stderr, "\n");
 	abort();
+}
+
+void panicError(const char* file, int line, const char* expr)
+{
+	panic("%s failed (errno %d) at %s:%d", expr, errno, file, line);
 }

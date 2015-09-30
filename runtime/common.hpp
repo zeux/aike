@@ -41,3 +41,6 @@
 #endif
 
 ATTR_NORETURN ATTR_PRINTF(1, 2) void panic(const char* format, ...);
+ATTR_NORETURN void panicError(const char* file, int line, const char* expr);
+
+#define check(x) ((x) ? (void)0 : panicError(__FILE__, __LINE__, #x))

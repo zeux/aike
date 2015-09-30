@@ -53,20 +53,20 @@ void signalSetup()
 	stack.ss_size = SIGSTKSZ;
 	stack.ss_sp = stackCreate(stack.ss_size);
 
-	sigaltstack(&stack, nullptr);
+	check(sigaltstack(&stack, nullptr) == 0);
 
 	struct sigaction action = {};
 	action.sa_sigaction = signalHandler;
 	action.sa_flags = SA_SIGINFO | SA_ONSTACK;
 
 	for (int id: kSignalActions)
-		sigaction(id, &action, nullptr);
+		check(sigaction(id, &action, nullptr) == 0);
 }
 
 void signalTeardown()
 {
 	for (int id: kSignalActions)
-		sigaction(id, nullptr, nullptr);
+		check(sigaction(id, nullptr, nullptr) == 0);
 
 	stack_t stack = {};
 	stack.ss_size = MINSIGSTKSZ; // Work around an OSX bug: https://code.google.com/p/nativeclient/issues/detail?id=1053#c1
@@ -74,7 +74,7 @@ void signalTeardown()
 
 	stack_t oldStack = {};
 
-	sigaltstack(&stack, &oldStack);
+	check(sigaltstack(&stack, &oldStack) == 0);
 
 	stackDestroy(oldStack.ss_sp, oldStack.ss_size);
 }
