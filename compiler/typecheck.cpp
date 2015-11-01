@@ -552,7 +552,23 @@ int typeckPropagate(Output& output, Ast* root)
 	return constraints.rewrites;
 }
 
+static void verifyType(Output& output, Ty* type)
+{
+	// TODO: We could remove typeMustKnow calls above if only we could use a correct location here...
+	if (!typeKnown(type))
+		ICE("Expected a known type but given %s", typeName(type).c_str());
+}
+
+static bool verifyNode(Output& output, Ast* node)
+{
+	visitAstTypes(node, instantiateType, output);
+
+	return false;
+}
+
 void typeckVerify(Output& output, Ast* root)
 {
 	type(output, root, nullptr);
+
+	visitAst(root, verifyNode, output);
 }
