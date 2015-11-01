@@ -198,6 +198,11 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		}
 	}
 
+	if (UNION_CASE(Unknown, t, type))
+	{
+		ICE("Unknown type has not been inferred");
+	}
+
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
