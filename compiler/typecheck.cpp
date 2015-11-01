@@ -379,6 +379,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 			else
 				ICE("FnDecl type is not Function");
 		}
+		else
+		{
+			if (!typeKnown(n->var->type))
+				output.panic(n->var->location, "Expected a known type but given %s", typeName(n->var->type).c_str());
+		}
 
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
 	}

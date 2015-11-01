@@ -159,16 +159,9 @@ static Ty* parseType(TokenStream& ts)
 		}
 
 		ts.eat(Token::TypeBracket, ")");
+		ts.eat(Token::TypeAtom, ":");
 
-		Ty* ret;
-
-		if (ts.is(Token::TypeAtom, ":"))
-		{
-			ts.move();
-			ret = parseType(ts);
-		}
-		else
-			ret = UNION_NEW(Ty, Void, {});
+		Ty* ret = parseType(ts);
 
 		return UNION_NEW(Ty, Function, { args, ret });
 	}
@@ -281,7 +274,19 @@ static Arr<Ty*> parseTypeArguments(TokenStream& ts)
 	return args;
 }
 
-static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireArgTypes, bool defaultRetVoid)
+static Ty* parseTypeAscription(TokenStream& ts)
+{
+	if (ts.is(Token::TypeAtom, ":"))
+	{
+		ts.move();
+
+		return parseType(ts);
+	}
+	else
+		return UNION_NEW(Ty, Unknown, {});
+}
+
+static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts)
 {
 	Arr<Variable*> args;
 	Arr<Ty*> argtys;
@@ -292,16 +297,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireA
 	{
 		auto argname = ts.eat(Token::TypeIdent);
 
-		Ty* type;
-
-		if (ts.is(Token::TypeAtom, ":") || requireArgTypes)
-		{
-			ts.eat(Token::TypeAtom, ":");
-
-			type = parseType(ts);
-		}
-		else
-			type = UNION_NEW(Ty, Unknown, {});
+		Ty* type = parseTypeAscription(ts);
 
 		args.push(new Variable { Variable::KindArgument, argname.data, type, argname.location });
 		argtys.push(type);
@@ -312,17 +308,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts, bool requireA
 
 	ts.eat(Token::TypeBracket, ")");
 
-	Ty* ret;
-
-	if (ts.is(Token::TypeAtom, ":"))
-	{
-		ts.move();
-		ret = parseType(ts);
-	}
-	else if (defaultRetVoid)
-		ret = UNION_NEW(Ty, Void, {});
-	else
-		ret = UNION_NEW(Ty, Unknown, {});
+	Ty* ret = parseTypeAscription(ts);
 
 	Ty* ty = UNION_NEW(Ty, Function, { argtys, ret });
 
@@ -335,7 +321,7 @@ static Ast* parseFn(TokenStream& ts)
 
 	ts.eat(Token::TypeIdent, "fn");
 
-	auto sig = parseFnSignature(ts, /* requireArgTypes= */ false, /* defaultRetVoid= */ false);
+	auto sig = parseFnSignature(ts);
 
 	Ast* body = parseBlock(ts, &start);
 
@@ -363,17 +349,16 @@ static Ast* parseFnDecl(TokenStream& ts)
 		ts.move();
 	}
 
+	bool bodyImplicit = (attributes & (FnAttributeExtern | FnAttributeBuiltin)) != 0;
+
 	ts.eat(Token::TypeIdent, "fn");
 
 	auto name = ts.eat(Token::TypeIdent);
 
 	auto tysig = parseTypeSignature(ts);
-	auto sig = parseFnSignature(ts, /* requireArgTypes= */ false, /* defaultRetVoid= */ true);
+	auto sig = parseFnSignature(ts);
 
-	Ast* body =
-		(attributes & (FnAttributeExtern | FnAttributeBuiltin))
-		? nullptr
-		: parseBlock(ts, &indent);
+	Ast* body = bodyImplicit ? nullptr : parseBlock(ts, &indent);
 
 	Variable* var = new Variable { Variable::KindFunction, name.data, sig.first, name.location };
 	Ast* result = UNION_NEW(Ast, FnDecl, { var, tysig, sig.second, attributes, body });
@@ -389,15 +374,7 @@ static Ast* parseVarDecl(TokenStream& ts)
 
 	auto name = ts.eat(Token::TypeIdent);
 
-	Ty* type;
-
-	if (ts.is(Token::TypeAtom, ":"))
-	{
-		ts.move();
-		type = parseType(ts);
-	}
-	else
-		type = UNION_NEW(Ty, Unknown, {});
+	Ty* type = parseTypeAscription(ts);
 
 	ts.eat(Token::TypeAtom, "=");
 

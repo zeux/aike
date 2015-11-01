@@ -187,6 +187,44 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 	return false;
 }
 
+bool typeKnown(Ty* type)
+{
+	if (UNION_CASE(Unknown, tu, type))
+	{
+		return false;
+	}
+
+	if (UNION_CASE(Array, ta, type))
+	{
+		return typeKnown(ta->element);
+	}
+
+	if (UNION_CASE(Pointer, tp, type))
+	{
+		return typeKnown(tp->element);
+	}
+
+	if (UNION_CASE(Function, tf, type))
+	{
+		for (auto& a: tf->args)
+			if (!typeKnown(a))
+				return false;
+
+		return typeKnown(tf->ret);
+	}
+
+	if (UNION_CASE(Instance, ti, type))
+	{
+		for (auto& a: ti->tyargs)
+			if (!typeKnown(a))
+				return false;
+
+		return true;
+	}
+
+	return true;
+}
+
 Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 {
 	if (UNION_CASE(Array, t, type))

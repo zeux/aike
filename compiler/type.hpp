@@ -44,6 +44,7 @@ struct TypeConstraints
 bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints);
 bool typeEquals(Ty* lhs, Ty* rhs);
 bool typeOccurs(Ty* lhs, Ty* rhs);
+bool typeKnown(Ty* type);
 
 Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst);
 
