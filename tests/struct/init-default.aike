@@ -1,4 +1,4 @@
-extern fn printfn(str: string, val: int, val: int, val: int)
+extern fn printfn(str: string, val: int, val: int, val: int): void
 
 struct Point2
     x, y: int = 7

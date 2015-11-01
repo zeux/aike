@@ -1,4 +1,4 @@
-extern fn println(str: string)
+extern fn println(str: string): void
 
 spawn(fn ()
       println("2")

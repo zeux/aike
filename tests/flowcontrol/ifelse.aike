@@ -1,4 +1,4 @@
-extern fn printfn(str: string, val: int)
+extern fn printfn(str: string, val: int): void
 
 var x = if (1 < 2) 3 else 4
 

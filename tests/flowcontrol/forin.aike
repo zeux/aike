@@ -1,4 +1,4 @@
-extern fn printfn(str: string, val: int)
+extern fn printfn(str: string, val: int): void
 
 for i in [0,1,3]
     printfn("%d", i)

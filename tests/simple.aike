@@ -1,5 +1,5 @@
-extern fn println(str: string)
-extern fn printfn(str: string, val: int, val: int)
+extern fn println(str: string): void
+extern fn printfn(str: string, val: int, val: int): void
 
 fn concat<T>(a: [T], b: [T]): [T]
     var c = newarr(length(a) + length(b))
@@ -39,8 +39,8 @@ fn world(dbg: string, print: bool): string
         println(dbg)
     "world"
 
-fn iter<T>(data: [T], f: fn(int, T))
-    fn helper(data: _, f: _, offset: _)
+fn iter<T>(data: [T], f: fn(int, T): void)
+    fn helper(data, f, offset)
         if offset < length(data)
             f(offset, data[offset])
             helper(data, f, offset + 1)

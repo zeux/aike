@@ -1,4 +1,4 @@
-extern fn printfn(str: string, val: int)
+extern fn printfn(str: string, val: int): void
 
 struct Pair<T, U>
     first: T

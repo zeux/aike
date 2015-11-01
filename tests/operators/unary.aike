@@ -1,4 +1,4 @@
-extern fn printfn(str: string, val: int)
+extern fn printfn(str: string, val: int): void
 
 var foo = new 5
 
