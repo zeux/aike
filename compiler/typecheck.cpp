@@ -5,13 +5,19 @@
 #include "visit.hpp"
 #include "output.hpp"
 
+static void typeMustKnow(Ty* type, Output& output, const Location& location)
+{
+	if (!typeKnown(type))
+		output.panic(location, "Expected a known type but given %s", typeName(type).c_str());
+}
+
 static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, Output& output, const Location& location)
 {
 	if (!typeUnify(type, expected, constraints) && !constraints)
 		output.panic(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
 
-	if (!constraints && type->kind == Ty::KindUnknown)
-		output.panic(location, "Type mismatch: expected a known type");
+	if (!constraints && !typeKnown(type))
+		output.panic(location, "Type mismatch: expected a known type but given %s", typeName(type).c_str());
 }
 
 static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
@@ -83,8 +89,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 				typeMustEqual(expr.first, t->element, constraints, output, expr.second);
 			}
 
-			if (!constraints && t->element->kind == Ty::KindUnknown)
-				output.panic(n->location, "Type mismatch: expected a known type");
+			if (!constraints)
+				typeMustKnow(t->element, output, n->location);
 		}
 		else
 			ICE("LiteralArray type is not Array");
@@ -114,7 +120,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		if (!constraints)
 			for (auto& a: n->tyargs)
-				if (a->kind == Ty::KindUnknown)
+				if (!typeKnown(a))
 				{
 					string inst;
 					for (auto& a: n->tyargs)
@@ -123,7 +129,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 						inst += typeName(a);
 					}
 
-					output.panic(n->location, "Unable to instantiate %s<%s>", n->name.str().c_str(), inst.c_str());
+					output.panic(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
 				}
 
 		return make_pair(n->type, n->location);
@@ -381,8 +387,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		}
 		else
 		{
-			if (!typeKnown(n->var->type))
-				output.panic(n->var->location, "Expected a known type but given %s", typeName(n->var->type).c_str());
+			if (!constraints)
+				typeMustKnow(n->var->type, output, n->var->location);
 		}
 
 		return make_pair(UNION_NEW(Ty, Void, {}), Location());
