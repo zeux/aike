@@ -63,14 +63,14 @@ fn test(): int
     if foo
         println("")
     else
-        fn test(a0: string, a1: bool): string
+        fn testi(a0: string, a1: bool): string
             "inner"
         var f = fn (a0, a1) a0(a1)
         var g = f(fn(x) x, 1)
         println(worldwrap(fn (a0, a1) a0, "test", false))
         println(worldwrap(fn (a0: string, a1: bool): string "x", "test", false))
         println(worldwrap(world, "test", false))
-        println(worldwrap(test, "test", false))
+        println(worldwrap(testi, "test", false))
     printfn("%d", 5, 0)
 
     var fp = fn(x) x.y
