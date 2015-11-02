@@ -382,7 +382,8 @@ static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
-	Variable* target = n->target;
+	assert(n->targets.size == 1);
+	Variable* target = n->targets[0];
 
 	if (target->kind == Variable::KindFunction)
 	{

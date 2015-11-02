@@ -69,7 +69,7 @@ struct FieldRef
 	X(LiteralString, { Str value; Location location; }) \
 	X(LiteralArray, { Location location; Ty* type; Arr<Ast*> elements; }) \
 	X(LiteralStruct, { Str name; Location location; Ty* type; Arr<pair<FieldRef, Ast*>> fields; }) \
-	X(Ident, { Str name; Location location; Ty* type; Variable* target; Arr<Ty*> tyargs; }) \
+	X(Ident, { Str name; Location location; Ty* type; Arr<Ty*> tyargs; Arr<Variable*> targets; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; FieldRef field; }) \
 	X(Block, { Arr<Ast*> body; }) \
 	X(Module, { Str name; Location location; Ast* body; }) \

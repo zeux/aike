@@ -474,7 +474,7 @@ static Ast* parseIdent(TokenStream& ts)
 
 	auto tyargs = parseTypeArguments(ts);
 
-	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, nullptr, tyargs });
+	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, tyargs });
 }
 
 static Ast* parseMember(TokenStream& ts, Ast* expr)
@@ -623,7 +623,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 			expr = parseExpr(ts);
 		}
 		else
-			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr, nullptr });
+			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
 
 		FieldRef field = { fname.data, fname.location, -1 };
 

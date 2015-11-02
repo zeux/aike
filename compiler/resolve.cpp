@@ -26,6 +26,24 @@ struct NameMap
 		return (it != data.end() && it->second) ? it->second->value : nullptr;
 	}
 
+	Arr<T*> findAll(const Str& name) const
+	{
+		auto it = data.find(name);
+
+		Binding* binding = (it != data.end()) ? it->second : nullptr;
+
+		Arr<T*> result;
+
+		while (binding)
+		{
+			result.push(binding->value);
+
+			binding = binding->shadow;
+		}
+
+		return result;
+	}
+
 	void push(const Str& name, T* value)
 	{
 		Binding*& binding = data[name];
@@ -128,9 +146,9 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		if (Variable* var = rs.variables.find(n->name))
-			n->target = var;
-		else
+		n->targets = rs.variables.findAll(n->name);
+
+		if (n->targets.size == 0)
 			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
 	}
 	else if (UNION_CASE(Block, n, root))

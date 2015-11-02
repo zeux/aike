@@ -56,7 +56,7 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 static bool isAssignable(Ast* node)
 {
 	if (UNION_CASE(Ident, n, node))
-		return n->target->kind == Variable::KindVariable;
+		return n->targets.size == 1 && n->targets[0]->kind == Variable::KindVariable;
 	else if (UNION_CASE(Member, n, node))
 		return isAssignable(n->expr);
 	else if (UNION_CASE(Index, n, node))
@@ -499,7 +499,10 @@ static bool instantiateNode(Output& output, Ast* node)
 
 	if (UNION_CASE(Ident, n, node))
 	{
-		Variable* var = n->target;
+		if (n->targets.size != 1)
+			return true;
+
+		Variable* var = n->targets[0];
 
 		if (var->kind == Variable::KindFunction)
 		{
