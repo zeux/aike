@@ -116,6 +116,27 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Ident, n, root))
 	{
+		if (n->targets.size == 0)
+			output.panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
+		else if (n->targets.size > 1 && !constraints)
+		{
+			string candidates;
+
+			for (Variable* v: n->targets)
+			{
+				char linecolumn[32];
+				sprintf(linecolumn, "(%d,%d)", v->location.line + 1, v->location.column + 1);
+
+				candidates += "\n\tCandidate: ";
+				candidates += typeName(v->type);
+				candidates += "; declared at ";
+				candidates += v->location.source;
+				candidates += linecolumn;
+			}
+
+			output.panic(n->location, "Ambiguous identifier %s%s", n->name.str().c_str(), candidates.c_str());
+		}
+
 		if (!n->type)
 			return make_pair(UNION_NEW(Ty, Unknown, {}), n->location);
 
@@ -463,37 +484,6 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	return false;
 }
 
-static bool resolveNode(Output& output, Ast* node)
-{
-	if (UNION_CASE(Ident, n, node))
-	{
-		if (n->targets.size == 0)
-			output.panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
-		else if (n->targets.size > 1)
-		{
-			string candidates;
-
-			for (Variable* v: n->targets)
-			{
-				char linecolumn[32];
-				sprintf(linecolumn, "(%d,%d)", v->location.line + 1, v->location.column + 1);
-
-				candidates += "\n\tCandidate: ";
-				candidates += typeName(v->type);
-				candidates += "; declared at ";
-				candidates += v->location.source;
-				candidates += linecolumn;
-			}
-
-			output.panic(n->location, "Ambiguous identifier %s%s", n->name.str().c_str(), candidates.c_str());
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
 static void instantiateType(Output& output, Ty* type)
 {
 	if (UNION_CASE(Instance, t, type))
@@ -572,18 +562,10 @@ static bool instantiateNode(Output& output, Ast* node)
 	return false;
 }
 
-void typeckResolve(Output& output, Ast* root)
-{
-	visitAst(root, resolveNode, output);
-}
-
-void typeckInstantiate(Output& output, Ast* root)
-{
-	visitAst(root, instantiateNode, output);
-}
-
 int typeckPropagate(Output& output, Ast* root)
 {
+	visitAst(root, instantiateNode, output);
+
 	TypeConstraints constraints;
 	type(output, root, &constraints);
 
