@@ -26,17 +26,17 @@ struct NameMap
 		return (it != data.end() && it->second) ? it->second->value : nullptr;
 	}
 
-	Arr<T*> findAll(const Str& name) const
+	vector<T*> findAll(const Str& name) const
 	{
 		auto it = data.find(name);
 
 		Binding* binding = (it != data.end()) ? it->second : nullptr;
 
-		Arr<T*> result;
+		vector<T*> result;
 
 		while (binding)
 		{
-			result.push(binding->value);
+			result.push_back(binding->value);
 
 			binding = binding->shadow;
 		}
@@ -138,6 +138,23 @@ static void resolveImport(ResolveNames& rs, Ast* root)
 		resolveDecl(rs, c);
 }
 
+static Arr<Variable*> resolveBindings(const vector<Variable*>& targets)
+{
+	if (targets.empty())
+		return {};
+
+	if (targets[0]->kind != Variable::KindFunction)
+		return { targets[0] };
+
+	Arr<Variable*> result;
+
+	for (Variable* var: targets)
+		if (var->kind == Variable::KindFunction)
+			result.push(var);
+
+	return result;
+}
+
 static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 {
 	// TODO: refactor
@@ -146,10 +163,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		n->targets = rs.variables.findAll(n->name);
-
-		if (n->targets.size == 0)
-			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
+		n->targets = resolveBindings(rs.variables.findAll(n->name));
 	}
 	else if (UNION_CASE(Block, n, root))
 	{

@@ -116,7 +116,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		assert(n->type);
+		if (!n->type)
+			return make_pair(UNION_NEW(Ty, Unknown, {}), n->location);
 
 		if (!constraints)
 			for (auto& a: n->tyargs)
@@ -434,7 +435,8 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	}
 	else if (UNION_CASE(Ident, n, root))
 	{
-		n->type = constraints.rewrite(n->type);
+		if (n->type)
+			n->type = constraints.rewrite(n->type);
 
 		for (auto& a: n->tyargs)
 			a = constraints.rewrite(a);
@@ -456,6 +458,21 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 	else if (UNION_CASE(VarDecl, n, root))
 	{
 		n->var->type = constraints.rewrite(n->var->type);
+	}
+
+	return false;
+}
+
+static bool resolveNode(Output& output, Ast* node)
+{
+	if (UNION_CASE(Ident, n, node))
+	{
+		if (n->targets.size == 0)
+			output.panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
+		else if (n->targets.size > 1)
+			output.panic(n->location, "Ambiguous identifier %s", n->name.str().c_str());
+
+		return true;
 	}
 
 	return false;
@@ -539,6 +556,11 @@ static bool instantiateNode(Output& output, Ast* node)
 	return false;
 }
 
+void typeckResolve(Output& output, Ast* root)
+{
+	visitAst(root, resolveNode, output);
+}
+
 void typeckInstantiate(Output& output, Ast* root)
 {
 	visitAst(root, instantiateNode, output);
@@ -565,6 +587,14 @@ static void verifyType(Output& output, Ty* type)
 static bool verifyNode(Output& output, Ast* node)
 {
 	visitAstTypes(node, instantiateType, output);
+
+	if (UNION_CASE(Ident, n, node))
+	{
+		if (n->targets.size == 0)
+			ICE("Unresolved identifier %s", n->name.str().c_str());
+		else if (n->targets.size > 1)
+			ICE("Ambiguous identifier %s", n->name.str().c_str());
+	}
 
 	return false;
 }

@@ -156,6 +156,10 @@ pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Modul
 
 	timer.checkpoint("resolveNames");
 
+	typeckResolve(output, root);
+
+	timer.checkpoint("resolveTypes");
+
 	typeckInstantiate(output, root);
 
 	timer.checkpoint("instantiate");
