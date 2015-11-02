@@ -10,6 +10,19 @@ template <typename T> struct Arr
 	{
 	}
 
+	template <typename It> Arr(It begin, It end): data(0), size(0), capacity(0)
+	{
+		capacity = end - begin;
+		data = new T[capacity];
+
+		for (It it = begin; it != end; ++it)
+			data[size++] = *it;
+	}
+
+	Arr(initializer_list<T> list): Arr(list.begin(), list.end())
+	{
+	}
+
 	const T* begin() const
 	{
 		return data;
