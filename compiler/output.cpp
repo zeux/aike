@@ -63,3 +63,11 @@ void Output::panic(Location loc, const char* format, ...)
 
 	exit(1);
 }
+
+void Output::warning(Location loc, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	print(stderr, this, robot, loc, format, args);
+	va_end(args);
+}
