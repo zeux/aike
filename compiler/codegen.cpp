@@ -883,8 +883,7 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRetVoid();
 	}
 	else
-		// TODO Location
-		cg.output->panic(Location(), "Unknown builtin function %s", name.str().c_str());
+		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
 }
 
 static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
