@@ -470,7 +470,23 @@ static bool resolveNode(Output& output, Ast* node)
 		if (n->targets.size == 0)
 			output.panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
 		else if (n->targets.size > 1)
-			output.panic(n->location, "Ambiguous identifier %s", n->name.str().c_str());
+		{
+			string candidates;
+
+			for (Variable* v: n->targets)
+			{
+				char linecolumn[32];
+				sprintf(linecolumn, "(%d,%d)", v->location.line + 1, v->location.column + 1);
+
+				candidates += "\n\tCandidate: ";
+				candidates += typeName(v->type);
+				candidates += "; declared at ";
+				candidates += v->location.source;
+				candidates += linecolumn;
+			}
+
+			output.panic(n->location, "Ambiguous identifier %s%s", n->name.str().c_str(), candidates.c_str());
+		}
 
 		return true;
 	}
