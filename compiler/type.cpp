@@ -333,6 +333,12 @@ static void typeName(string& buffer, Ty* type)
 		return;
 	}
 
+	if (UNION_CASE(Float, t, type))
+	{
+		buffer += "float";
+		return;
+	}
+
 	if (UNION_CASE(String, t, type))
 	{
 		buffer += "string";

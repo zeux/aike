@@ -148,6 +148,11 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		return Type::getInt32Ty(*cg.context);
 	}
 
+	if (UNION_CASE(Float, t, type))
+	{
+		return Type::getFloatTy(*cg.context);
+	}
+
 	if (UNION_CASE(String, t, type))
 	{
 		Type* fields[] = { Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context) };

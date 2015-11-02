@@ -22,6 +22,7 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(Void, {}) \
 	X(Bool, {}) \
 	X(Integer, {}) \
+	X(Float, {}) \
 	X(String, {}) \
 	X(Array, { Ty* element; }) \
 	X(Pointer, { Ty* element; }) \

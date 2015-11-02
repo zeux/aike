@@ -32,6 +32,12 @@ static void mangle(string& buffer, Ty* type)
 		return;
 	}
 
+	if (UNION_CASE(Float, t, type))
+	{
+		buffer += "f";
+		return;
+	}
+
 	if (UNION_CASE(String, t, type))
 	{
 		buffer += "N6stringE";
