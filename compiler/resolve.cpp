@@ -164,6 +164,9 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	if (UNION_CASE(Ident, n, root))
 	{
 		n->targets = resolveBindings(rs.variables.findAll(n->name));
+
+		if (n->targets.size == 0)
+			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
 	}
 	else if (UNION_CASE(Block, n, root))
 	{

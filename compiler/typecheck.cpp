@@ -53,6 +53,61 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 		output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
 }
 
+static string getCandidates(const Arr<Variable*>& targets)
+{
+	string result;
+
+	for (Variable* v: targets)
+	{
+		char linecolumn[32];
+		sprintf(linecolumn, "(%d,%d)", v->location.line + 1, v->location.column + 1);
+
+		result += "\tCandidate: ";
+		result += typeName(v->type);
+		result += "; declared at ";
+		result += v->location.source;
+		result += linecolumn;
+		result += "\n";
+	}
+
+	// Since the result is used for error output, remove trailing newline
+	if (!result.empty())
+		result.pop_back();
+
+	return result;
+}
+
+static bool isCandidateValid(Variable* target, const vector<Ty*>& args)
+{
+	assert(target->kind == Variable::KindFunction);
+
+	UNION_CASE(Function, fnty, target->type);
+	assert(fnty);
+
+	if (fnty->args.size != args.size())
+		return false;
+
+	TypeConstraints constraints;
+
+	for (size_t i = 0; i < args.size(); ++i)
+		if (!typeUnify(fnty->args[i], args[i], &constraints))
+			return false;
+
+	return true;
+}
+
+static void reduceCandidates(Arr<Variable*>& targets, const vector<Ty*>& args)
+{
+	// assume targets is uniquely owned...
+	size_t write = 0;
+
+	for (size_t i = 0; i < targets.size; ++i)
+		if (isCandidateValid(targets[i], args))
+			targets[write++] = targets[i];
+
+	targets.size = write;
+}
+
 static bool isAssignable(Ast* node)
 {
 	if (UNION_CASE(Ident, n, node))
@@ -116,29 +171,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Ident, n, root))
 	{
-		if (n->targets.size == 0)
-			output.panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
-		else if (n->targets.size > 1 && !constraints)
-		{
-			string candidates;
+		if (n->targets.size == 0 && !constraints)
+			output.panic(n->location, "Unable to deduce the type of %s", n->name.str().c_str());
 
-			for (Variable* v: n->targets)
-			{
-				char linecolumn[32];
-				sprintf(linecolumn, "(%d,%d)", v->location.line + 1, v->location.column + 1);
-
-				candidates += "\n\tCandidate: ";
-				candidates += typeName(v->type);
-				candidates += "; declared at ";
-				candidates += v->location.source;
-				candidates += linecolumn;
-			}
-
-			output.panic(n->location, "Ambiguous identifier %s%s", n->name.str().c_str(), candidates.c_str());
-		}
-
-		if (!n->type)
-			return make_pair(UNION_NEW(Ty, Unknown, {}), n->location);
+		if (n->targets.size > 1 && !constraints)
+			output.panic(n->location, "Ambiguous identifier %s\n%s", n->name.str().c_str(), getCandidates(n->targets).c_str());
 
 		if (!constraints)
 			for (auto& a: n->tyargs)
@@ -153,6 +190,9 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 					output.panic(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
 				}
+
+		if (!n->type)
+			return make_pair(UNION_NEW(Ty, Unknown, {}), n->location);
 
 		return make_pair(n->type, n->location);
 	}
@@ -189,6 +229,19 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(Call, n, root))
 	{
+		if (UNION_CASE(Ident, ne, n->expr))
+		{
+			if (ne->targets.size > 1)
+			{
+				vector<Ty*> args;
+
+				for (auto& a: n->args)
+					args.push_back(type(output, a, constraints).first);
+
+				reduceCandidates(ne->targets, args);
+			}
+		}
+
 		auto expr = type(output, n->expr, constraints);
 
 		if (UNION_CASE(Function, fnty, expr.first))
@@ -564,10 +617,14 @@ static bool instantiateNode(Output& output, Ast* node)
 
 int typeckPropagate(Output& output, Ast* root)
 {
+	// HACK: we need to make this better somehow
 	visitAst(root, instantiateNode, output);
 
 	TypeConstraints constraints;
 	type(output, root, &constraints);
+
+	// HACK: we need to make this better somehow
+	visitAst(root, instantiateNode, output);
 
 	if (!constraints.data.empty())
 		visitAst(root, propagate, constraints);
