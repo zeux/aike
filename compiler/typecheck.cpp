@@ -127,8 +127,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	if (UNION_CASE(LiteralBool, n, root))
 		return make_pair(UNION_NEW(Ty, Bool, {}), n->location);
 
-	if (UNION_CASE(LiteralNumber, n, root))
+	if (UNION_CASE(LiteralInteger, n, root))
 		return make_pair(UNION_NEW(Ty, Integer, {}), n->location);
+
+	if (UNION_CASE(LiteralFloat, n, root))
+		return make_pair(UNION_NEW(Ty, Float, {}), n->location);
 
 	if (UNION_CASE(LiteralString, n, root))
 		return make_pair(UNION_NEW(Ty, String, {}), n->location);

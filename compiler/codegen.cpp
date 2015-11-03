@@ -748,8 +748,11 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 	if (UNION_CASE(LiteralBool, n, node))
 		return cg.ir->getInt1(n->value);
 
-	if (UNION_CASE(LiteralNumber, n, node))
-		return cg.ir->getInt32(atoi(n->value.str().c_str()));
+	if (UNION_CASE(LiteralInteger, n, node))
+		return ConstantInt::getSigned(cg.ir->getInt32Ty(), n->value);
+
+	if (UNION_CASE(LiteralFloat, n, node))
+		return ConstantFP::get(cg.ir->getFloatTy(), n->value);
 
 	if (UNION_CASE(LiteralString, n, node))
 		return codegenLiteralString(cg, n);

@@ -20,7 +20,7 @@ static bool isDigit(char ch)
 
 static bool isNumber(char ch)
 {
-	return isDigit(ch) || ch == '_';
+	return isDigit(ch) || ch == '_' || ch == '.' || ch == 'e' || ch == 'E' || ch == '+' || ch == '-';
 }
 
 static bool isIdentStart(char ch)

@@ -116,6 +116,12 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, Integer, {});
 	}
 
+	if (ts.is(Token::TypeIdent, "float"))
+	{
+		ts.move();
+		return UNION_NEW(Ty, Float, {});
+	}
+
 	if (ts.is(Token::TypeIdent, "string"))
 	{
 		ts.move();
@@ -641,6 +647,44 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
 }
 
+static Ast* parseNumber(TokenStream& ts)
+{
+	auto value = ts.eat(Token::TypeNumber);
+	string contents = value.data.str();
+
+	{
+		errno = 0;
+
+		char* end = 0;
+		long long valueInteger = strtoll(contents.c_str(), &end, 10);
+
+		if (*end == 0)
+		{
+			if (errno)
+				ts.output->panic(value.location, "Invalid integer literal '%s'", contents.c_str());
+
+			return UNION_NEW(Ast, LiteralInteger, { valueInteger, value.location });
+		}
+	}
+
+	{
+		errno = 0;
+
+		char* end = 0;
+		double valueDouble = strtod(contents.c_str(), &end);
+
+		if (*end == 0)
+		{
+			if (errno)
+				ts.output->panic(value.location, "Invalid floating-point literal '%s'", contents.c_str());
+
+			return UNION_NEW(Ast, LiteralFloat, { valueDouble, value.location });
+		}
+	}
+
+	ts.output->panic(value.location, "Invalid number literal '%s'", contents.c_str());
+}
+
 static Ast* parseTerm(TokenStream& ts)
 {
 	if (ts.is(Token::TypeIdent, "true"))
@@ -659,9 +703,7 @@ static Ast* parseTerm(TokenStream& ts)
 
 	if (ts.is(Token::TypeNumber))
 	{
-		auto value = ts.eat(Token::TypeNumber);
-
-		return UNION_NEW(Ast, LiteralNumber, { value.data, value.location });
+		return parseNumber(ts);
 	}
 
 	if (ts.is(Token::TypeString))

@@ -131,9 +131,13 @@ static void dumpNode(Ast* root, int indent)
 	{
 		printf("%s", n->value ? "true" : "false");
 	}
-	else if (UNION_CASE(LiteralNumber, n, root))
+	else if (UNION_CASE(LiteralInteger, n, root))
 	{
-		dumpString(n->value);
+		printf("%lld", n->value);
+	}
+	else if (UNION_CASE(LiteralFloat, n, root))
+	{
+		printf("%f", n->value);
 	}
 	else if (UNION_CASE(LiteralString, n, root))
 	{
