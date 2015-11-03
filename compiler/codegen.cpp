@@ -850,27 +850,49 @@ static Value* codegenBuiltinOperator(Codegen& cg, const Str& name, const Locatio
 	else if (name == "operatorMultiplyWrap")
 		return cg.ir->CreateMul(left, right);
 	else if (name == "operatorAdd")
-		return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFAdd(left, right)
+			: codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
 	else if (name == "operatorSubtract")
-		return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFSub(left, right)
+			: codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
 	else if (name == "operatorMultiply")
-		return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFMul(left, right)
+			: codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
 	else if (name == "operatorDivide")
-		return cg.ir->CreateSDiv(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFDiv(left, right)
+			: cg.ir->CreateSDiv(left, right);
 	else if (name == "operatorModulo")
-		return cg.ir->CreateSRem(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFRem(left, right)
+			: cg.ir->CreateSRem(left, right);
 	else if (name == "operatorLess")
-		return cg.ir->CreateICmpSLT(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpULT(left, right)
+			: cg.ir->CreateICmpSLT(left, right);
 	else if (name == "operatorLessEqual")
-		return cg.ir->CreateICmpSLE(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpULE(left, right)
+			: cg.ir->CreateICmpSLE(left, right);
 	else if (name == "operatorGreater")
-		return cg.ir->CreateICmpSGT(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpUGT(left, right)
+			: cg.ir->CreateICmpSGT(left, right);
 	else if (name == "operatorGreaterEqual")
-		return cg.ir->CreateICmpSGE(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpUGE(left, right)
+			: cg.ir->CreateICmpSGE(left, right);
 	else if (name == "operatorEqual")
-		return cg.ir->CreateICmpEQ(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpUEQ(left, right)
+			: cg.ir->CreateICmpEQ(left, right);
 	else if (name == "operatorNotEqual")
-		return cg.ir->CreateICmpNE(left, right);
+		return left->getType()->isFloatTy()
+			? cg.ir->CreateFCmpUNE(left, right)
+			: cg.ir->CreateICmpNE(left, right);
 	else
 		cg.output->panic(location, "Unknown builtin operator %s", name.str().c_str());
 }
