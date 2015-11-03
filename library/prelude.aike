@@ -3,6 +3,22 @@ builtin fn sizeof<T>(): int
 builtin fn length<T>(arr: [T]): int
 builtin fn assert(expr: bool): void
 
+builtin fn operatorMultiplyWrap(a: int, b: int): int
+builtin fn operatorMultiply(a: int, b: int): int
+builtin fn operatorDivide(a: int, b: int): int
+builtin fn operatorModulo(a: int, b: int): int
+builtin fn operatorAddWrap(a: int, b: int): int
+builtin fn operatorAdd(a: int, b: int): int
+builtin fn operatorSubtractWrap(a: int, b: int): int
+builtin fn operatorSubtract(a: int, b: int): int
+
+builtin fn operatorLess(a: int, b: int): bool
+builtin fn operatorLessEqual(a: int, b: int): bool
+builtin fn operatorGreater(a: int, b: int): bool
+builtin fn operatorGreaterEqual(a: int, b: int): bool
+builtin fn operatorEqual(a: int, b: int): bool
+builtin fn operatorNotEqual(a: int, b: int): bool
+
 extern fn spawn(f: fn(): void): void
 extern fn yield(): void
 

@@ -836,6 +836,41 @@ static Ast* parsePrimary(TokenStream& ts)
 	return term;
 }
 
+const char* getBinaryOpName(BinaryOp op)
+{
+	switch (op)
+	{
+	case BinaryOpMultiplyWrap: return "operatorMultiplyWrap";
+	case BinaryOpMultiply: return "operatorMultiply";
+	case BinaryOpDivide: return "operatorDivide";
+	case BinaryOpModulo: return "operatorModulo";
+	case BinaryOpAddWrap: return "operatorAddWrap";
+	case BinaryOpAdd: return "operatorAdd";
+	case BinaryOpSubtractWrap: return "operatorSubtractWrap";
+	case BinaryOpSubtract: return "operatorSubtract";
+	case BinaryOpLess: return "operatorLess";
+	case BinaryOpLessEqual: return "operatorLessEqual";
+	case BinaryOpGreater: return "operatorGreater";
+	case BinaryOpGreaterEqual: return "operatorGreaterEqual";
+	case BinaryOpEqual: return "operatorEqual";
+	case BinaryOpNotEqual: return "operatorNotEqual";
+
+	default: return nullptr;
+	}
+}
+
+Ast* lowerBinaryOp(BinaryOp op, Ast* left, Ast* right, Location location)
+{
+	if (const char* opname = getBinaryOpName(op))
+	{
+		Ast* ident = UNION_NEW(Ast, Ident, { Str(opname), location, nullptr });
+
+		return UNION_NEW(Ast, Call, { ident, { left, right }, location });
+	}
+	else
+		return UNION_NEW(Ast, Binary, { op, left, right, location });
+}
+
 Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 {
 	auto op = parseBinaryOp(ts);
@@ -857,7 +892,7 @@ Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 			nextop = parseBinaryOp(ts);
 		}
 
-		left = UNION_NEW(Ast, Binary, { op.second, left, right, start });
+		left = lowerBinaryOp(op.second, left, right, start);
 
 		op = parseBinaryOp(ts);
 	}

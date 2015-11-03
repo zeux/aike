@@ -841,6 +841,40 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRet(ret);
 }
 
+static Value* codegenBuiltinOperator(Codegen& cg, const Str& name, const Location& location, Value* left, Value* right)
+{
+	if (name == "operatorAddWrap")
+		return cg.ir->CreateAdd(left, right);
+	else if (name == "operatorSubtractWrap")
+		return cg.ir->CreateSub(left, right);
+	else if (name == "operatorMultiplyWrap")
+		return cg.ir->CreateMul(left, right);
+	else if (name == "operatorAdd")
+		return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
+	else if (name == "operatorSubtract")
+		return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
+	else if (name == "operatorMultiply")
+		return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
+	else if (name == "operatorDivide")
+		return cg.ir->CreateSDiv(left, right);
+	else if (name == "operatorModulo")
+		return cg.ir->CreateSRem(left, right);
+	else if (name == "operatorLess")
+		return cg.ir->CreateICmpSLT(left, right);
+	else if (name == "operatorLessEqual")
+		return cg.ir->CreateICmpSLE(left, right);
+	else if (name == "operatorGreater")
+		return cg.ir->CreateICmpSGT(left, right);
+	else if (name == "operatorGreaterEqual")
+		return cg.ir->CreateICmpSGE(left, right);
+	else if (name == "operatorEqual")
+		return cg.ir->CreateICmpEQ(left, right);
+	else if (name == "operatorNotEqual")
+		return cg.ir->CreateICmpNE(left, right);
+	else
+		cg.output->panic(location, "Unknown builtin operator %s", name.str().c_str());
+}
+
 static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(!inst.decl->body);
@@ -884,6 +918,15 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		codegenTrapIf(cg, cg.ir->CreateNot(expr), /* debug= */ true);
 
 		cg.ir->CreateRetVoid();
+	}
+	else if (strncmp(name.data, "operator", 8) == 0 && inst.value->arg_size() == 2)
+	{
+		auto it = inst.value->arg_begin();
+		Value* left = it++;
+		Value* right = it++;
+		Value* result = codegenBuiltinOperator(cg, name, inst.decl->var->location, left, right);
+
+		cg.ir->CreateRet(result);
 	}
 	else
 		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
