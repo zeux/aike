@@ -455,7 +455,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 	if (UNION_CASE(FnDecl, n, root))
 	{
-		if (n->body)
+		if (n->body && n->body->kind != Ast::KindLLVM)
 		{
 			auto ret = type(output, n->body, constraints);
 

@@ -83,6 +83,7 @@ struct FieldRef
 	X(For, { Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
 	X(While, { Location location; Ast* expr; Ast* body; }) \
 	X(Fn, { Location location; int id; Ast* decl; }) \
+	X(LLVM, { Location location; Str code; }) \
 	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; Ast::Module* module; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; }) \

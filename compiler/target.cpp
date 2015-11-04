@@ -5,7 +5,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 

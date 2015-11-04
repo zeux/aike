@@ -337,6 +337,20 @@ static Ast* parseFn(TokenStream& ts)
 	return UNION_NEW(Ast, Fn, { start, int(ts.index), decl });
 }
 
+static Ast* parseFnBody(TokenStream& ts, const Location* indent)
+{
+	if (ts.is(Token::TypeIdent, "llvm"))
+	{
+		ts.move();
+
+		auto code = ts.eat(Token::TypeString);
+
+		return UNION_NEW(Ast, LLVM, { code.location, code.data });
+	}
+
+	return parseBlock(ts, indent);
+}
+
 static Ast* parseFnDecl(TokenStream& ts)
 {
 	Location indent = ts.get().location;
@@ -364,7 +378,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 	auto tysig = parseTypeSignature(ts);
 	auto sig = parseFnSignature(ts);
 
-	Ast* body = bodyImplicit ? nullptr : parseBlock(ts, &indent);
+	Ast* body = bodyImplicit ? nullptr : parseFnBody(ts, &indent);
 
 	Variable* var = new Variable { Variable::KindFunction, name.data, sig.first, name.location };
 	Ast* result = UNION_NEW(Ast, FnDecl, { var, tysig, sig.second, attributes, body });

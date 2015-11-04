@@ -259,6 +259,13 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpNode(n->decl, indent);
 	}
+	else if (UNION_CASE(LLVM, n, root))
+	{
+		dumpIndent(indent);
+		printf("llvm \"");
+		dumpString(n->code);
+		printf("\"");
+	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
 		if (n->attributes & FnAttributeExtern)

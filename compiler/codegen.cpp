@@ -12,6 +12,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Intrinsics.h"
 
+#include "llvm/AsmParser/Parser.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
 struct FunctionInstance
@@ -954,6 +958,57 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
 }
 
+static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
+{
+	assert(inst.decl->body);
+
+	UNION_CASE(LLVM, ll, inst.decl->body);
+	assert(ll);
+
+	FunctionType* funty = inst.value->getFunctionType();
+	string name = "llvm_" + inst.value->getName().str();
+
+	string buffer;
+	raw_string_ostream code(buffer);
+
+	code << "define internal ";
+	code << *funty->getReturnType();
+	code << " @";
+	code << name;
+	code << "(";
+	for (auto& aty: funty->params())
+	{
+		code << *aty;
+		code << ",";
+	}
+	code << ") {\n";
+	code << "entry:\n";
+	code << ll->code.str();
+	code << "\n}\n";
+
+	auto membuffer = MemoryBuffer::getMemBuffer(code.str());
+
+	SMDiagnostic err;
+	if (parseAssemblyInto(membuffer->getMemBufferRef(), *cg.module, err))
+	{
+		cg.output->panic(ll->location, "Error parsing LLVM: %s", err.getMessage().str().c_str());
+	}
+
+	Function* fun = cast<Function>(cg.module->getFunction(name));
+
+	vector<BasicBlock*> bbs;
+	for (auto& bb: fun->getBasicBlockList())
+		bbs.push_back(&bb);
+
+	for (auto* bb: bbs)
+	{
+		bb->removeFromParent();
+		bb->insertInto(inst.value);
+	}
+
+	fun->eraseFromParent();
+}
+
 static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.decl->body);
@@ -982,6 +1037,8 @@ static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
 		codegenFunctionExtern(cg, inst);
 	else if (inst.decl->attributes & FnAttributeBuiltin)
 		codegenFunctionBuiltin(cg, inst);
+	else if (inst.decl->body && inst.decl->body->kind == Ast::KindLLVM)
+		codegenFunctionLLVM(cg, inst);
 	else
 		codegenFunctionBody(cg, inst);
 }
