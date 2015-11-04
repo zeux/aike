@@ -976,11 +976,14 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 	code << " @";
 	code << name;
 	code << "(";
-	for (auto& aty: funty->params())
+
+	for (size_t i = 0; i < funty->getNumParams(); ++i)
 	{
-		code << *aty;
-		code << ",";
+		if (i != 0)
+			code << ", ";
+		code << *funty->getParamType(i);
 	}
+
 	code << ") {\n";
 	code << "entry:\n";
 	code << ll->code.str();
@@ -1005,6 +1008,11 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 		bb->removeFromParent();
 		bb->insertInto(inst.value);
 	}
+
+	auto valit = inst.value->arg_begin();
+
+	for (auto it = fun->arg_begin(); it != fun->arg_end(); ++it)
+		it->replaceAllUsesWith(valit++);
 
 	fun->eraseFromParent();
 }
