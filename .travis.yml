@@ -1,6 +1,6 @@
-sudo: false
+sudo: required
+dist: trusty
 language: cpp
-compiler: clang
 script: make config=coverage test -k -j2
 
 before_install:
