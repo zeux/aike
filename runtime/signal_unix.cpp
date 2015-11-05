@@ -24,7 +24,7 @@ static void signalHandler(int signum, siginfo_t* info, void* data)
 #endif
 
 #if defined(AIKE_OS_LINUX) && defined(AIKE_ABI_AMD64)
-	fprintf(stderr, " at %016lx", mc.gregs[REG_RIP]);
+	fprintf(stderr, " at %016llx", mc.gregs[REG_RIP]);
 #endif
 
 	fprintf(stderr, "\n");
@@ -50,7 +50,7 @@ const int kSignalActions[] = { SIGILL, SIGTRAP, SIGFPE, SIGBUS, SIGSEGV };
 void signalSetup()
 {
 	stack_t stack = {};
-	stack.ss_size = SIGSTKSZ;
+	stack.ss_size = 32768; // SIGSTKSZ=8192 is insufficient for fprintf to work on Linux
 	stack.ss_sp = stackCreate(stack.ss_size);
 
 	check(sigaltstack(&stack, nullptr) == 0);
