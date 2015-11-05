@@ -3,38 +3,38 @@ builtin fn sizeof<T>(): int
 builtin fn length<T>(arr: [T]): int
 builtin fn assert(expr: bool): void
 
-fn operatorPlus(a: int): int
+inline fn operatorPlus(a: int): int
     a
 
-fn operatorPlus(a: float): float
+inline fn operatorPlus(a: float): float
     a
 
-fn operatorMinus(a: int): int
+inline fn operatorMinus(a: int): int
     llvm "
     %1 = sub i32 0, %0
     ret i32 %1"
 
-fn operatorMinus(a: float): float
+inline fn operatorMinus(a: float): float
     llvm "
     %1 = fsub float 0.0, %0
     ret float %1"
 
-fn operatorMultiplyWrap(a: int, b: int): int
+inline fn operatorMultiplyWrap(a: int, b: int): int
     llvm "
     %2 = smul i32 %0, %1
     ret i32 %2"
 
-fn operatorAddWrap(a: int, b: int): int
+inline fn operatorAddWrap(a: int, b: int): int
     llvm "
     %2 = sadd i32 %0, %1
     ret i32 %2"
 
-fn operatorSubtractWrap(a: int, b: int): int
+inline fn operatorSubtractWrap(a: int, b: int): int
     llvm "
     %2 = ssub i32 %0, %1
     ret i32 %2"
 
-fn operatorMultiply(a: int, b: int): int
+inline fn operatorMultiply(a: int, b: int): int
     llvm "
       %2 = call { i32, i1 } @llvm.smul.with.overflow.i32(i32 %0, i32 %1)
       %3 = extractvalue { i32, i1 } %2, 1
@@ -48,17 +48,17 @@ fn operatorMultiply(a: int, b: int): int
       %4 = extractvalue { i32, i1 } %2, 0
       ret i32 %4"
 
-fn operatorDivide(a: int, b: int): int
+inline fn operatorDivide(a: int, b: int): int
     llvm "
     %2 = sdiv i32 %0, %1
     ret i32 %2"
 
-fn operatorModulo(a: int, b: int): int
+inline fn operatorModulo(a: int, b: int): int
     llvm "
     %2 = srem i32 %0, %1
     ret i32 %2"
 
-fn operatorAdd(a: int, b: int): int
+inline fn operatorAdd(a: int, b: int): int
     llvm "
       %2 = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %0, i32 %1)
       %3 = extractvalue { i32, i1 } %2, 1
@@ -72,7 +72,7 @@ fn operatorAdd(a: int, b: int): int
       %4 = extractvalue { i32, i1 } %2, 0
       ret i32 %4"
 
-fn operatorSubtract(a: int, b: int): int
+inline fn operatorSubtract(a: int, b: int): int
     llvm "
       %2 = call { i32, i1 } @llvm.ssub.with.overflow.i32(i32 %0, i32 %1)
       %3 = extractvalue { i32, i1 } %2, 1
@@ -86,97 +86,97 @@ fn operatorSubtract(a: int, b: int): int
       %4 = extractvalue { i32, i1 } %2, 0
       ret i32 %4"
 
-fn operatorMultiply(a: float, b: float): float
+inline fn operatorMultiply(a: float, b: float): float
     llvm "
     %2 = fmul float %0, %1
     ret float %2"
 
-fn operatorDivide(a: float, b: float): float
+inline fn operatorDivide(a: float, b: float): float
     llvm "
     %2 = fdiv float %0, %1
     ret float %2"
 
-fn operatorModulo(a: float, b: float): float
+inline fn operatorModulo(a: float, b: float): float
     llvm "
     %2 = frem float %0, %1
     ret float %2"
 
-fn operatorAdd(a: float, b: float): float
+inline fn operatorAdd(a: float, b: float): float
     llvm "
     %2 = fadd float %0, %1
     ret float %2"
 
-fn operatorSubtract(a: float, b: float): float
+inline fn operatorSubtract(a: float, b: float): float
     llvm "
     %2 = fsub float %0, %1
     ret float %2"
 
-fn operatorLess(a: int, b: int): bool
+inline fn operatorLess(a: int, b: int): bool
     llvm "
     %2 = icmp slt i32 %0, %1
     ret i1 %2"
 
-fn operatorLessEqual(a: int, b: int): bool
+inline fn operatorLessEqual(a: int, b: int): bool
     llvm "
     %2 = icmp sle i32 %0, %1
     ret i1 %2"
 
-fn operatorGreater(a: int, b: int): bool
+inline fn operatorGreater(a: int, b: int): bool
     llvm "
     %2 = icmp sgt i32 %0, %1
     ret i1 %2"
 
-fn operatorGreaterEqual(a: int, b: int): bool
+inline fn operatorGreaterEqual(a: int, b: int): bool
     llvm "
     %2 = icmp sge i32 %0, %1
     ret i1 %2"
 
-fn operatorEqual(a: int, b: int): bool
+inline fn operatorEqual(a: int, b: int): bool
     llvm "
     %2 = icmp eq i32 %0, %1
     ret i1 %2"
 
-fn operatorNotEqual(a: int, b: int): bool
+inline fn operatorNotEqual(a: int, b: int): bool
     llvm "
     %2 = icmp ne i32 %0, %1
     ret i1 %2"
 
-fn operatorLess(a: float, b: float): bool
+inline fn operatorLess(a: float, b: float): bool
     llvm "
     %2 = fcmp ult float %0, %1
     ret i1 %2"
 
-fn operatorLessEqual(a: float, b: float): bool
+inline fn operatorLessEqual(a: float, b: float): bool
     llvm "
     %2 = fcmp ule float %0, %1
     ret i1 %2"
 
-fn operatorGreater(a: float, b: float): bool
+inline fn operatorGreater(a: float, b: float): bool
     llvm "
     %2 = fcmp ugt float %0, %1
     ret i1 %2"
 
-fn operatorGreaterEqual(a: float, b: float): bool
+inline fn operatorGreaterEqual(a: float, b: float): bool
     llvm "
     %2 = fcmp uge float %0, %1
     ret i1 %2"
 
-fn operatorEqual(a: float, b: float): bool
+inline fn operatorEqual(a: float, b: float): bool
     llvm "
     %2 = fcmp ueq float %0, %1
     ret i1 %2"
 
-fn operatorNotEqual(a: float, b: float): bool
+inline fn operatorNotEqual(a: float, b: float): bool
     llvm "
     %2 = fcmp une float %0, %1
     ret i1 %2"
 
-fn int(a: float): int
+inline fn int(a: float): int
     llvm "
     %1 = fptosi float %0 to i32
     ret i32 %1"
 
-fn float(a: int): float
+inline fn float(a: int): float
     llvm "
     %1 = sitofp i32 %0 to float
     ret float %1"
