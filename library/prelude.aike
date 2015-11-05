@@ -3,6 +3,22 @@ builtin fn sizeof<T>(): int
 builtin fn length<T>(arr: [T]): int
 builtin fn assert(expr: bool): void
 
+fn operatorPlus(a: int): int
+    a
+
+fn operatorPlus(a: float): float
+    a
+
+fn operatorMinus(a: int): int
+    llvm "
+    %1 = sub i32 0, %0
+    ret i32 %1"
+
+fn operatorMinus(a: float): float
+    llvm "
+    %1 = fsub float 0.0, %0
+    ret float %1"
+
 fn operatorMultiplyWrap(a: int, b: int): int
     llvm "
     %2 = smul i32 %0, %1

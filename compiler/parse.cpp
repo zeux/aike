@@ -758,25 +758,39 @@ static Ast* parseTerm(TokenStream& ts)
 	ts.output->panic(t.location, "Unexpected token '%s'", t.data.str().c_str());
 }
 
-static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
-{
-	if (ts.is(Token::TypeAtom, "+")) return make_pair(1, UnaryOpPlus);
-	if (ts.is(Token::TypeAtom, "-")) return make_pair(1, UnaryOpMinus);
-	if (ts.is(Token::TypeIdent, "not")) return make_pair(1, UnaryOpNot);
-	if (ts.is(Token::TypeAtom, "*")) return make_pair(1, UnaryOpDeref);
-	if (ts.is(Token::TypeIdent, "new")) return make_pair(1, UnaryOpNew);
-
-	return make_pair(0, UnaryOpNot);
-}
-
-struct BinaryOpDef
+template <typename Op>
+struct OpDef
 {
 	int priority;
-	BinaryOp op;
+	Op op;
 	const char* opname;
 };
 
-static BinaryOpDef parseBinaryOp(TokenStream& ts)
+static OpDef<UnaryOp> parseUnaryOp(TokenStream& ts)
+{
+	if (ts.is(Token::TypeAtom, "+")) return { 1, UnaryOpPlus, "operatorPlus" };
+	if (ts.is(Token::TypeAtom, "-")) return { 1, UnaryOpMinus, "operatorMinus" };
+
+	if (ts.is(Token::TypeIdent, "not")) return { 1, UnaryOpNot, nullptr };
+	if (ts.is(Token::TypeAtom, "*")) return { 1, UnaryOpDeref, nullptr };
+	if (ts.is(Token::TypeIdent, "new")) return { 1, UnaryOpNew, nullptr };
+
+	return { 0, UnaryOpNot, nullptr };
+}
+
+Ast* lowerUnaryOp(const OpDef<UnaryOp>& def, Ast* expr, Location location)
+{
+	if (def.opname)
+	{
+		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
+
+		return UNION_NEW(Ast, Call, { ident, { expr }, location });
+	}
+	else
+		return UNION_NEW(Ast, Unary, { def.op, expr, location });
+}
+
+static OpDef<BinaryOp> parseBinaryOp(TokenStream& ts)
 {
 	if (ts.is(Token::TypeAtom, "*%")) return { 7, BinaryOpMultiplyWrap, "operatorMultiplyWrap" };
 	if (ts.is(Token::TypeAtom, "*")) return { 7, BinaryOpMultiply, "operatorMultiply" };
@@ -799,11 +813,23 @@ static BinaryOpDef parseBinaryOp(TokenStream& ts)
 	return { 0, BinaryOpOr, nullptr };
 }
 
+Ast* lowerBinaryOp(const OpDef<BinaryOp>& def, Ast* left, Ast* right, Location location)
+{
+	if (def.opname)
+	{
+		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
+
+		return UNION_NEW(Ast, Call, { ident, { left, right }, location });
+	}
+	else
+		return UNION_NEW(Ast, Binary, { def.op, left, right, location });
+}
+
 static Ast* parsePrimary(TokenStream& ts)
 {
 	auto uop = parseUnaryOp(ts);
 
-	if (uop.first)
+	if (uop.priority)
 	{
 		Location start = ts.get().location;
 
@@ -811,7 +837,7 @@ static Ast* parsePrimary(TokenStream& ts)
 
 		Ast* expr = parsePrimary(ts);
 
-		return UNION_NEW(Ast, Unary, { uop.second, expr, start });
+		return lowerUnaryOp(uop, expr, start);
 	}
 
 	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "builtin"))
@@ -856,18 +882,6 @@ static Ast* parsePrimary(TokenStream& ts)
 		term = parseAssign(ts, term);
 
 	return term;
-}
-
-Ast* lowerBinaryOp(const BinaryOpDef& def, Ast* left, Ast* right, Location location)
-{
-	if (def.opname)
-	{
-		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
-
-		return UNION_NEW(Ast, Call, { ident, { left, right }, location });
-	}
-	else
-		return UNION_NEW(Ast, Binary, { def.op, left, right, location });
 }
 
 Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)

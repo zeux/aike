@@ -286,11 +286,6 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		switch (n->op)
 		{
-		case UnaryOpPlus:
-		case UnaryOpMinus:
-			typeMustEqual(expr.first, UNION_NEW(Ty, Integer, {}), constraints, output, expr.second);
-			return expr;
-
 		case UnaryOpNot:
 			typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
 			return expr;

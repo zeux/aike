@@ -488,12 +488,6 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 
 	switch (n->op)
 	{
-	case UnaryOpPlus:
-		return expr;
-
-	case UnaryOpMinus:
-		return cg.ir->CreateNeg(expr);
-
 	case UnaryOpNot:
 		return cg.ir->CreateNot(expr);
 
