@@ -769,26 +769,34 @@ static pair<int, UnaryOp> parseUnaryOp(TokenStream& ts)
 	return make_pair(0, UnaryOpNot);
 }
 
-static pair<int, BinaryOp> parseBinaryOp(TokenStream& ts)
+struct BinaryOpDef
 {
-	if (ts.is(Token::TypeAtom, "*%")) return make_pair(7, BinaryOpMultiplyWrap);
-	if (ts.is(Token::TypeAtom, "*")) return make_pair(7, BinaryOpMultiply);
-	if (ts.is(Token::TypeAtom, "/")) return make_pair(7, BinaryOpDivide);
-	if (ts.is(Token::TypeAtom, "%")) return make_pair(7, BinaryOpModulo);
-	if (ts.is(Token::TypeAtom, "+%")) return make_pair(6, BinaryOpAddWrap);
-	if (ts.is(Token::TypeAtom, "+")) return make_pair(6, BinaryOpAdd);
-	if (ts.is(Token::TypeAtom, "-%")) return make_pair(6, BinaryOpSubtractWrap);
-	if (ts.is(Token::TypeAtom, "-")) return make_pair(6, BinaryOpSubtract);
-	if (ts.is(Token::TypeAtom, "<")) return make_pair(5, BinaryOpLess);
-	if (ts.is(Token::TypeAtom, "<=")) return make_pair(5, BinaryOpLessEqual);
-	if (ts.is(Token::TypeAtom, ">")) return make_pair(5, BinaryOpGreater);
-	if (ts.is(Token::TypeAtom, ">=")) return make_pair(5, BinaryOpGreaterEqual);
-	if (ts.is(Token::TypeAtom, "==")) return make_pair(4, BinaryOpEqual);
-	if (ts.is(Token::TypeAtom, "!=")) return make_pair(4, BinaryOpNotEqual);
-	if (ts.is(Token::TypeIdent, "and")) return make_pair(3, BinaryOpAnd);
-	if (ts.is(Token::TypeIdent, "or")) return make_pair(2, BinaryOpOr);
+	int priority;
+	BinaryOp op;
+	const char* opname;
+};
 
-	return make_pair(0, BinaryOpOr);
+static BinaryOpDef parseBinaryOp(TokenStream& ts)
+{
+	if (ts.is(Token::TypeAtom, "*%")) return { 7, BinaryOpMultiplyWrap, "operatorMultiplyWrap" };
+	if (ts.is(Token::TypeAtom, "*")) return { 7, BinaryOpMultiply, "operatorMultiply" };
+	if (ts.is(Token::TypeAtom, "/")) return { 7, BinaryOpDivide, "operatorDivide" };
+	if (ts.is(Token::TypeAtom, "%")) return { 7, BinaryOpModulo, "operatorModulo" };
+	if (ts.is(Token::TypeAtom, "+%")) return { 6, BinaryOpAddWrap, "operatorAddWrap" };
+	if (ts.is(Token::TypeAtom, "+")) return { 6, BinaryOpAdd, "operatorAdd" };
+	if (ts.is(Token::TypeAtom, "-%")) return { 6, BinaryOpSubtractWrap, "operatorSubtractWrap" };
+	if (ts.is(Token::TypeAtom, "-")) return { 6, BinaryOpSubtract, "operatorSubtract" };
+	if (ts.is(Token::TypeAtom, "<")) return { 5, BinaryOpLess, "operatorLess" };
+	if (ts.is(Token::TypeAtom, "<=")) return { 5, BinaryOpLessEqual, "operatorLessEqual" };
+	if (ts.is(Token::TypeAtom, ">")) return { 5, BinaryOpGreater, "operatorGreater" };
+	if (ts.is(Token::TypeAtom, ">=")) return { 5, BinaryOpGreaterEqual, "operatorGreaterEqual" };
+	if (ts.is(Token::TypeAtom, "==")) return { 4, BinaryOpEqual, "operatorEqual" };
+	if (ts.is(Token::TypeAtom, "!=")) return { 4, BinaryOpNotEqual, "operatorNotEqual" };
+
+	if (ts.is(Token::TypeIdent, "and")) return { 3, BinaryOpAnd, nullptr };
+	if (ts.is(Token::TypeIdent, "or")) return { 2, BinaryOpOr, nullptr };
+
+	return { 0, BinaryOpOr, nullptr };
 }
 
 static Ast* parsePrimary(TokenStream& ts)
@@ -850,46 +858,23 @@ static Ast* parsePrimary(TokenStream& ts)
 	return term;
 }
 
-const char* getBinaryOpName(BinaryOp op)
+Ast* lowerBinaryOp(const BinaryOpDef& def, Ast* left, Ast* right, Location location)
 {
-	switch (op)
+	if (def.opname)
 	{
-	case BinaryOpMultiplyWrap: return "operatorMultiplyWrap";
-	case BinaryOpMultiply: return "operatorMultiply";
-	case BinaryOpDivide: return "operatorDivide";
-	case BinaryOpModulo: return "operatorModulo";
-	case BinaryOpAddWrap: return "operatorAddWrap";
-	case BinaryOpAdd: return "operatorAdd";
-	case BinaryOpSubtractWrap: return "operatorSubtractWrap";
-	case BinaryOpSubtract: return "operatorSubtract";
-	case BinaryOpLess: return "operatorLess";
-	case BinaryOpLessEqual: return "operatorLessEqual";
-	case BinaryOpGreater: return "operatorGreater";
-	case BinaryOpGreaterEqual: return "operatorGreaterEqual";
-	case BinaryOpEqual: return "operatorEqual";
-	case BinaryOpNotEqual: return "operatorNotEqual";
-
-	default: return nullptr;
-	}
-}
-
-Ast* lowerBinaryOp(BinaryOp op, Ast* left, Ast* right, Location location)
-{
-	if (const char* opname = getBinaryOpName(op))
-	{
-		Ast* ident = UNION_NEW(Ast, Ident, { Str(opname), location, nullptr });
+		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
 
 		return UNION_NEW(Ast, Call, { ident, { left, right }, location });
 	}
 	else
-		return UNION_NEW(Ast, Binary, { op, left, right, location });
+		return UNION_NEW(Ast, Binary, { def.op, left, right, location });
 }
 
 Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 {
 	auto op = parseBinaryOp(ts);
 
-	while (op.first && op.first >= limit)
+	while (op.priority && op.priority >= limit)
 	{
 		Location start = ts.get().location;
 
@@ -899,14 +884,14 @@ Ast* parseExprClimb(TokenStream& ts, Ast* left, int limit)
 
 		auto nextop = parseBinaryOp(ts);
 
-		while (nextop.first && nextop.first > op.first)
+		while (nextop.priority && nextop.priority > op.priority)
 		{
-			right = parseExprClimb(ts, right, nextop.first);
+			right = parseExprClimb(ts, right, nextop.priority);
 
 			nextop = parseBinaryOp(ts);
 		}
 
-		left = lowerBinaryOp(op.second, left, right, start);
+		left = lowerBinaryOp(op, left, right, start);
 
 		op = parseBinaryOp(ts);
 	}
