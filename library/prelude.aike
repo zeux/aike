@@ -171,6 +171,16 @@ fn operatorNotEqual(a: float, b: float): bool
     %2 = fcmp une float %0, %1
     ret i1 %2"
 
+fn int(a: float): int
+    llvm "
+    %1 = fptosi float %0 to i32
+    ret i32 %1"
+
+fn float(a: int): float
+    llvm "
+    %1 = sitofp i32 %0 to float
+    ret float %1"
+
 extern fn spawn(f: fn(): void): void
 extern fn yield(): void
 
