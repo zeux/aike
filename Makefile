@@ -64,7 +64,7 @@ TEST_OUT=$(TEST_SRC:%=$(BUILD)/%.out)
 all: $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 
 simple: all
-	$(COMPILER_BIN) tests/simple.aike -o $(BUILD)/simple $(flags)
+	$(COMPILER_BIN) simple.aike -o $(BUILD)/simple $(flags)
 	./$(BUILD)/simple
 
 test: $(TEST_OUT)
