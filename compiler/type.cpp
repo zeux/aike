@@ -24,9 +24,14 @@ bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 	}
 	else
 	{
-		if (lhs->kind != Ty::KindUnknown) std::swap(lhs, rhs);
+		if (lhs->kind != Ty::KindUnknown)
+			std::swap(lhs, rhs);
 
-		if (data.count(lhs) == 0 && !typeOccurs(rhs, lhs))
+		auto li = data.find(lhs);
+
+		if (li != data.end())
+			return typeEquals(li->second, rhs);
+		else if (!typeOccurs(rhs, lhs))
 			data[lhs] = rhs;
 		else
 			return false;

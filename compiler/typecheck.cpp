@@ -96,7 +96,7 @@ static bool isCandidateValid(Variable* target, const vector<Ty*>& args)
 	return true;
 }
 
-static void reduceCandidates(Arr<Variable*>& targets, const vector<Ty*>& args)
+static size_t reduceCandidates(Arr<Variable*>& targets, const vector<Ty*>& args)
 {
 	// assume targets is uniquely owned...
 	size_t write = 0;
@@ -105,7 +105,11 @@ static void reduceCandidates(Arr<Variable*>& targets, const vector<Ty*>& args)
 		if (isCandidateValid(targets[i], args))
 			targets[write++] = targets[i];
 
+	size_t size = targets.size;
+
 	targets.size = write;
+
+	return size - write;
 }
 
 static bool isAssignable(Ast* node)
@@ -234,14 +238,14 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 	{
 		if (UNION_CASE(Ident, ne, n->expr))
 		{
-			if (ne->targets.size > 1)
+			if (constraints && ne->targets.size > 1)
 			{
 				vector<Ty*> args;
 
 				for (auto& a: n->args)
 					args.push_back(type(output, a, constraints).first);
 
-				reduceCandidates(ne->targets, args);
+				constraints->rewrites += reduceCandidates(ne->targets, args);
 			}
 		}
 

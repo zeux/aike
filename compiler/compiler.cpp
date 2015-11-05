@@ -174,18 +174,16 @@ pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Modul
 	}
 	while (fixpoint != 0);
 
-	timer.checkpoint();
-
-	typeckVerify(output, root);
-
-	timer.checkpoint("typeckVerify");
-
 	if (options.dumpAst)
 	{
 		dump(root);
 	}
 
 	timer.checkpoint();
+
+	typeckVerify(output, root);
+
+	timer.checkpoint("typeckVerify");
 
 	llvm::Value* entry = codegen(output, root, module, { options.debugInfo });
 
