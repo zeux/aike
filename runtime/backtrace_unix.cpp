@@ -11,17 +11,27 @@ static void dumpBacktraceFrame(FILE* file, int frame, uintptr_t ip)
 	fprintf(file, "#%02d: %016lx", frame, ip);
 
 	Dl_info di;
-	if (dladdr(reinterpret_cast<void*>(ip), &di) && di.dli_fname && di.dli_sname)
+	if (dladdr(reinterpret_cast<void*>(ip), &di) && di.dli_fname)
 	{
 		const char* fname_slash = strrchr(di.dli_fname, '/');
-		char* sname_dem = abi::__cxa_demangle(di.dli_sname, 0, 0, 0);
 
-		fprintf(file, " %s`%s + %ld",
-			fname_slash ? fname_slash + 1 : di.dli_fname,
-			sname_dem ? sname_dem : di.dli_sname,
-			ip - reinterpret_cast<uintptr_t>(di.dli_saddr));
+		if (di.dli_sname)
+		{
+			char* sname_dem = abi::__cxa_demangle(di.dli_sname, 0, 0, 0);
 
-		free(sname_dem);
+			fprintf(file, " %s`%s + %ld",
+				fname_slash ? fname_slash + 1 : di.dli_fname,
+				sname_dem ? sname_dem : di.dli_sname,
+				ip - reinterpret_cast<uintptr_t>(di.dli_saddr));
+
+			free(sname_dem);
+		}
+		else
+		{
+			fprintf(file, " %s + %ld",
+				fname_slash ? fname_slash + 1 : di.dli_fname,
+				ip - reinterpret_cast<uintptr_t>(di.dli_fbase));
+		}
 	}
 
 	fprintf(file, "\n");
