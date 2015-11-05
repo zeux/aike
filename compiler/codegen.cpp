@@ -519,6 +519,8 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 
 static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 {
+	CodegenDebugLocation dbg(cg, n->location);
+
 	Function* func = cg.ir->GetInsertBlock()->getParent();
 
 	Value* left = codegenExpr(cg, n->left);
@@ -529,8 +531,10 @@ static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 
 	if (n->op == BinaryOpAnd)
 		cg.ir->CreateCondBr(left, nextbb, afterbb);
-	else
+	else if (n->op == BinaryOpOr)
 		cg.ir->CreateCondBr(left, afterbb, nextbb);
+	else
+		ICE("Unknown BinaryOp %d", n->op);
 
 	func->getBasicBlockList().push_back(nextbb);
 	cg.ir->SetInsertPoint(nextbb);
@@ -552,30 +556,9 @@ static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 
 static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
 {
-	CodegenDebugLocation dbg(cg, n->location);
+	assert(n->op == BinaryOpAnd || n->op == BinaryOpOr);
 
-	Value* left = codegenExpr(cg, n->left);
-	Value* right = codegenExpr(cg, n->right);
-
-	switch (n->op)
-	{
-		case BinaryOpAddWrap: return cg.ir->CreateAdd(left, right);
-		case BinaryOpSubtractWrap: return cg.ir->CreateSub(left, right);
-		case BinaryOpMultiplyWrap: return cg.ir->CreateMul(left, right);
-		case BinaryOpAdd: return codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
-		case BinaryOpSubtract: return codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
-		case BinaryOpMultiply: return codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
-		case BinaryOpDivide: return cg.ir->CreateSDiv(left, right);
-		case BinaryOpModulo: return cg.ir->CreateSRem(left, right);
-		case BinaryOpLess: return cg.ir->CreateICmpSLT(left, right);
-		case BinaryOpLessEqual: return cg.ir->CreateICmpSLE(left, right);
-		case BinaryOpGreater: return cg.ir->CreateICmpSGT(left, right);
-		case BinaryOpGreaterEqual: return cg.ir->CreateICmpSGE(left, right);
-		case BinaryOpEqual: return cg.ir->CreateICmpEQ(left, right);
-		case BinaryOpNotEqual: return cg.ir->CreateICmpNE(left, right);
-		default:
-			ICE("Unknown BinaryOp %d", n->op);
-	}
+	return codegenBinaryAndOr(cg, n);
 }
 
 static Value* codegenIf(Codegen& cg, Ast::If* n)
@@ -792,12 +775,7 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 		return codegenUnary(cg, n, kind);
 
 	if (UNION_CASE(Binary, n, node))
-	{
-		if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
-			return codegenBinaryAndOr(cg, n);
-		else
-			return codegenBinary(cg, n);
-	}
+		return codegenBinary(cg, n);
 
 	if (UNION_CASE(If, n, node))
 		return codegenIf(cg, n);
@@ -845,62 +823,6 @@ static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRet(ret);
 }
 
-static Value* codegenBuiltinOperator(Codegen& cg, const Str& name, const Location& location, Value* left, Value* right)
-{
-	if (name == "operatorAddWrap")
-		return cg.ir->CreateAdd(left, right);
-	else if (name == "operatorSubtractWrap")
-		return cg.ir->CreateSub(left, right);
-	else if (name == "operatorMultiplyWrap")
-		return cg.ir->CreateMul(left, right);
-	else if (name == "operatorAdd")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFAdd(left, right)
-			: codegenArithOverflow(cg, left, right, cg.builtinAddOverflow);
-	else if (name == "operatorSubtract")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFSub(left, right)
-			: codegenArithOverflow(cg, left, right, cg.builtinSubOverflow);
-	else if (name == "operatorMultiply")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFMul(left, right)
-			: codegenArithOverflow(cg, left, right, cg.builtinMulOverflow);
-	else if (name == "operatorDivide")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFDiv(left, right)
-			: cg.ir->CreateSDiv(left, right);
-	else if (name == "operatorModulo")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFRem(left, right)
-			: cg.ir->CreateSRem(left, right);
-	else if (name == "operatorLess")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpULT(left, right)
-			: cg.ir->CreateICmpSLT(left, right);
-	else if (name == "operatorLessEqual")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpULE(left, right)
-			: cg.ir->CreateICmpSLE(left, right);
-	else if (name == "operatorGreater")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpUGT(left, right)
-			: cg.ir->CreateICmpSGT(left, right);
-	else if (name == "operatorGreaterEqual")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpUGE(left, right)
-			: cg.ir->CreateICmpSGE(left, right);
-	else if (name == "operatorEqual")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpUEQ(left, right)
-			: cg.ir->CreateICmpEQ(left, right);
-	else if (name == "operatorNotEqual")
-		return left->getType()->isFloatTy()
-			? cg.ir->CreateFCmpUNE(left, right)
-			: cg.ir->CreateICmpNE(left, right);
-	else
-		cg.output->panic(location, "Unknown builtin operator %s", name.str().c_str());
-}
-
 static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(!inst.decl->body);
@@ -944,15 +866,6 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		codegenTrapIf(cg, cg.ir->CreateNot(expr), /* debug= */ true);
 
 		cg.ir->CreateRetVoid();
-	}
-	else if (strncmp(name.data, "operator", 8) == 0 && inst.value->arg_size() == 2)
-	{
-		auto it = inst.value->arg_begin();
-		Value* left = it++;
-		Value* right = it++;
-		Value* result = codegenBuiltinOperator(cg, name, inst.decl->var->location, left, right);
-
-		cg.ir->CreateRet(result);
 	}
 	else
 		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());

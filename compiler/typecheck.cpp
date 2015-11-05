@@ -322,35 +322,6 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		switch (n->op)
 		{
-			case BinaryOpAddWrap:
-			case BinaryOpSubtractWrap:
-			case BinaryOpMultiplyWrap:
-			case BinaryOpAdd:
-			case BinaryOpSubtract:
-			case BinaryOpMultiply:
-			case BinaryOpDivide:
-			case BinaryOpModulo:
-				typeMustEqual(left.first, UNION_NEW(Ty, Integer, {}), constraints, output, left.second);
-				typeMustEqual(right.first, UNION_NEW(Ty, Integer, {}), constraints, output, right.second);
-				return left;
-
-			case BinaryOpLess:
-			case BinaryOpLessEqual:
-			case BinaryOpGreater:
-			case BinaryOpGreaterEqual:
-				typeMustEqual(left.first, UNION_NEW(Ty, Integer, {}), constraints, output, left.second);
-				typeMustEqual(right.first, UNION_NEW(Ty, Integer, {}), constraints, output, right.second);
-				return make_pair(UNION_NEW(Ty, Bool, {}), Location()); // TODO: Location
-
-			case BinaryOpEqual:
-			case BinaryOpNotEqual:
-				typeMustEqual(left.first, right.first, constraints, output, left.second);
-
-				if (!constraints && left.first->kind != Ty::KindInteger && left.first->kind != Ty::KindBool)
-					output.panic(left.second, "Type mismatch: expected int or bool but given %s", typeName(left.first).c_str());
-
-				return make_pair(UNION_NEW(Ty, Bool, {}), Location()); // TODO: Location
-
 			case BinaryOpAnd:
 			case BinaryOpOr:
 				typeMustEqual(left.first, UNION_NEW(Ty, Bool, {}), constraints, output, left.second);
