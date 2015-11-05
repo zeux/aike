@@ -958,6 +958,14 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
 }
 
+static string llvmGetTypeName(Type* type)
+{
+	string buffer;
+	raw_string_ostream ss(buffer);
+	ss << *type;
+	return ss.str();
+}
+
 static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.decl->body);
@@ -968,33 +976,52 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 	FunctionType* funty = inst.value->getFunctionType();
 	string name = "llvm_" + inst.value->getName().str();
 
-	string buffer;
-	raw_string_ostream code(buffer);
+	string code;
 
-	code << "define internal ";
-	code << *funty->getReturnType();
-	code << " @";
-	code << name;
-	code << "(";
+	code += "define internal ";
+	code += llvmGetTypeName(funty->getReturnType());
+	code += " @";
+	code += name;
+	code += "(";
 
 	for (size_t i = 0; i < funty->getNumParams(); ++i)
 	{
 		if (i != 0)
-			code << ", ";
-		code << *funty->getParamType(i);
+			code += ", ";
+		code += llvmGetTypeName(funty->getParamType(i));
 	}
 
-	code << ") {\n";
-	code << "entry:\n";
-	code << ll->code.str();
-	code << "\n}\n";
+	code += ") {\n";
+	code += "entry:\n";
 
-	auto membuffer = MemoryBuffer::getMemBuffer(code.str());
+	size_t prefixLength = code.length();
+
+	code += ll->code.str();
+	code += "\n}\n";
+
+	auto membuffer = MemoryBuffer::getMemBuffer(code);
 
 	SMDiagnostic err;
 	if (parseAssemblyInto(membuffer->getMemBufferRef(), *cg.module, err))
 	{
-		cg.output->panic(ll->location, "Error parsing LLVM: %s", err.getMessage().str().c_str());
+		Location location = ll->location;
+
+		size_t offset = err.getLoc().getPointer() - membuffer->getBufferStart();
+
+		if (offset >= prefixLength)
+		{
+			location.offset += 1; // skip quote
+			location.offset += offset - prefixLength;
+			location.length -= offset - prefixLength;
+
+			assert(err.getLineNo() >= 2);
+			location.line += err.getLineNo() - 2;
+
+			if (err.getLineNo() > 2)
+				location.column = err.getColumnNo() - 1;
+		}
+
+		cg.output->panic(location, "Error parsing LLVM: %s", err.getMessage().str().c_str());
 	}
 
 	Function* fun = cast<Function>(cg.module->getFunction(name));
