@@ -357,6 +357,12 @@ static Ast* parseFnDecl(TokenStream& ts)
 
 	unsigned attributes = 0;
 
+	if (ts.is(Token::TypeIdent, "inline"))
+	{
+		attributes |= FnAttributeInline;
+		ts.move();
+	}
+
 	if (ts.is(Token::TypeIdent, "extern"))
 	{
 		attributes |= FnAttributeExtern;
@@ -840,7 +846,7 @@ static Ast* parsePrimary(TokenStream& ts)
 		return lowerUnaryOp(uop, expr, start);
 	}
 
-	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "builtin"))
+	if (ts.is(Token::TypeIdent, "extern") || ts.is(Token::TypeIdent, "builtin") || ts.is(Token::TypeIdent, "inline"))
 		return parseFnDecl(ts);
 
 	if (ts.is(Token::TypeIdent, "fn"))

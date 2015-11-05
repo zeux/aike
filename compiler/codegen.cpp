@@ -983,6 +983,9 @@ static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
 		codegenFunctionLLVM(cg, inst);
 	else
 		codegenFunctionBody(cg, inst);
+
+	if (inst.decl->attributes & FnAttributeInline)
+		inst.value->addFnAttr(Attribute::AlwaysInline);
 }
 
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)

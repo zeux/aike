@@ -25,6 +25,7 @@ enum FnAttribute
 {
 	FnAttributeExtern = 1 << 0,
 	FnAttributeBuiltin = 1 << 1,
+	FnAttributeInline = 1 << 2,
 };
 
 enum UnaryOp
