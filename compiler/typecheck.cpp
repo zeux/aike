@@ -213,7 +213,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		if (n->field.index >= 0)
 			return make_pair(typeMember(n->exprty, n->field.index), n->location);
 		else if (constraints)
-			return make_pair(UNION_NEW(Ty, Unknown, {}), Location());
+			return make_pair(UNION_NEW(Ty, Unknown, {}), n->location);
 		else
 			output.panic(expr.second, "%s does not have a field %s", typeName(expr.first).c_str(), n->field.name.str().c_str());
 	}
@@ -359,7 +359,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		if (!isAssignable(n->left))
 			output.panic(n->location, "Expression is not assignable");
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
 	}
 
 	if (UNION_CASE(If, n, root))
@@ -395,7 +395,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		if (n->index)
 			typeMustEqual(n->index->type, UNION_NEW(Ty, Integer, {}), constraints, output, n->index->location);
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
 	}
 
 	if (UNION_CASE(While, n, root))
@@ -406,7 +406,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
 		typeMustEqual(body.first, UNION_NEW(Ty, Void, {}), constraints, output, body.second);
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
 	}
 
 	if (UNION_CASE(Fn, n, root))
@@ -439,7 +439,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 				typeMustKnow(n->var->type, output, n->var->location);
 		}
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->var->location);
 	}
 
 	if (UNION_CASE(VarDecl, n, root))
@@ -448,7 +448,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		typeMustEqual(expr.first, n->var->type, constraints, output, expr.second);
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->var->location);
 	}
 
 	if (UNION_CASE(TyDecl, n, root))
@@ -464,12 +464,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 				}
 		}
 
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
 	}
 
 	if (UNION_CASE(Import, n, root))
 	{
-		return make_pair(UNION_NEW(Ty, Void, {}), Location());
+		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
 	}
 
 	ICE("Unknown Ast kind %d", root->kind);
