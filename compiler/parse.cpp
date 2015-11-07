@@ -457,6 +457,29 @@ static Ast* parseStructDecl(TokenStream& ts)
 	return UNION_NEW(Ast, TyDecl, { name.data, name.location, def });
 }
 
+static Ast* parseImport(TokenStream& ts)
+{
+	ts.eat(Token::TypeIdent, "import");
+
+	auto start = ts.eat(Token::TypeIdent);
+
+	string path = start.data.str();
+	Location location = start.location;
+
+	while (ts.is(Token::TypeAtom, ".") && ts.get().location.line == location.line)
+	{
+		ts.move();
+
+		auto name = ts.eat(Token::TypeIdent);
+
+		path += ".";
+		path += name.data.str();
+		location = Location(location, name.location);
+	}
+
+	return UNION_NEW(Ast, Import, { Str::copy(path.c_str()), location });
+}
+
 static Ast* parseCall(TokenStream& ts, Ast* expr, Location start, Ast* self = nullptr)
 {
 	ts.eat(Token::TypeBracket, "(");
@@ -857,6 +880,9 @@ static Ast* parsePrimary(TokenStream& ts)
 
 	if (ts.is(Token::TypeIdent, "struct"))
 		return parseStructDecl(ts);
+
+	if (ts.is(Token::TypeIdent, "import"))
+		return parseImport(ts);
 
 	if (ts.is(Token::TypeIdent, "if"))
 		return parseIf(ts);

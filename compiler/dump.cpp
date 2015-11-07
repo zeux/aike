@@ -293,6 +293,12 @@ static void dumpNode(Ast* root, int indent)
 	{
 		dumpDef(n->name, n->def, indent);
 	}
+	else if (UNION_CASE(Import, n, root))
+	{
+		printf("import ");
+		dumpString(n->name);
+		printf("\n");
+	}
 	else
 	{
 		ICE("Unknown Ast kind %d", root->kind);

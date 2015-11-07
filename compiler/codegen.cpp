@@ -792,6 +792,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 	if (UNION_CASE(TyDecl, n, node))
 		return nullptr;
 
+	if (UNION_CASE(Import, n, node))
+		return nullptr;
+
 	ICE("Unknown Ast kind %d", node->kind);
 }
 

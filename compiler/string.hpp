@@ -47,6 +47,14 @@ struct Str
 	{
 		return string(data, size);
 	}
+
+	static Str copy(const char* string)
+	{
+		size_t length = strlen(string);
+		char* data = new char[length];
+		memcpy(data, string, length);
+		return Str(data, length);
+	}
 };
 
 namespace std

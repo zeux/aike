@@ -88,5 +88,6 @@ struct FieldRef
 	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; Ast::Module* module; }) \
 	X(VarDecl, { Variable* var; Ast* expr; }) \
 	X(TyDecl, { Str name; Location location; TyDef* def; }) \
+	X(Import, { Str name; Location location; })
 
 UNION_DECL(Ast, UD_AST)
