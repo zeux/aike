@@ -16,19 +16,19 @@ contexts:
            1: keyword.control.aike
            2: entity.name.type.aike
 
-        - match: \b(extern|builtin|fn|var|if|else|for|in|while)\b
+        - match: \b(extern|builtin|fn|var|if|else|for|in|while|llvm|import)\b
           scope: keyword.control.aike
 
         - match: \b(not|and|or)\b
           scope: keyword.operator.aike
 
-        - match: \b(void|bool|int|string)\b
+        - match: \b(void|bool|int|float|string)\b
           scope: storage.type.aike
 
         - match: \b(true|false)\b
           scope: constant.language.aike
 
-        - match: \b[0-9][0-9A-Za-z_]*\b
+        - match: \b[0-9][0-9A-Za-z_.+-]*\b
           scope: constant.numeric.aike
 
         - match: '"'
