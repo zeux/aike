@@ -43,7 +43,8 @@ ifeq ($(LLVMCONFIG),)
 LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.7 /usr/local/opt/llvm/bin/llvm-config))
 endif
 
-$(COMPILER_OBJ): CXXFLAGS+=$(shell $(LLVMCONFIG) --cppflags)
+$(COMPILER_OBJ): CXXFLAGS+=-I$(shell $(LLVMCONFIG) --includedir)
+$(COMPILER_OBJ): CXXFLAGS+=-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
 
