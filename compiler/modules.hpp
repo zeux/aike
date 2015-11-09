@@ -4,5 +4,5 @@ struct Ast;
 
 struct ModuleResolver
 {
-	Ast* prelude;
+	function<Ast* (Str)> lookup;
 };

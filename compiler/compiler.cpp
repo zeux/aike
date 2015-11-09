@@ -133,7 +133,44 @@ Str getModuleName(const char* path)
 		return Str(path);
 }
 
-pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Module* module, const char* source, const Str& contents, const Str& moduleName, ModuleResolver* moduleResolver, const Options& options)
+string getModulePath(const Str& name)
+{
+	string path = name.str();
+
+	for (auto& c: path)
+		if (c == '.')
+			c = '/';
+
+	return "library/" + path + ".aike";
+}
+
+struct ModuleData
+{
+	Str name;
+	string path;
+
+	Ast* root;
+	vector<Str> imports;
+
+	llvm::Value* entrypoint;
+};
+
+vector<ModuleData*> sortModules(unordered_map<Str, ModuleData>& modules)
+{
+	vector<ModuleData*> result;
+
+	auto pit = modules.find(Str("prelude"));
+	if (pit != modules.end())
+		result.push_back(&pit->second);
+
+	for (auto& m: modules)
+		if (m.first != "prelude")
+			result.push_back(&m.second);
+
+	return result;
+}
+
+Ast* parseModule(Timer& timer, Output& output, const char* source, const Str& contents, const Str& moduleName, const Options& options)
 {
 	timer.checkpoint();
 
@@ -150,6 +187,11 @@ pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Modul
 		dump(root);
 	}
 
+	return root;
+}
+
+llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, Ast* root, ModuleResolver* moduleResolver, const Options& options)
+{
 	timer.checkpoint();
 
 	resolveNames(output, root, moduleResolver);
@@ -189,7 +231,7 @@ pair<Ast*, llvm::Value*> compileModule(Timer& timer, Output& output, llvm::Modul
 
 	timer.checkpoint("codegen");
 
-	return make_pair(root, entry);
+	return entry;
 }
 
 int main(int argc, const char** argv)
@@ -220,39 +262,61 @@ int main(int argc, const char** argv)
 			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 	}
 
-	ModuleResolver resolver = {};
-	vector<llvm::Value*> entries;
+	unordered_map<Str, ModuleData> modules;
+
+	ModuleResolver resolver;
+
+	resolver.lookup = [&](Str name) -> Ast* {
+		auto it = modules.find(name);
+		if (it == modules.end()) return nullptr;
+
+		assert(it->second.entrypoint); // module has to be compiled
+		return it->second.root;
+	};
+
+	deque<pair<Str, string>> pendingModules;
 
 	timer.checkpoint("startup");
 
+	for (auto& file: options.inputs)
+		pendingModules.push_back({ getModuleName(file.c_str()), file });
+
+	while (!pendingModules.empty())
 	{
-		const char* source = "library/prelude.aike";
+		auto pm = pendingModules.front();
+		pendingModules.pop_front();
+
+		Str moduleName = pm.first;
+		string modulePath = pm.second;
+
+		if (modules.count(moduleName))
+			continue;
+
+		const char* source = strdup(pm.second.c_str());
 
 		Str contents = readFile(source);
 
 		output.sources[source] = contents;
 
-		Str moduleName = getModuleName(source);
+		Ast* root = parseModule(timer, output, source, contents, moduleName, options);
 
-		auto p = compileModule(timer, output, module, source, contents, moduleName, &resolver, options);
+		vector<Str> imports;
+		resolveGatherImports(root, [&](Str name) { imports.push_back(name); });
 
-		resolver.prelude = p.first;
-		entries.push_back(p.second);
+		modules[moduleName] = { moduleName, pm.second, root, imports };
+
+		for (auto& m: imports)
+			pendingModules.push_back({ m, getModulePath(m) });
 	}
 
-	for (auto& file: options.inputs)
+	vector<ModuleData*> moduleOrder = sortModules(modules);
+	vector<llvm::Value*> entries;
+
+	for (auto& m: moduleOrder)
 	{
-		const char* source = strdup(file.c_str());
+		m->entrypoint = compileModule(timer, output, module, m->root, &resolver, options);
 
-		Str contents = readFile(source);
-
-		output.sources[source] = contents;
-
-		Str moduleName = getModuleName(source);
-
-		auto p = compileModule(timer, output, module, source, contents, moduleName, &resolver, options);
-
-		entries.push_back(p.second);
+		entries.push_back(m->entrypoint);
 	}
 
 	codegenMain(module, entries);

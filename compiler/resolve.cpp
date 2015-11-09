@@ -262,8 +262,25 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 
 		rs.variables.push(n->var->name, n->var);
 	}
+	else if (UNION_CASE(Import, n, root))
+	{
+		assert(rs.moduleResolver);
+
+		Ast* import = rs.moduleResolver->lookup(n->name);
+		assert(import);
+
+		resolveImport(rs, import);
+	}
 	else
 		return false;
+
+	return true;
+}
+
+static bool needsPrelude(Ast* root)
+{
+	if (UNION_CASE(Module, m, root))
+		return m->name != "prelude";
 
 	return true;
 }
@@ -272,8 +289,11 @@ void resolveNames(Output& output, Ast* root, ModuleResolver* moduleResolver)
 {
 	ResolveNames rs = { &output, moduleResolver };
 
-	if (moduleResolver && moduleResolver->prelude)
-		resolveImport(rs, moduleResolver->prelude);
+	if (moduleResolver && needsPrelude(root))
+	{
+		if (Ast* prelude = moduleResolver->lookup(Str("prelude")))
+			resolveImport(rs, prelude);
+	}
 
 	visitAst(root, resolveNamesNode, rs);
 }
@@ -344,4 +364,20 @@ int resolveMembers(Output& output, Ast* root)
 	visitAst(root, resolveMembersNode, rs);
 
 	return rs.counter;
+}
+
+bool resolveGatherImportsNode(function<void (Str)>& f, Ast* root)
+{
+	if (UNION_CASE(Import, n, root))
+		f(n->name);
+
+	return false;
+}
+
+void resolveGatherImports(Ast* root, function<void (Str)> f)
+{
+	if (needsPrelude(root))
+		f(Str("prelude"));
+
+	visitAst(root, resolveGatherImportsNode, f);
 }
