@@ -155,17 +155,50 @@ struct ModuleData
 	llvm::Value* entrypoint;
 };
 
+bool isModuleReady(const ModuleData& module, const unordered_set<Str>& visited)
+{
+	for (auto& i: module.imports)
+		if (visited.count(i) == 0)
+			return false;
+
+	return true;
+}
+
 vector<ModuleData*> sortModules(unordered_map<Str, ModuleData>& modules)
 {
 	vector<ModuleData*> result;
 
-	auto pit = modules.find(Str("prelude"));
-	if (pit != modules.end())
-		result.push_back(&pit->second);
-
+	vector<ModuleData*> pending;
 	for (auto& m: modules)
-		if (m.first != "prelude")
-			result.push_back(&m.second);
+		pending.push_back(&m.second);
+
+	unordered_set<Str> visited;
+
+	while (!pending.empty())
+	{
+		size_t size = result.size();
+
+		for (ModuleData*& p: pending)
+			if (isModuleReady(*p, visited))
+			{
+				result.push_back(p);
+				p = nullptr;
+			}
+
+		if (size < result.size())
+		{
+			pending.erase(remove(pending.begin(), pending.end(), nullptr), pending.end());
+
+			for (size_t i = size; i < result.size(); ++i)
+				visited.insert(result[i]->name);
+
+			sort(result.begin() + size, result.end(), [](ModuleData* lhs, ModuleData* rhs) { return lhs->name < rhs->name; });
+		}
+		else
+		{
+			ICE("circular dependency");
+		}
+	}
 
 	return result;
 }

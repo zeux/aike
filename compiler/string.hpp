@@ -37,6 +37,14 @@ struct Str
 		return !(*this == other);
 	}
 
+	bool operator<(const Str& other) const
+	{
+		int r = memcmp(data, other.data, min(size, other.size));
+		if (r != 0) return r < 0;
+
+		return size < other.size;
+	}
+
 	char operator[](size_t i) const
 	{
 		assert(i < size);
