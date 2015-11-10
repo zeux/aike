@@ -164,7 +164,34 @@ bool isModuleReady(const ModuleData& module, const unordered_set<Str>& visited)
 	return true;
 }
 
-vector<ModuleData*> sortModules(unordered_map<Str, ModuleData>& modules)
+Str findCircularDependencyRec(const Str& module, const unordered_map<Str, ModuleData>& modules, unordered_set<Str>& visited)
+{
+	if (visited.count(module))
+		return module;
+
+	visited.insert(module);
+
+	auto it = modules.find(module);
+	assert(it != modules.end());
+
+	for (auto& i: it->second.imports)
+	{
+		Str im = findCircularDependencyRec(i, modules, visited);
+		if (im.size)
+			return im;
+	}
+
+	return Str();
+}
+
+Str findCircularDependency(const Str& module, const unordered_map<Str, ModuleData>& modules)
+{
+	unordered_set<Str> visited;
+
+	return findCircularDependencyRec(module, modules, visited);
+}
+
+vector<ModuleData*> sortModules(Output& output, unordered_map<Str, ModuleData>& modules)
 {
 	vector<ModuleData*> result;
 
@@ -196,7 +223,9 @@ vector<ModuleData*> sortModules(unordered_map<Str, ModuleData>& modules)
 		}
 		else
 		{
-			ICE("circular dependency");
+			Str module = findCircularDependency(pending[0]->name, modules);
+
+			output.panic(Location(), "Circular dependency detected: module %s transitively imports itself", module.str().c_str());
 		}
 	}
 
@@ -342,7 +371,7 @@ int main(int argc, const char** argv)
 			pendingModules.push_back({ m, getModulePath(m) });
 	}
 
-	vector<ModuleData*> moduleOrder = sortModules(modules);
+	vector<ModuleData*> moduleOrder = sortModules(output, modules);
 	vector<llvm::Value*> entries;
 
 	for (auto& m: moduleOrder)
