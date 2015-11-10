@@ -27,6 +27,7 @@
 #include "llvm/ADT/Triple.h"
 
 #include <fstream>
+#include <deque>
 
 struct Options
 {

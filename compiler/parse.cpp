@@ -5,6 +5,8 @@
 #include "tokenize.hpp"
 #include "output.hpp"
 
+#include <cerrno>
+
 const Token kEnd = { Token::TypeEnd };
 
 struct TokenStream
