@@ -244,6 +244,15 @@ static void targetLinkLLD(const Triple& triple, const string& outputPath, const 
 }
 #endif
 
+static const char* getSystemLinker()
+{
+	// ld.gold is much faster than ld.bfd but ld is not always symlinked to ld.gold
+	if (access("/usr/bin/ld.gold", X_OK) == 0)
+		return "/usr/bin/ld.gold";
+
+	return "/usr/bin/ld";
+}
+
 void targetLink(const string& triple, const string& outputPath, const vector<string>& inputs, const string& runtimePath, bool debugInfo)
 {
 #ifdef AIKE_USE_LLD
@@ -252,5 +261,5 @@ void targetLink(const string& triple, const string& outputPath, const vector<str
 		return targetLinkLLD(Triple(triple), outputPath, inputs, runtimePath);
 #endif
 
-	targetLinkLD(Triple(triple), "/usr/bin/ld", outputPath, inputs, runtimePath);
+	targetLinkLD(Triple(triple), getSystemLinker(), outputPath, inputs, runtimePath);
 }
