@@ -40,6 +40,7 @@ static void mangle(string& buffer, Ty* type)
 
 	if (UNION_CASE(String, t, type))
 	{
+		// N..E is a workaround for http://reviews.llvm.org/D13192
 		buffer += "N6stringE";
 		return;
 	}
@@ -75,6 +76,7 @@ static void mangle(string& buffer, Ty* type)
 	{
 		assert(!t->generic);
 
+		// N..E is a workaround for http://reviews.llvm.org/D13192
 		buffer += "N";
 		mangleName(buffer, t->name);
 
