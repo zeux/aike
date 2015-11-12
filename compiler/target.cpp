@@ -146,6 +146,9 @@ static void targetLinkFillArgs(const Triple& triple, vector<const char*>& args)
 
 static void targetLinkLD(const Triple& triple, const string& ld, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
+	// Note that we never remove the objects we saved
+	// This is required for debug info to work on OSX: linker puts references to object files in the executable
+	// We could run dsymutil which moves debug info to .dSYM bundle and then delete the files but for now we just keep them around
 	vector<string> files = targetDumpObjects(outputPath, inputs);
 
 	vector<const char*> args;
