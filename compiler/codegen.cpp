@@ -798,16 +798,23 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 	ICE("Unknown Ast kind %d", node->kind);
 }
 
+static vector<Value*> getFunctionArguments(Function* f)
+{
+	vector<Value*> result;
+
+	for (Function::arg_iterator ait = f->arg_begin(); ait != f->arg_end(); ++ait)
+		result.push_back(&*ait);
+
+	return result;
+}
+
 static void codegenFunctionExtern(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(!inst.decl->body);
 
 	Constant* external = cg.module->getOrInsertFunction(inst.decl->var->name.str(), inst.value->getFunctionType());
 
-	vector<Value*> args;
-
-	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait)
-		args.push_back(ait);
+	vector<Value*> args = getFunctionArguments(inst.value);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
@@ -824,23 +831,25 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(!inst.decl->body);
 
+	vector<Value*> args = getFunctionArguments(inst.value);
+
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
 
 	Str name = inst.decl->var->name;
 
-	if (name == "sizeof" && inst.generics.size() == 1 && inst.value->arg_size() == 0)
+	if (name == "sizeof" && inst.generics.size() == 1 && args.size() == 0)
 	{
 		Type* type = codegenType(cg, inst.generics[0].second);
 		Value* ret = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(type), cg.ir->getInt32Ty(), false);
 
 		cg.ir->CreateRet(ret);
 	}
-	else if (name == "newarr" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
+	else if (name == "newarr" && inst.generics.size() == 1 && args.size() == 1)
 	{
 		Type* type = codegenType(cg, UNION_NEW(Ty, Array, { inst.generics[0].second }));
 
-		Value* count = inst.value->arg_begin();
+		Value* count = args[0];
 
 		Value* ret = UndefValue::get(type);
 
@@ -849,16 +858,16 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 		cg.ir->CreateRet(ret);
 	}
-	else if (name == "length" && inst.generics.size() == 1 && inst.value->arg_size() == 1)
+	else if (name == "length" && inst.generics.size() == 1 && args.size() == 1)
 	{
-		Value* array = inst.value->arg_begin();
+		Value* array = args[0];
 		Value* ret = cg.ir->CreateExtractValue(array, 1);
 
 		cg.ir->CreateRet(ret);
 	}
-	else if (name == "assert" && inst.value->arg_size() == 1)
+	else if (name == "assert" && args.size() == 1)
 	{
-		Value* expr = inst.value->arg_begin();
+		Value* expr = args[0];
 
 		codegenTrapIf(cg, cg.ir->CreateNot(expr), /* debug= */ true);
 
@@ -949,7 +958,10 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 	auto valit = inst.value->arg_begin();
 
 	for (auto it = fun->arg_begin(); it != fun->arg_end(); ++it)
-		it->replaceAllUsesWith(valit++);
+	{
+		it->replaceAllUsesWith(&*valit);
+		valit++;
+	}
 
 	fun->eraseFromParent();
 }
@@ -958,10 +970,10 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.decl->body);
 
-	size_t argindex = 0;
+	vector<Value*> args = getFunctionArguments(inst.value);
 
-	for (Function::arg_iterator ait = inst.value->arg_begin(); ait != inst.value->arg_end(); ++ait, ++argindex)
-		cg.vars[inst.decl->args[argindex]] = ait;
+	for (size_t i = 0; i < args.size(); ++i)
+		cg.vars[inst.decl->args[i]] = args[i];
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
