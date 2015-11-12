@@ -1060,6 +1060,8 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 	codegenPrepare(cg);
 
 	UNION_CASE(Module, rootModule, root);
+	assert(rootModule);
+
 	Location entryLocation = rootModule->location;
 
 	if (cg.di)
