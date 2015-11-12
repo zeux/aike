@@ -1015,13 +1015,20 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 
 	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 38
 		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateTypeArray({}));
+
+		auto func = cg.di->createFunction(
+			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
+			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
+			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
 	#else
 		auto fty = cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
-	#endif
 
 		auto func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
 			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1);
+
+		inst.value->setSubprogram(func);
+	#endif
 
 		cg.debugBlocks.push_back(func);
 
