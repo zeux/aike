@@ -1,7 +1,8 @@
 #pragma once
 
-struct Ast;
 struct Location;
+struct Output;
+struct Ast;
 
 struct ModuleResolver
 {
@@ -9,3 +10,5 @@ struct ModuleResolver
 };
 
 void moduleGatherImports(Ast* root, function<void (Str, Location)> f);
+
+vector<unsigned int> moduleSort(Output& output, const vector<Ast*>& modules);

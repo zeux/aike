@@ -146,94 +146,6 @@ string getModulePath(const Str& name)
 	return "library/" + path + ".aike";
 }
 
-struct ModuleData
-{
-	Str name;
-	string path;
-
-	Ast* root;
-	vector<Str> imports;
-
-	llvm::Value* entrypoint;
-};
-
-bool isModuleReady(const ModuleData& module, const unordered_set<Str>& visited)
-{
-	for (auto& i: module.imports)
-		if (visited.count(i) == 0)
-			return false;
-
-	return true;
-}
-
-Str findCircularDependencyRec(const Str& module, const unordered_map<Str, ModuleData>& modules, unordered_set<Str>& visited)
-{
-	if (visited.count(module))
-		return module;
-
-	visited.insert(module);
-
-	auto it = modules.find(module);
-	assert(it != modules.end());
-
-	for (auto& i: it->second.imports)
-	{
-		Str im = findCircularDependencyRec(i, modules, visited);
-		if (im.size)
-			return im;
-	}
-
-	return Str();
-}
-
-Str findCircularDependency(const Str& module, const unordered_map<Str, ModuleData>& modules)
-{
-	unordered_set<Str> visited;
-
-	return findCircularDependencyRec(module, modules, visited);
-}
-
-vector<ModuleData*> sortModules(Output& output, unordered_map<Str, ModuleData>& modules)
-{
-	vector<ModuleData*> result;
-
-	vector<ModuleData*> pending;
-	for (auto& m: modules)
-		pending.push_back(&m.second);
-
-	unordered_set<Str> visited;
-
-	while (!pending.empty())
-	{
-		size_t size = result.size();
-
-		for (ModuleData*& p: pending)
-			if (isModuleReady(*p, visited))
-			{
-				result.push_back(p);
-				p = nullptr;
-			}
-
-		if (size < result.size())
-		{
-			pending.erase(remove(pending.begin(), pending.end(), nullptr), pending.end());
-
-			for (size_t i = size; i < result.size(); ++i)
-				visited.insert(result[i]->name);
-
-			sort(result.begin() + size, result.end(), [](ModuleData* lhs, ModuleData* rhs) { return lhs->name < rhs->name; });
-		}
-		else
-		{
-			Str module = findCircularDependency(pending[0]->name, modules);
-
-			output.panic(Location(), "Circular dependency detected: module %s transitively imports itself", module.str().c_str());
-		}
-	}
-
-	return result;
-}
-
 Ast* parseModule(Timer& timer, Output& output, const char* source, const Str& contents, const Str& moduleName, const Options& options)
 {
 	timer.checkpoint();
@@ -326,16 +238,16 @@ int main(int argc, const char** argv)
 			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
 	}
 
-	unordered_map<Str, ModuleData> modules;
+	vector<Ast*> modules;
+	unordered_map<Str, unsigned int> readyModules;
 
 	ModuleResolver resolver;
 
 	resolver.lookup = [&](Str name) -> Ast* {
-		auto it = modules.find(name);
-		if (it == modules.end()) return nullptr;
+		auto it = readyModules.find(name);
+		if (it == readyModules.end()) return nullptr;
 
-		assert(it->second.entrypoint); // module has to be compiled
-		return it->second.root;
+		return modules[it->second];
 	};
 
 	deque<pair<Str, string>> pendingModules;
@@ -353,10 +265,10 @@ int main(int argc, const char** argv)
 		Str moduleName = pm.first;
 		string modulePath = pm.second;
 
-		if (modules.count(moduleName))
+		if (readyModules.count(moduleName))
 			continue;
 
-		const char* source = strdup(pm.second.c_str());
+		const char* source = strdup(modulePath.c_str());
 
 		Str contents = readFile(source);
 
@@ -368,23 +280,22 @@ int main(int argc, const char** argv)
 			if (moduleName != "prelude")
 				m->autoimports.push(Str("prelude"));
 
-		vector<Str> imports;
-		moduleGatherImports(root, [&](Str name, Location location) { imports.push_back(name); });
+		moduleGatherImports(root, [&](Str name, Location location) {
+			pendingModules.push_back({ name, getModulePath(name) });
+		});
 
-		modules[moduleName] = { moduleName, pm.second, root, imports };
-
-		for (auto& m: imports)
-			pendingModules.push_back({ m, getModulePath(m) });
+		readyModules[moduleName] = modules.size();
+		modules.push_back(root);
 	}
 
-	vector<ModuleData*> moduleOrder = sortModules(output, modules);
+	vector<unsigned int> moduleOrder = moduleSort(output, modules);
 	vector<llvm::Value*> entries;
 
-	for (auto& m: moduleOrder)
+	for (auto& i: moduleOrder)
 	{
-		m->entrypoint = compileModule(timer, output, module, m->root, &resolver, options);
+		llvm::Value* entrypoint = compileModule(timer, output, module, modules[i], &resolver, options);
 
-		entries.push_back(m->entrypoint);
+		entries.push_back(entrypoint);
 	}
 
 	codegenMain(module, entries);
