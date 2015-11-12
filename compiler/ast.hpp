@@ -74,7 +74,7 @@ struct FieldRef
 	X(Ident, { Str name; Location location; Ty* type; Arr<Ty*> tyargs; Arr<Variable*> targets; }) \
 	X(Member, { Ast* expr; Location location; Ty* exprty; FieldRef field; }) \
 	X(Block, { Arr<Ast*> body; }) \
-	X(Module, { Str name; Location location; Ast* body; }) \
+	X(Module, { Str name; Location location; Ast* body; Arr<Str> autoimports; }) \
 	X(Call, { Ast* expr; Arr<Ast*> args; Location location; }) \
 	X(Unary, { UnaryOp op; Ast* expr; Location location; }) \
 	X(Binary, { BinaryOp op; Ast* left; Ast* right; Location location; }) \

@@ -138,6 +138,16 @@ static void resolveImport(ResolveNames& rs, Ast* root)
 		resolveDecl(rs, c);
 }
 
+static void resolveImport(ResolveNames& rs, const Str& name)
+{
+	assert(rs.moduleResolver);
+
+	Ast* import = rs.moduleResolver->lookup(name);
+	assert(import);
+
+	resolveImport(rs, import);
+}
+
 static Arr<Variable*> resolveBindings(const vector<Variable*>& targets)
 {
 	if (targets.empty())
@@ -184,6 +194,9 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	{
 		assert(!rs.module);
 		rs.module = n;
+
+		for (auto& i: n->autoimports)
+			resolveImport(rs, i);
 
 		visitAst(n->body, resolveNamesNode, rs);
 	}
@@ -264,12 +277,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	}
 	else if (UNION_CASE(Import, n, root))
 	{
-		assert(rs.moduleResolver);
-
-		Ast* import = rs.moduleResolver->lookup(n->name);
-		assert(import);
-
-		resolveImport(rs, import);
+		resolveImport(rs, n->name);
 	}
 	else
 		return false;
@@ -277,23 +285,9 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 	return true;
 }
 
-static bool needsPrelude(Ast* root)
-{
-	if (UNION_CASE(Module, m, root))
-		return m->name != "prelude";
-
-	return true;
-}
-
 void resolveNames(Output& output, Ast* root, ModuleResolver* moduleResolver)
 {
 	ResolveNames rs = { &output, moduleResolver };
-
-	if (moduleResolver && needsPrelude(root))
-	{
-		if (Ast* prelude = moduleResolver->lookup(Str("prelude")))
-			resolveImport(rs, prelude);
-	}
 
 	visitAst(root, resolveNamesNode, rs);
 }
@@ -364,20 +358,4 @@ int resolveMembers(Output& output, Ast* root)
 	visitAst(root, resolveMembersNode, rs);
 
 	return rs.counter;
-}
-
-bool resolveGatherImportsNode(function<void (Str)>& f, Ast* root)
-{
-	if (UNION_CASE(Import, n, root))
-		f(n->name);
-
-	return false;
-}
-
-void resolveGatherImports(Ast* root, function<void (Str)> f)
-{
-	if (needsPrelude(root))
-		f(Str("prelude"));
-
-	visitAst(root, resolveGatherImportsNode, f);
 }

@@ -13,6 +13,7 @@
 #include "target.hpp"
 #include "dump.hpp"
 #include "timer.hpp"
+#include "ast.hpp"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -363,8 +364,12 @@ int main(int argc, const char** argv)
 
 		Ast* root = parseModule(timer, output, source, contents, moduleName, options);
 
+		if (UNION_CASE(Module, m, root))
+			if (moduleName != "prelude")
+				m->autoimports.push(Str("prelude"));
+
 		vector<Str> imports;
-		resolveGatherImports(root, [&](Str name) { imports.push_back(name); });
+		moduleGatherImports(root, [&](Str name) { imports.push_back(name); });
 
 		modules[moduleName] = { moduleName, pm.second, root, imports };
 
