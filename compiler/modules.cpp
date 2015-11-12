@@ -32,31 +32,33 @@ struct ModuleData
 	vector<pair<Str, Location>> imports;
 };
 
-static Str findCircularDependencyRec(const Str& module, const unordered_map<Str, ModuleData>& modules, unordered_set<Str>& visited)
+static pair<Str, Location> findCircularDependencyRec(const pair<Str, Location>& import, const unordered_map<Str, ModuleData>& modules, unordered_set<Str>& visited)
 {
-	if (visited.count(module))
-		return module;
+	if (visited.count(import.first))
+		return import;
 
-	visited.insert(module);
+	visited.insert(import.first);
 
-	auto it = modules.find(module);
+	auto it = modules.find(import.first);
 	assert(it != modules.end());
 
 	for (auto& i: it->second.imports)
 	{
-		Str im = findCircularDependencyRec(i.first, modules, visited);
-		if (im.size)
+		auto im = findCircularDependencyRec(i, modules, visited);
+		if (im.first.size)
 			return im;
 	}
 
-	return Str();
+	visited.erase(import.first);
+
+	return make_pair(Str(), Location());
 }
 
-static Str findCircularDependency(const Str& module, const unordered_map<Str, ModuleData>& modules)
+static pair<Str, Location> findCircularDependency(const pair<Str, Location>& import, const unordered_map<Str, ModuleData>& modules)
 {
 	unordered_set<Str> visited;
 
-	return findCircularDependencyRec(module, modules, visited);
+	return findCircularDependencyRec(import, modules, visited);
 }
 
 static bool moduleIsReady(const ModuleData& module, const unordered_set<Str>& visited)
@@ -102,9 +104,10 @@ static vector<unsigned int> moduleSort(Output& output, const unordered_map<Str, 
 
 		if (write == pending.size())
 		{
-			Str module = findCircularDependency(pending[0]->name, modules);
+			auto import = findCircularDependency(make_pair(pending[0]->name, Location()), modules);
+			assert(import.first.size);
 
-			output.panic(Location(), "Circular dependency detected: module %s transitively imports itself", module.str().c_str());
+			output.panic(import.second, "Circular dependency detected: module %s transitively imports itself", import.first.str().c_str());
 		}
 
 		pending.resize(write);
