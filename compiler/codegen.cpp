@@ -1013,12 +1013,15 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 
 		auto file = cg.di->createFile(loc.source, StringRef());
 
+	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 38
 		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateTypeArray({}));
+	#else
+		auto fty = cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
+	#endif
 
 		auto func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
-			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
-			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
+			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1);
 
 		cg.debugBlocks.push_back(func);
 
