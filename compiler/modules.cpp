@@ -68,42 +68,46 @@ static bool moduleIsReady(const ModuleData& module, const unordered_set<Str>& vi
 	return true;
 }
 
-static vector<const ModuleData*> moduleSort(Output& output, const unordered_map<Str, ModuleData>& modules)
+static vector<unsigned int> moduleSort(Output& output, const unordered_map<Str, ModuleData>& modules)
 {
-	vector<const ModuleData*> result;
+	vector<unsigned int> result;
 
 	vector<const ModuleData*> pending;
 	for (auto& m: modules)
 		pending.push_back(&m.second);
 
+	// make sure output order is stable
+	sort(pending.begin(), pending.end(), [](const ModuleData* lhs, const ModuleData* rhs) { return lhs->name < rhs->name; });
+
 	unordered_set<Str> visited;
 
 	while (!pending.empty())
 	{
-		size_t size = result.size();
+		size_t write = 0;
 
-		for (auto& p: pending)
-			if (moduleIsReady(*p, visited))
-			{
-				result.push_back(p);
-				p = nullptr;
-			}
-
-		if (size < result.size())
+		for (size_t i = 0; i < pending.size(); ++i)
 		{
-			pending.erase(remove(pending.begin(), pending.end(), nullptr), pending.end());
+			const ModuleData* m = pending[i];
 
-			for (size_t i = size; i < result.size(); ++i)
-				visited.insert(result[i]->name);
-
-			sort(result.begin() + size, result.end(), [](const ModuleData* lhs, const ModuleData* rhs) { return lhs->name < rhs->name; });
+			if (moduleIsReady(*m, visited))
+			{
+				result.push_back(m->index);
+				visited.insert(m->name);
+			}
+			else
+			{
+				pending[write++] = m;
+			}
 		}
-		else
+
+		if (write == pending.size())
 		{
 			Str module = findCircularDependency(pending[0]->name, modules);
 
 			output.panic(Location(), "Circular dependency detected: module %s transitively imports itself", module.str().c_str());
 		}
+
+		pending.resize(write);
 	}
 
 	return result;
@@ -129,12 +133,5 @@ vector<unsigned int> moduleSort(Output& output, const vector<Ast*>& modules)
 		moduleMap[m->name] = { m->name, unsigned(i), imports };
 	}
 
-	vector<const ModuleData*> order = moduleSort(output, moduleMap);
-
-	vector<unsigned int> result;
-
-	for (auto& m: order)
-		result.push_back(m->index);
-
-	return result;
+	return moduleSort(output, moduleMap);
 }
