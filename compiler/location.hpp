@@ -27,6 +27,6 @@ struct Location
 		line = lhs.line;
 		column = lhs.column;
 		offset = lhs.offset;
-		length = rhs.offset - lhs.offset;
+		length = rhs.offset + rhs.length - lhs.offset;
 	}
 };
