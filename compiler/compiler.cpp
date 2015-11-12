@@ -369,7 +369,7 @@ int main(int argc, const char** argv)
 				m->autoimports.push(Str("prelude"));
 
 		vector<Str> imports;
-		moduleGatherImports(root, [&](Str name) { imports.push_back(name); });
+		moduleGatherImports(root, [&](Str name, Location location) { imports.push_back(name); });
 
 		modules[moduleName] = { moduleName, pm.second, root, imports };
 
