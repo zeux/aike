@@ -113,14 +113,15 @@ static void resolveTypeInstance(ResolveNames& rs, Ty* type)
 {
 	if (UNION_CASE(Instance, t, type))
 	{
-		assert(!t->def && !t->generic);
-
-		if (TyDef* def = rs.typedefs.find(t->name))
-			t->def = def;
-		else if (Ty* generic = rs.generics.find(t->name))
-			t->generic = generic;
-		else
-			rs.output->panic(t->location, "Unresolved type %s", t->name.str().c_str());
+		if (!t->def && !t->generic)
+		{
+			if (TyDef* def = rs.typedefs.find(t->name))
+				t->def = def;
+			else if (Ty* generic = rs.generics.find(t->name))
+				t->generic = generic;
+			else
+				rs.output->panic(t->location, "Unresolved type %s", t->name.str().c_str());
+		}
 	}
 }
 
