@@ -133,7 +133,10 @@ static void resolveType(ResolveNames& rs, Ty* type)
 static void resolveImport(ResolveNames& rs, Ast* root)
 {
 	UNION_CASE(Module, mn, root);
+	assert(mn);
+
 	UNION_CASE(Block, bn, mn->body);
+	assert(bn);
 
 	for (auto& c: bn->body)
 		resolveDecl(rs, c);
