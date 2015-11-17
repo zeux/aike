@@ -202,7 +202,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 		for (auto& i: n->autoimports)
 			resolveImport(rs, i);
 
-		visitAst(n->body, resolveNamesNode, rs);
+		visitAstInner(root, resolveNamesNode, rs);
 	}
 	else if (UNION_CASE(For, n, root))
 	{
