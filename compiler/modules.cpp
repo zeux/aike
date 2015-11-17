@@ -1,6 +1,8 @@
 #include "common.hpp"
 #include "modules.hpp"
 
+#include "ast.hpp"
+
 #include "output.hpp"
 #include "visit.hpp"
 
