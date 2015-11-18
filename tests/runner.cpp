@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <string>
+#include <sstream>
 
 int system(const char* command, std::string& output)
 {
@@ -78,6 +79,24 @@ TestType parseTest(const char* path, std::string& output)
 	return error ? TestType::Unknown : type;
 }
 
+std::string sanitizeErrors(const std::string& output, const std::string& source)
+{
+	std::istringstream iss(output);
+	std::string result;
+
+	std::string line;
+	while (std::getline(iss, line))
+	{
+		if (line.compare(0, source.length(), source) != 0)
+			continue;
+
+		result += line.substr(source.length());
+		result += "\n";
+	}
+
+	return result;
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 4)
@@ -151,11 +170,13 @@ int main(int argc, char** argv)
 			return 1;
 		}
 
-		if (output != expectedOutput)
+		std::string errors = sanitizeErrors(output, source);
+
+		if (errors != expectedOutput)
 		{
 			fprintf(stderr, "Test %s failed: error output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected errors:\n%s", expectedOutput.c_str());
-			fprintf(stderr, "Actual errors:\n%s", output.c_str());
+			fprintf(stderr, "Actual errors:\n%s", errors.c_str());
 			return 1;
 		}
 	}

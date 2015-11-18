@@ -96,7 +96,7 @@ $(BUILD)/%.s.o: %.s
 
 $(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 	@mkdir -p $(dir $@)
-	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(flags) --robot
+	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(flags)
 	@touch $@
 
 -include $(OBJECTS:.o=.d)
