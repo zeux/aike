@@ -251,17 +251,20 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		auto expr = type(output, n->expr, constraints);
 
+		// This is not important for correctness but generates nicer errors for argument count/type mismatch
 		if (UNION_CASE(Function, fnty, expr.first))
 		{
-			if (fnty->args.size != n->args.size)
-				output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
-
-			for (size_t i = 0; i < n->args.size; ++i)
+			if (fnty->args.size == n->args.size)
 			{
-				auto arg = type(output, n->args[i], constraints);
+				for (size_t i = 0; i < n->args.size; ++i)
+				{
+					auto arg = type(output, n->args[i], constraints);
 
-				typeMustEqual(arg.first, fnty->args[i], constraints, output, arg.second);
+					typeMustEqual(arg.first, fnty->args[i], constraints, output, arg.second);
+				}
 			}
+			else if (!constraints)
+				output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
 
 			return make_pair(fnty->ret, n->location);
 		}
@@ -356,7 +359,7 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		typeMustEqual(right.first, left.first, constraints, output, right.second);
 
-		if (!isAssignable(n->left))
+		if (!isAssignable(n->left) && !constraints)
 			output.panic(n->location, "Expression is not assignable");
 
 		return make_pair(UNION_NEW(Ty, Void, {}), n->location);
