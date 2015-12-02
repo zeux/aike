@@ -114,27 +114,6 @@ static FunctionInstance* getFunctionInstance(Codegen& cg, Ast::FnDecl* decl)
 	return nullptr;
 }
 
-static Type* codegenType(Codegen& cg, Ty* type);
-
-static Type* codegenTypeDef(Codegen& cg, Ty* type, TyDef* def)
-{
-	if (UNION_CASE(Struct, d, def))
-	{
-		string name = mangleType(type);
-
-		if (StructType* st = cg.module->getTypeByName(name))
-			return st;
-
-		vector<Type*> fields;
-		for (size_t i = 0; i < d->fields.size; ++i)
-			fields.push_back(codegenType(cg, typeMember(type, i)));
-
-		return StructType::create(*cg.context, fields, name);
-	}
-
-	ICE("Unknown TyDef kind %d", def->kind);
-}
-
 static Type* codegenType(Codegen& cg, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))
@@ -203,7 +182,21 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		{
 			assert(t->def);
 
-			return codegenTypeDef(cg, type, t->def);
+			if (UNION_CASE(Struct, d, t->def))
+			{
+				string name = mangleType(type);
+
+				if (StructType* st = cg.module->getTypeByName(name))
+					return st;
+
+				vector<Type*> fields;
+				for (size_t i = 0; i < d->fields.size; ++i)
+					fields.push_back(codegenType(cg, typeMember(type, i)));
+
+				return StructType::create(*cg.context, fields, name);
+			}
+
+			ICE("Unknown TyDef kind %d", t->def->kind);
 		}
 	}
 
