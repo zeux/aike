@@ -451,7 +451,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 		// TODO: verify name uniqueness
 		for (auto& f: fnames)
-			fields.push({ f.data, ty, expr });
+			fields.push({ f.data, f.location, ty, expr });
 	});
 
 	TyDef* def = UNION_NEW(TyDef, Struct, { tysig, fields });

@@ -8,6 +8,7 @@ struct Ast;
 struct StructField
 {
 	Str name;
+	Location location;
 	Ty* type;
 	Ast* expr;
 };
