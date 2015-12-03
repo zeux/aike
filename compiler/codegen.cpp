@@ -274,10 +274,30 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 			if (UNION_CASE(Struct, d, t->def))
 			{
-				string name = mangleType(type);
+				StructType* ty = cast<StructType>(codegenType(cg, type));
+				const StructLayout* layout = cg.module->getDataLayout().getStructLayout(ty);
 
-				// TODO
-				return cg.di->createUnspecifiedType(name);
+				auto file = cg.di->createFile(t->location.source, StringRef());
+
+				vector<Metadata*> fields;
+
+				for (size_t i = 0; i < d->fields.size; ++i)
+				{
+					DIType* dty = codegenTypeDebug(cg, typeMember(type, i));
+
+					fields.push_back(cg.di->createMemberType(
+						file, d->fields[i].name.str(),
+						file, d->fields[i].location.line + 1,
+						cg.module->getDataLayout().getTypeSizeInBits(ty->getElementType(i)),
+						0,
+						layout->getElementOffset(i) * 8, 0,
+						dty));
+				}
+
+				return cg.di->createStructType(
+					/* scope= */ nullptr, t->name.str(), file, t->location.line + 1,
+					layout->getSizeInBits(), 0, 0,
+					nullptr, cg.di->getOrCreateArray(fields));
 			}
 
 			ICE("Unknown TyDef kind %d", t->def->kind);
