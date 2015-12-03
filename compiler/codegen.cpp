@@ -203,6 +203,90 @@ static Type* codegenType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
+{
+	assert(cg.di);
+
+	if (UNION_CASE(Void, t, type))
+	{
+		return nullptr;
+	}
+
+	if (UNION_CASE(Bool, t, type))
+	{
+		return cg.di->createBasicType("bool", 8, 0, dwarf::DW_ATE_boolean);
+	}
+
+	if (UNION_CASE(Integer, t, type))
+	{
+		return cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
+	}
+
+	if (UNION_CASE(Float, t, type))
+	{
+		return cg.di->createBasicType("float", 32, 0, dwarf::DW_ATE_float);
+	}
+
+	if (UNION_CASE(String, t, type))
+	{
+		// TODO
+		return cg.di->createUnspecifiedType("string");
+	}
+
+	if (UNION_CASE(Array, t, type))
+	{
+		DIType* element = codegenTypeDebug(cg, t->element);
+
+		// TODO
+		return cg.di->createUnspecifiedType("array");
+	}
+
+	if (UNION_CASE(Pointer, t, type))
+	{
+		DIType* element = codegenTypeDebug(cg, t->element);
+
+		return cg.di->createPointerType(element, sizeof(void*));
+	}
+
+	if (UNION_CASE(Function, t, type))
+	{
+		vector<Metadata*> args;
+
+		args.push_back(codegenTypeDebug(cg, t->ret));
+
+		for (auto& a: t->args)
+			args.push_back(codegenTypeDebug(cg, a));
+
+		return cg.di->createSubroutineType(cg.di->getOrCreateTypeArray(args));
+	}
+
+	if (UNION_CASE(Instance, t, type))
+	{
+		if (t->generic)
+		{
+			Ty* inst = getGenericInstance(cg, t->generic);
+
+			return codegenTypeDebug(cg, inst);
+		}
+		else
+		{
+			assert(t->def);
+
+			if (UNION_CASE(Struct, d, t->def))
+			{
+				string name = mangleType(type);
+
+				// TODO
+				return cg.di->createUnspecifiedType(name);
+			}
+
+			ICE("Unknown TyDef kind %d", t->def->kind);
+		}
+	}
+
+	ICE("Unknown Ty kind %d", type->kind);
+}
+
 static Ty* finalType(Codegen& cg, Ty* type)
 {
 	return typeInstantiate(type, [&](Ty* ty) -> Ty* {
@@ -714,6 +798,16 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 	cg.vars[n->var] = storage;
 
+	if (cg.di && cg.options.debugInfo >= 2)
+	{
+		auto file = cg.di->createFile(n->var->location.source, StringRef());
+		auto dty = codegenTypeDebug(cg, n->var->type);
+		auto dvar = cg.di->createAutoVariable(cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty);
+		auto dloc = DebugLoc::get(n->var->location.line + 1, n->var->location.column + 1, cg.debugBlocks.back());
+
+		cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
+	}
+
 	return storage;
 }
 
@@ -971,6 +1065,23 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
 
+	if (cg.di && cg.options.debugInfo >= 2)
+	{
+		auto file = cg.di->createFile(inst.decl->var->location.source, StringRef());
+
+		for (size_t i = 0; i < args.size(); ++i)
+		{
+			Variable* var = inst.decl->args[i];
+			Value* storage = args[i];
+
+			auto dty = codegenTypeDebug(cg, var->type);
+			auto dvar = cg.di->createParameterVariable(cg.debugBlocks.back(), var->name.str(), i + 1, file, var->location.line + 1, dty);
+			auto dloc = DebugLoc::get(var->location.line + 1, var->location.column + 1, cg.debugBlocks.back());
+
+			cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
+		}
+	}
+
 	Value* ret = codegenExpr(cg, inst.decl->body);
 
 	if (!inst.value->getFunctionType()->getReturnType()->isVoidTy())
@@ -1014,7 +1125,10 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
 			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
 	#else
-		auto fty = cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
+		DISubroutineType* fty =
+			(cg.options.debugInfo >= 2 && inst.decl->var->type)
+			? cast<DISubroutineType>(codegenTypeDebug(cg, inst.decl->var->type))
+			: cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
 
 		auto func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
