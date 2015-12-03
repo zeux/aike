@@ -305,11 +305,11 @@ int main(int argc, const char** argv)
 
 	timer.checkpoint("optimize");
 
+	for (auto& fun: *module)
+		fun.addFnAttr("no-frame-pointer-elim", "true");
+
 	if (options.debugInfo)
 	{
-		for (auto& fun: *module)
-			fun.addFnAttr("no-frame-pointer-elim", "true");
-
 		debugInfoMerge(module);
 
 		timer.checkpoint("debuginfo");
