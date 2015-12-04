@@ -207,6 +207,8 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 {
 	assert(cg.di);
 
+	const DataLayout& layout = cg.module->getDataLayout();
+
 	if (UNION_CASE(Void, t, type))
 	{
 		return nullptr;
@@ -229,23 +231,55 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(String, t, type))
 	{
-		// TODO
-		return cg.di->createUnspecifiedType("string");
+		DIType* ety = cg.di->createBasicType("char", 8, 0, dwarf::DW_ATE_signed_char);
+		DIType* pty = cg.di->createPointerType(ety, layout.getPointerSizeInBits());
+		DIType* szty = cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
+
+		StructType* sty = cast<StructType>(codegenType(cg, type));
+		const StructLayout* sl = layout.getStructLayout(sty);
+
+		Metadata* fields[] =
+		{
+			cg.di->createMemberType(nullptr, "data", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, 0, pty),
+			cg.di->createMemberType(nullptr, "size", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, 0, szty),
+		};
+
+		return cg.di->createStructType(
+			nullptr, "string", nullptr, 0,
+			sl->getSizeInBits(), 0, 0,
+			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
 	if (UNION_CASE(Array, t, type))
 	{
-		DIType* element = codegenTypeDebug(cg, t->element);
+		DIType* ety = codegenTypeDebug(cg, t->element);
+		DIType* pty = cg.di->createPointerType(ety, layout.getPointerSizeInBits());
+		DIType* szty = cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
 
-		// TODO
-		return cg.di->createUnspecifiedType("array");
+		StructType* sty = cast<StructType>(codegenType(cg, type));
+		const StructLayout* sl = layout.getStructLayout(sty);
+
+		Metadata* fields[] =
+		{
+			cg.di->createMemberType(nullptr, "data", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, 0, pty),
+			cg.di->createMemberType(nullptr, "size", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, 0, szty),
+		};
+
+		return cg.di->createStructType(
+			nullptr, "array", nullptr, 0,
+			sl->getSizeInBits(), 0, 0,
+			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
 	if (UNION_CASE(Pointer, t, type))
 	{
 		DIType* element = codegenTypeDebug(cg, t->element);
 
-		return cg.di->createPointerType(element, sizeof(void*));
+		return cg.di->createPointerType(element, layout.getPointerSizeInBits());
 	}
 
 	if (UNION_CASE(Function, t, type))
@@ -275,9 +309,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 			if (UNION_CASE(Struct, d, t->def))
 			{
 				StructType* ty = cast<StructType>(codegenType(cg, type));
-				const StructLayout* layout = cg.module->getDataLayout().getStructLayout(ty);
-
-				auto file = cg.di->createFile(t->location.source, StringRef());
+				const StructLayout* sl = layout.getStructLayout(ty);
 
 				vector<Metadata*> fields;
 
@@ -286,17 +318,14 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 					DIType* dty = codegenTypeDebug(cg, typeMember(type, i));
 
 					fields.push_back(cg.di->createMemberType(
-						file, d->fields[i].name.str(),
-						file, d->fields[i].location.line + 1,
-						cg.module->getDataLayout().getTypeSizeInBits(ty->getElementType(i)),
-						0,
-						layout->getElementOffset(i) * 8, 0,
-						dty));
+						nullptr, d->fields[i].name.str(), nullptr, 0,
+						layout.getTypeSizeInBits(ty->getElementType(i)),
+						0, sl->getElementOffset(i) * 8, 0, dty));
 				}
 
 				return cg.di->createStructType(
-					/* scope= */ nullptr, t->name.str(), file, t->location.line + 1,
-					layout->getSizeInBits(), 0, 0,
+					nullptr, t->name.str(), nullptr, 0,
+					sl->getSizeInBits(), 0, 0,
 					nullptr, cg.di->getOrCreateArray(fields));
 			}
 
