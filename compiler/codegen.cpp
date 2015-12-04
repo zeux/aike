@@ -291,7 +291,11 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 		for (auto& a: t->args)
 			args.push_back(codegenTypeDebug(cg, a));
 
+	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 38
+		return cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray(args));
+	#else
 		return cg.di->createSubroutineType(cg.di->getOrCreateTypeArray(args));
+	#endif
 	}
 
 	if (UNION_CASE(Instance, t, type))
@@ -847,6 +851,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 	cg.vars[n->var] = storage;
 
+#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR >= 38
 	if (cg.di && cg.options.debugInfo >= 2)
 	{
 		auto file = cg.di->createFile(n->var->location.source, StringRef());
@@ -856,6 +861,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 		cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
 	}
+#endif
 
 	return storage;
 }
@@ -1114,6 +1120,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
 
+#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR >= 38
 	if (cg.di && cg.options.debugInfo >= 2)
 	{
 		auto file = cg.di->createFile(inst.decl->var->location.source, StringRef());
@@ -1130,6 +1137,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 			cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
 		}
 	}
+#endif
 
 	Value* ret = codegenExpr(cg, inst.decl->body);
 
