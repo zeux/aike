@@ -97,10 +97,10 @@ Options parseOptions(int argc, const char** argv)
 	return result;
 }
 
-Str readFile(const char* path)
+pair<bool, Str> readFile(const char* path)
 {
 	FILE* file = fopen(path, "rb");
-	if (!file) panic("Can't read file %s: file not found", path);
+	if (!file) return { false, Str() };
 
 	fseek(file, 0, SEEK_END);
 	long length = ftell(file);
@@ -108,11 +108,10 @@ Str readFile(const char* path)
 
 	char* result = new char[length];
 	fread(result, 1, length, file);
-	if (ferror(file)) panic("Can't read file %s: I/O error", path);
-
+	int error = ferror(file);
 	fclose(file);
 
-	return Str(result, length);
+	return { error == 0, Str(result, length) };
 }
 
 Str getModuleName(const char* path)
@@ -245,41 +244,48 @@ int main(int argc, const char** argv)
 		return modules[it->second];
 	};
 
-	deque<pair<Str, string>> pendingModules;
+	struct PendingModule
+	{
+		Str name;
+		Location import;
+		string path;
+	};
+
+	deque<PendingModule> pendingModules;
 
 	timer.checkpoint("startup");
 
 	for (auto& file: options.inputs)
-		pendingModules.push_back({ getModuleName(file.c_str()), file });
+		pendingModules.push_back({ getModuleName(file.c_str()), Location(), file });
 
 	while (!pendingModules.empty())
 	{
 		auto pm = pendingModules.front();
 		pendingModules.pop_front();
 
-		Str moduleName = pm.first;
-		string modulePath = pm.second;
-
-		if (readyModules.count(moduleName))
+		if (readyModules.count(pm.name))
 			continue;
 
-		const char* source = strdup(modulePath.c_str());
+		const char* source = strdup(pm.path.c_str());
 
-		Str contents = readFile(source);
+		auto contents = readFile(source);
 
-		output.sources[source] = contents;
+		if (!contents.first)
+			output.panic(pm.import, "Cannot find module %s", pm.name.str().c_str());
 
-		Ast* root = parseModule(timer, output, source, contents, moduleName, options);
+		output.sources[source] = contents.second;
+
+		Ast* root = parseModule(timer, output, source, contents.second, pm.name, options);
 
 		if (UNION_CASE(Module, m, root))
-			if (moduleName != "prelude")
+			if (pm.name != "prelude")
 				m->autoimports.push(Str("prelude"));
 
 		moduleGatherImports(root, [&](Str name, Location location) {
-			pendingModules.push_back({ name, getModulePath(name) });
+			pendingModules.push_back({ name, location, getModulePath(name) });
 		});
 
-		readyModules[moduleName] = modules.size();
+		readyModules[pm.name] = modules.size();
 		modules.push_back(root);
 	}
 
