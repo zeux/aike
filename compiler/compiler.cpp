@@ -138,7 +138,10 @@ string getModulePath(const Str& name)
 		if (c == '.')
 			c = '/';
 
-	return "library/" + path + ".aike";
+	if (path.compare(0, 4, "std/") == 0)
+		return "library/" + path.substr(4) + ".aike";
+	else
+		return path + ".aike";
 }
 
 Ast* parseModule(Timer& timer, Output& output, const char* source, const Str& contents, const Str& moduleName, const Options& options)
@@ -278,8 +281,8 @@ int main(int argc, const char** argv)
 		Ast* root = parseModule(timer, output, source, contents.second, pm.name, options);
 
 		if (UNION_CASE(Module, m, root))
-			if (pm.name != "prelude")
-				m->autoimports.push(Str("prelude"));
+			if (pm.name != "std.prelude")
+				m->autoimports.push(Str("std.prelude"));
 
 		moduleGatherImports(root, [&](Str name, Location location) {
 			pendingModules.push_back({ name, location, getModulePath(name) });
