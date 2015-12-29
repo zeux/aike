@@ -1139,6 +1139,12 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 
 	Value* ret = codegenExpr(cg, inst.decl->body);
 
+	// Reset debug location for ret instruction.
+	// This is not ideal since for simple returns (i.e. a function that returns a constant),
+	// there will be no meaningful location. Unfortunately, the location for the last statement
+	// is hard to get manually, and is not part of IR state because of CodegenDebugLocation dtor.
+	cg.ir->SetCurrentDebugLocation(DebugLoc());
+
 	if (!inst.value->getFunctionType()->getReturnType()->isVoidTy())
 		cg.ir->CreateRet(ret);
 	else
