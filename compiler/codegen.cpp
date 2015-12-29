@@ -343,6 +343,13 @@ static Ty* finalType(Codegen& cg, Ty* type)
 	});
 }
 
+static void codegenVariable(Codegen& cg, Variable* var, Value* value)
+{
+	cg.vars[var] = value;
+
+	value->setName(var->name.str());
+}
+
 static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 {
 	Function* func = cg.ir->GetInsertBlock()->getParent();
@@ -773,10 +780,10 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 
 	Value* var = cg.ir->CreateInBoundsGEP(cg.ir->CreateExtractValue(expr, 0), index);
 
-	cg.vars[n->var] = var;
+	codegenVariable(cg, n->var, var);
 
 	if (n->index)
-		cg.vars[n->index] = index;
+		codegenVariable(cg, n->index, index);
 
 	codegenExpr(cg, n->body);
 
@@ -843,9 +850,11 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 	Value* expr = codegenExpr(cg, n->expr);
 
 	Value* storage = cg.ir->CreateAlloca(expr->getType());
+	storage->setName(n->var->name.str());
+
 	cg.ir->CreateStore(expr, storage);
 
-	cg.vars[n->var] = storage;
+	codegenVariable(cg, n->var, storage);
 
 	if (cg.di && cg.options.debugInfo >= 2)
 	{
@@ -1112,7 +1121,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	vector<Value*> args = getFunctionArguments(inst.value);
 
 	for (size_t i = 0; i < args.size(); ++i)
-		cg.vars[inst.decl->args[i]] = args[i];
+		codegenVariable(cg, inst.decl->args[i], args[i]);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
