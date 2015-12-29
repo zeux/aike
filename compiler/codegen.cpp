@@ -1193,7 +1193,7 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 			: cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray({}));
 
 		DISubprogram* func = cg.di->createFunction(
-			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
+			cg.debugBlocks.back(), inst.value->getName(), inst.value->getName(), file, loc.line + 1, fty,
 			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
 			0, false, inst.value);
 
