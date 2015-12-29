@@ -291,11 +291,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 		for (auto& a: t->args)
 			args.push_back(codegenTypeDebug(cg, a));
 
-	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 38
 		return cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray(args));
-	#else
-		return cg.di->createSubroutineType(cg.di->getOrCreateTypeArray(args));
-	#endif
 	}
 
 	if (UNION_CASE(Instance, t, type))
@@ -851,17 +847,18 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 	cg.vars[n->var] = storage;
 
-#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR >= 38
 	if (cg.di && cg.options.debugInfo >= 2)
 	{
-		auto file = cg.di->createFile(n->var->location.source, StringRef());
-		auto dty = codegenTypeDebug(cg, n->var->type);
-		auto dvar = cg.di->createAutoVariable(cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty);
-		auto dloc = DebugLoc::get(n->var->location.line + 1, n->var->location.column + 1, cg.debugBlocks.back());
+		DIFile* file = cg.di->createFile(n->var->location.source, StringRef());
+
+		DIType* dty = codegenTypeDebug(cg, n->var->type);
+		DILocalVariable* dvar = cg.di->createLocalVariable(dwarf::DW_TAG_auto_variable,
+			cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty);
+
+		DebugLoc dloc = DebugLoc::get(n->var->location.line + 1, n->var->location.column + 1, cg.debugBlocks.back());
 
 		cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
 	}
-#endif
 
 	return storage;
 }
@@ -1120,24 +1117,25 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
 	cg.ir->SetInsertPoint(bb);
 
-#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR >= 38
 	if (cg.di && cg.options.debugInfo >= 2)
 	{
-		auto file = cg.di->createFile(inst.decl->var->location.source, StringRef());
+		DIFile* file = cg.di->createFile(inst.decl->var->location.source, StringRef());
 
 		for (size_t i = 0; i < args.size(); ++i)
 		{
 			Variable* var = inst.decl->args[i];
 			Value* storage = args[i];
 
-			auto dty = codegenTypeDebug(cg, var->type);
-			auto dvar = cg.di->createParameterVariable(cg.debugBlocks.back(), var->name.str(), i + 1, file, var->location.line + 1, dty);
-			auto dloc = DebugLoc::get(var->location.line + 1, var->location.column + 1, cg.debugBlocks.back());
+			DIType* dty = codegenTypeDebug(cg, var->type);
+			DILocalVariable* dvar = cg.di->createLocalVariable(dwarf::DW_TAG_arg_variable,
+				cg.debugBlocks.back(), var->name.str(), file, var->location.line + 1, dty,
+				/* alwaysPreserve= */ false, /* flags= */ 0, i + 1);
+
+			DebugLoc dloc = DebugLoc::get(var->location.line + 1, var->location.column + 1, cg.debugBlocks.back());
 
 			cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
 		}
 	}
-#endif
 
 	Value* ret = codegenExpr(cg, inst.decl->body);
 
@@ -1172,27 +1170,17 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 	{
 		const Location& loc = inst.decl->var->location;
 
-		auto file = cg.di->createFile(loc.source, StringRef());
+		DIFile* file = cg.di->createFile(loc.source, StringRef());
 
-	#if LLVM_VERSION_MAJOR * 10 + LLVM_VERSION_MINOR < 38
-		auto fty = cg.di->createSubroutineType(file, cg.di->getOrCreateTypeArray({}));
-
-		auto func = cg.di->createFunction(
-			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
-			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
-			DINode::FlagPrototyped, /* isOptimized= */ false, inst.value);
-	#else
 		DISubroutineType* fty =
 			(cg.options.debugInfo >= 2 && inst.decl->var->type)
 			? cast<DISubroutineType>(codegenTypeDebug(cg, inst.decl->var->type))
-			: cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
+			: cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray({}));
 
-		auto func = cg.di->createFunction(
+		DISubprogram* func = cg.di->createFunction(
 			cg.debugBlocks.back(), StringRef(), inst.value->getName(), file, loc.line + 1, fty,
-			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1);
-
-		inst.value->setSubprogram(func);
-	#endif
+			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
+			0, false, inst.value);
 
 		cg.debugBlocks.push_back(func);
 
@@ -1237,10 +1225,11 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 	if (cg.di)
 	{
-		auto kind = options.debugInfo > 1 ? DIBuilder::FullDebug : DIBuilder::LineTablesOnly;
+		DIBuilder::DebugEmissionKind kind = (options.debugInfo > 1) ? DIBuilder::FullDebug : DIBuilder::LineTablesOnly;
 
 		// It's necessary to use "." as the directory instead of an empty string for debug info to work on OSX
-		auto cu = cg.di->createCompileUnit(dwarf::DW_LANG_C, entryLocation.source, ".", "aikec", /* isOptimized= */ false, StringRef(), 0, StringRef(), kind);
+		DICompileUnit* cu = cg.di->createCompileUnit(dwarf::DW_LANG_C,
+			entryLocation.source, ".", "aikec", /* isOptimized= */ false, StringRef(), 0, StringRef(), kind);
 		cg.debugBlocks.push_back(cu);
 	}
 
