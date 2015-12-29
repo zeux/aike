@@ -350,6 +350,11 @@ static void codegenVariable(Codegen& cg, Variable* var, Value* value)
 	value->setName(var->name.str());
 }
 
+static Value* codegenAlloca(Codegen& cg, Type* type)
+{
+	return cg.ir->CreateAlloca(type);
+}
+
 static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 {
 	Function* func = cg.ir->GetInsertBlock()->getParent();
@@ -849,7 +854,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 	Value* expr = codegenExpr(cg, n->expr);
 
-	Value* storage = cg.ir->CreateAlloca(expr->getType());
+	Value* storage = codegenAlloca(cg, expr->getType());
 	storage->setName(n->var->name.str());
 
 	cg.ir->CreateStore(expr, storage);
@@ -862,7 +867,8 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 		DIType* dty = codegenTypeDebug(cg, n->var->type);
 		DILocalVariable* dvar = cg.di->createLocalVariable(dwarf::DW_TAG_auto_variable,
-			cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty);
+			cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty,
+			/* alwaysPreserve= */ false, /* flags= */ 0);
 
 		DebugLoc dloc = DebugLoc::get(n->var->location.line + 1, n->var->location.column + 1, cg.debugBlocks.back());
 
