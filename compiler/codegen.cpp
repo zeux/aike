@@ -16,6 +16,8 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <sstream>
+
 using namespace llvm;
 
 struct FunctionInstance
@@ -41,9 +43,6 @@ struct Codegen
 
 	Constant* builtinTrap;
 	Constant* builtinDebugTrap;
-	Constant* builtinAddOverflow;
-	Constant* builtinSubOverflow;
-	Constant* builtinMulOverflow;
 
 	Constant* runtimeNew;
 	Constant* runtimeNewArray;
@@ -386,16 +385,6 @@ static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 
 	func->getBasicBlockList().push_back(afterbb);
 	cg.ir->SetInsertPoint(afterbb);
-}
-
-static Value* codegenArithOverflow(Codegen& cg, Value* left, Value* right, Constant* overflowOp)
-{
-	Value* result = cg.ir->CreateCall(overflowOp, { left, right });
-	Value* cond = cg.ir->CreateExtractValue(result, 1);
-
-	codegenTrapIf(cg, cond);
-
-	return cg.ir->CreateExtractValue(result, 0);
 }
 
 static Value* codegenNew(Codegen& cg, Type* elementType)
@@ -1053,6 +1042,27 @@ static string llvmGetTypeName(Type* type)
 	return ss.str();
 }
 
+static pair<string, string> splitDeclarationsFromAssembly(const string& code)
+{
+	stringstream ss(code);
+
+	string decl;
+	string ir;
+
+	string line;
+	while (getline(ss, line))
+	{
+		string::size_type ns = line.find_first_not_of(' ');
+
+		if (line.compare(ns == string::npos ? 0 : ns, 8, "declare ") == 0)
+			decl += line + "\n";
+		else
+			ir += line + "\n";
+	}
+
+	return make_pair(decl, ir);
+}
+
 static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 {
 	assert(inst.decl->body);
@@ -1063,7 +1073,11 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 	FunctionType* funty = inst.value->getFunctionType();
 	string name = "llvm_" + inst.value->getName().str();
 
+	auto p = splitDeclarationsFromAssembly(ll->code.str());
+
 	string code;
+
+	code += p.first;
 
 	code += "define internal ";
 	code += llvmGetTypeName(funty->getReturnType());
@@ -1083,7 +1097,7 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 
 	size_t prefixLength = code.length();
 
-	code += ll->code.str();
+	code += p.second;
 	code += "\n}\n";
 
 	auto membuffer = MemoryBuffer::getMemBuffer(code);
@@ -1233,10 +1247,6 @@ static void codegenPrepare(Codegen& cg)
 {
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
 	cg.builtinDebugTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::debugtrap);
-
-	cg.builtinAddOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::sadd_with_overflow, Type::getInt32Ty(*cg.context));
-	cg.builtinSubOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::ssub_with_overflow, Type::getInt32Ty(*cg.context));
-	cg.builtinMulOverflow = Intrinsic::getDeclaration(cg.module, Intrinsic::smul_with_overflow, Type::getInt32Ty(*cg.context));
 
 	cg.runtimeNew = cg.module->getOrInsertFunction("aikeNew", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 	cg.runtimeNewArray = cg.module->getOrInsertFunction("aikeNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);

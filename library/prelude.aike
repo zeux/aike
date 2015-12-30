@@ -19,23 +19,42 @@ inline fn operatorMinus(a: float): float
     %1 = fsub float 0.0, %0
     ret float %1"
 
-inline fn operatorMultiplyWrap(a: int, b: int): int
+inline fn operatorAdd(a: int, b: int): int
     llvm "
-    %2 = smul i32 %0, %1
-    ret i32 %2"
+      declare { i32, i1 } @llvm.sadd.with.overflow.i32(i32, i32)
 
-inline fn operatorAddWrap(a: int, b: int): int
-    llvm "
-    %2 = add i32 %0, %1
-    ret i32 %2"
+      %2 = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %0, i32 %1)
+      %3 = extractvalue { i32, i1 } %2, 1
+      br i1 %3, label %trap, label %after
 
-inline fn operatorSubtractWrap(a: int, b: int): int
+    trap:
+      call void @llvm.trap()
+      unreachable
+
+    after:
+      %4 = extractvalue { i32, i1 } %2, 0
+      ret i32 %4"
+
+inline fn operatorSubtract(a: int, b: int): int
     llvm "
-    %2 = sub i32 %0, %1
-    ret i32 %2"
+      declare { i32, i1 } @llvm.ssub.with.overflow.i32(i32, i32)
+
+      %2 = call { i32, i1 } @llvm.ssub.with.overflow.i32(i32 %0, i32 %1)
+      %3 = extractvalue { i32, i1 } %2, 1
+      br i1 %3, label %trap, label %after
+
+    trap:
+      call void @llvm.trap()
+      unreachable
+
+    after:
+      %4 = extractvalue { i32, i1 } %2, 0
+      ret i32 %4"
 
 inline fn operatorMultiply(a: int, b: int): int
     llvm "
+      declare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32)
+
       %2 = call { i32, i1 } @llvm.smul.with.overflow.i32(i32 %0, i32 %1)
       %3 = extractvalue { i32, i1 } %2, 1
       br i1 %3, label %trap, label %after
@@ -58,33 +77,20 @@ inline fn operatorModulo(a: int, b: int): int
     %2 = srem i32 %0, %1
     ret i32 %2"
 
-inline fn operatorAdd(a: int, b: int): int
+inline fn operatorAddWrap(a: int, b: int): int
     llvm "
-      %2 = call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %0, i32 %1)
-      %3 = extractvalue { i32, i1 } %2, 1
-      br i1 %3, label %trap, label %after
+    %2 = add i32 %0, %1
+    ret i32 %2"
 
-    trap:
-      call void @llvm.trap()
-      unreachable
-
-    after:
-      %4 = extractvalue { i32, i1 } %2, 0
-      ret i32 %4"
-
-inline fn operatorSubtract(a: int, b: int): int
+inline fn operatorSubtractWrap(a: int, b: int): int
     llvm "
-      %2 = call { i32, i1 } @llvm.ssub.with.overflow.i32(i32 %0, i32 %1)
-      %3 = extractvalue { i32, i1 } %2, 1
-      br i1 %3, label %trap, label %after
+    %2 = sub i32 %0, %1
+    ret i32 %2"
 
-    trap:
-      call void @llvm.trap()
-      unreachable
-
-    after:
-      %4 = extractvalue { i32, i1 } %2, 0
-      ret i32 %4"
+inline fn operatorMultiplyWrap(a: int, b: int): int
+    llvm "
+    %2 = mul i32 %0, %1
+    ret i32 %2"
 
 inline fn operatorMultiply(a: float, b: float): float
     llvm "
