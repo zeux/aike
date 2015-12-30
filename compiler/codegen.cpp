@@ -352,7 +352,21 @@ static void codegenVariable(Codegen& cg, Variable* var, Value* value)
 
 static Value* codegenAlloca(Codegen& cg, Type* type)
 {
-	return cg.ir->CreateAlloca(type);
+	// LLVM has an undocumented convention related to alloca: alloca with
+	// constant size are treated as compile-time stack allocation only if
+	// the instruction is in the first basic block. Thus performing alloca
+	// in other blocks can cause stack leaks and incorrect debug info.
+	// Work around this restriction by inserting all allocas (in reverse order)
+	// in the first basic block.
+	BasicBlock* ib = cg.ir->GetInsertBlock();
+	BasicBlock* bb = &ib->getParent()->getEntryBlock();
+
+	Instruction* inst = new AllocaInst(type, nullptr);
+
+	bb->getInstList().insert(bb->getFirstInsertionPt(), inst);
+	cg.ir->SetInstDebugLocation(inst);
+
+	return inst;
 }
 
 static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
