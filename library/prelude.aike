@@ -184,6 +184,14 @@ inline fn float(a: int): float
 extern fn spawn(f: fn(): void): void
 extern fn yield(): void
 
+fn array<T>(size: int, f: fn(int): T): [T]
+    var a = newarr(size)
+
+    for e, i in a
+        e = f(i)
+
+    a
+
 fn map<T, U>(a: [T], f: fn(T): U): [U]
     var b = newarr(length(a))
 
