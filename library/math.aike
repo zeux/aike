@@ -1,0 +1,33 @@
+fn sqrt(v: float): float
+    llvm "
+    declare float @llvm.sqrt.f32(float)
+    %1 = call float @llvm.sqrt.f32(float %0)
+    ret float %1"
+
+fn abs(v: float): float
+    llvm "
+    declare float @llvm.fabs.f32(float)
+    %1 = call float @llvm.fabs.f32(float %0)
+    ret float %1"
+
+fn pow(v: float, p: float): float
+    llvm "
+    declare float @llvm.pow.f32(float, float)
+    %2 = call float @llvm.pow.f32(float %0, float %1)
+    ret float %2"
+
+fn sin(v: float): float
+    llvm "
+    declare float @llvm.sin.f32(float)
+    %1 = call float @llvm.sin.f32(float %0)
+    ret float %1"
+
+fn cos(v: float): float
+    llvm "
+    declare float @llvm.cos.f32(float)
+    %1 = call float @llvm.cos.f32(float %0)
+    ret float %1"
+
+fn ldexp(v: float, e: int): float
+    # TODO: use llvm.ldexp intrinsic
+    v * pow(2.0, float(e))

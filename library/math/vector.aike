@@ -1,0 +1,46 @@
+import std.math
+
+struct vec3
+    x, y, z: float
+
+fn vec3(v)
+    vec3 { x=v, y=v, z=v }
+
+fn vec3(x, y, z)
+    vec3 { x=x, y=y, z=z }
+
+fn operatorAdd(l: vec3, r: vec3)
+    vec3 { x=l.x+r.x, y=l.y+r.y, z=l.z+r.z }
+
+fn operatorSubtract(l: vec3, r: vec3)
+    vec3 { x=l.x-r.x, y=l.y-r.y, z=l.z-r.z }
+
+fn operatorMultiply(l: vec3, r: vec3)
+    vec3 { x=l.x*r.x, y=l.y*r.y, z=l.z*r.z }
+
+fn operatorDivide(l: vec3, r: vec3)
+    vec3 { x=l.x/r.x, y=l.y/r.y, z=l.z/r.z }
+
+fn operatorMultiply(l: vec3, r: float)
+    vec3 { x=l.x*r, y=l.y*r, z=l.z*r }
+
+fn operatorDivide(l: vec3, r: float)
+    vec3 { x=l.x/r, y=l.y/r, z=l.z/r }
+
+fn operatorMultiply(l: float, r: vec3)
+    vec3 { x=l*r.x, y=l*r.y, z=l*r.z }
+
+fn operatorPlus(l: vec3)
+    l
+
+fn operatorMinus(l: vec3)
+    vec3 { x= -l.x, y= -l.y, z= -l.z }
+
+fn dot(l: vec3, r: vec3)
+    l.x*r.x + l.y*r.y + l.z*r.z
+
+fn cross(l: vec3, r: vec3)
+    vec3 { x=l.y*r.z-l.z*r.y, y=l.z*r.x-l.x*r.z, z=l.x*r.y-l.y*r.x }
+
+fn normalize(v: vec3)
+    v / sqrt(dot(v, v))
