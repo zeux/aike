@@ -202,6 +202,11 @@ static Type* codegenType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
+{
+	return ConstantPointerNull::get(Type::getInt8PtrTy(*cg.context));
+}
+
 static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 {
 	assert(cg.di);
@@ -389,11 +394,13 @@ static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 
 static Value* codegenNew(Codegen& cg, Type* elementType)
 {
+	Constant* typeInfo = codegenTypeInfo(cg, nullptr /* TODO */);
+
 	Type* pointerType = PointerType::get(elementType, 0);
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
-	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNew, elementSize);
+	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNew, { typeInfo, elementSize });
 	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
 
 	return ptr;
@@ -401,12 +408,14 @@ static Value* codegenNew(Codegen& cg, Type* elementType)
 
 static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
 {
+	Constant* typeInfo = codegenTypeInfo(cg, nullptr /* TODO */);
+
 	Type* pointerType = cast<StructType>(type)->getElementType(0);
 	Type* elementType = cast<PointerType>(pointerType)->getElementType();
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
-	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNewArray, { count, elementSize });
+	Value* rawPtr = cg.ir->CreateCall(cg.runtimeNewArray, { typeInfo, count, elementSize });
 	Value* ptr = cg.ir->CreateBitCast(rawPtr, pointerType);
 
 	return ptr;
@@ -1248,8 +1257,8 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
 	cg.builtinDebugTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::debugtrap);
 
-	cg.runtimeNew = cg.module->getOrInsertFunction("aikeNew", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
-	cg.runtimeNewArray = cg.module->getOrInsertFunction("aikeNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNew = cg.module->getOrInsertFunction("aikeNew", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNewArray = cg.module->getOrInsertFunction("aikeNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
 llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options)
