@@ -392,11 +392,12 @@ static void codegenTrapIf(Codegen& cg, Value* cond, bool debug = false)
 	cg.ir->SetInsertPoint(afterbb);
 }
 
-static Value* codegenNew(Codegen& cg, Type* elementType)
+static Value* codegenNew(Codegen& cg, Ty* type)
 {
-	Constant* typeInfo = codegenTypeInfo(cg, nullptr /* TODO */);
-
+	Type* elementType = codegenType(cg, type);
 	Type* pointerType = PointerType::get(elementType, 0);
+
+	Constant* typeInfo = codegenTypeInfo(cg, type);
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
@@ -406,12 +407,12 @@ static Value* codegenNew(Codegen& cg, Type* elementType)
 	return ptr;
 }
 
-static Value* codegenNewArr(Codegen& cg, Type* type, Value* count)
+static Value* codegenNewArr(Codegen& cg, Ty* type, Value* count)
 {
-	Constant* typeInfo = codegenTypeInfo(cg, nullptr /* TODO */);
+	Type* elementType = codegenType(cg, type);
+	Type* pointerType = PointerType::get(elementType, 0);
 
-	Type* pointerType = cast<StructType>(type)->getElementType(0);
-	Type* elementType = cast<PointerType>(pointerType)->getElementType();
+	Constant* typeInfo = codegenTypeInfo(cg, type);
 
 	// TODO: refactor + fix int32/size_t
 	Value* elementSize = cg.ir->CreateIntCast(ConstantExpr::getSizeOf(elementType), cg.ir->getInt32Ty(), false);
@@ -443,9 +444,10 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
-	Type* type = codegenType(cg, n->type);
+	UNION_CASE(Array, ta, n->type);
+	assert(ta);
 
-	Value* ptr = codegenNewArr(cg, type, cg.ir->getInt32(n->elements.size));
+	Value* ptr = codegenNewArr(cg, ta->element, cg.ir->getInt32(n->elements.size));
 
 	for (size_t i = 0; i < n->elements.size; ++i)
 	{
@@ -453,6 +455,8 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 
 		cg.ir->CreateStore(expr, cg.ir->CreateConstInBoundsGEP1_32(expr->getType(), ptr, i));
 	}
+
+	Type* type = codegenType(cg, n->type);
 
 	Value* result = UndefValue::get(type);
 
@@ -649,7 +653,10 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 
 	case UnaryOpNew:
 	{
-		Value* ptr = codegenNew(cg, expr->getType());
+		UNION_CASE(Pointer, pt, n->type);
+		assert(pt);
+
+		Value* ptr = codegenNew(cg, pt->element);
 
 		cg.ir->CreateStore(expr, ptr);
 
@@ -1019,7 +1026,7 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 
 		Value* ret = UndefValue::get(type);
 
-		ret = cg.ir->CreateInsertValue(ret, codegenNewArr(cg, type, count), 0);
+		ret = cg.ir->CreateInsertValue(ret, codegenNewArr(cg, inst.generics[0].second, count), 0);
 		ret = cg.ir->CreateInsertValue(ret, count, 1);
 
 		cg.ir->CreateRet(ret);
