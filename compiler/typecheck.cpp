@@ -290,23 +290,30 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 		switch (n->op)
 		{
 		case UnaryOpNot:
-			typeMustEqual(expr.first, UNION_NEW(Ty, Bool, {}), constraints, output, expr.second);
+			n->type = UNION_NEW(Ty, Bool, {});
+			typeMustEqual(expr.first, n->type, constraints, output, expr.second);
 			return expr;
 
 		case UnaryOpDeref:
 			if (UNION_CASE(Pointer, t, expr.first))
+			{
+				n->type = t->element;
+
 				return make_pair(t->element, expr.second); // TODO: Location
+			}
 			else
 			{
-				Ty* ret = UNION_NEW(Ty, Unknown, {});
+				n->type = UNION_NEW(Ty, Unknown, {});
 
-				typeMustEqual(expr.first, UNION_NEW(Ty, Pointer, { ret }), constraints, output, expr.second);
+				typeMustEqual(expr.first, UNION_NEW(Ty, Pointer, { n->type }), constraints, output, expr.second);
 
-				return make_pair(ret, expr.second); // TODO: Location
+				return make_pair(n->type, expr.second); // TODO: Location
 			}
 
 		case UnaryOpNew:
-			return make_pair(UNION_NEW(Ty, Pointer, { expr.first }), expr.second); // TODO: Location
+			n->type = UNION_NEW(Ty, Pointer, { expr.first });
+
+			return make_pair(n->type, expr.second); // TODO: Location
 
 		default:
 			ICE("Unknown UnaryOp %d", n->op);
