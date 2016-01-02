@@ -183,6 +183,18 @@ string mangleType(Ty* type)
 	return result;
 }
 
+string mangleTypeInfo(Ty* type)
+{
+	string result;
+
+	result += "_Z";
+	result += "TI";
+
+	mangle(result, type);
+
+	return result;
+}
+
 string mangleModule(const Str& name)
 {
 	string result;
