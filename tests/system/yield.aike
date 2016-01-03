@@ -1,20 +1,18 @@
-extern fn println(str: string): void
-
 spawn(fn ()
-      println("2")
+      print("2")
       yield()
-      println("5")
+      print("5")
 )
 
 spawn(fn ()
-      println("3")
+      print("3")
       yield()
-      println("6")
+      print("6")
 )
 
-println("1")
+print("1")
 yield()
-println("4")
+print("4")
 
 ## OK
 # 1

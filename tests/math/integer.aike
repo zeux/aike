@@ -1,7 +1,5 @@
-extern fn println(str: string): void
-
 if 2 + 2 == 4
-    println("hello")
+    print("hello")
 
 ## OK
 # hello

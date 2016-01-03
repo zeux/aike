@@ -1,13 +1,11 @@
-extern fn printfn(str: string, val: int): void
-
 var i = 0
 
 while i < 4
-    printfn("%d", i)
+    print(i)
     i = i + 1
 
 while i < 4
-    printfn("FAIL", 0)
+    print("FAIL")
 
 ## OK
 # 0

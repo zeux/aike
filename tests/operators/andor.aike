@@ -1,33 +1,31 @@
-extern fn println(str: string): void
-
 fn t(): _
-    println("t")
+    print("t")
     true
 
 fn tt(): _
-    println("tt")
+    print("tt")
     true
 
 fn f(): _
-    println("f")
+    print("f")
     false
 
 fn ff(): _
-    println("ff")
+    print("ff")
     false
 
-println("0")
-if t() and f() println("!")
-println("1")
-if f() and t() println("!")
-println("2")
-if t() and tt() println("!")
-println("3")
-if t() or f() println("!")
-println("4")
-if f() or t() println("!")
-println("5")
-if f() or ff() println("!")
+print("0")
+if t() and f() print("!")
+print("1")
+if f() and t() print("!")
+print("2")
+if t() and tt() print("!")
+print("3")
+if t() or f() print("!")
+print("4")
+if f() or t() print("!")
+print("5")
+if f() or ff() print("!")
 
 ## OK
 # 0

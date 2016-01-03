@@ -1,7 +1,5 @@
-extern fn printfn(str: string, val: int): void
-
 for e in [0, 1, 2, 3]
-    printfn("%d", e)
+    print(e)
 
 ## OK
 # 0

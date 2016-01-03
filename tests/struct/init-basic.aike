@@ -1,10 +1,8 @@
-extern fn printfn(str: string, val: int, val: int): void
-
 struct Point
     x, y: int
 
 var p = Point { x = 1, y = 2 }
-printfn("%d %d", p.x, p.y)
+print(p.x, p.y)
 
 ## OK
 # 1 2

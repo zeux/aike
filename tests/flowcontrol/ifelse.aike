@@ -1,9 +1,7 @@
-extern fn printfn(str: string, val: int): void
-
 var x = if (1 < 2) 3 else 4
 
 if x > 2
-    printfn("%d", x)
+    print(x)
 
 ## OK
 # 3
