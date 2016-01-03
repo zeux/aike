@@ -73,7 +73,7 @@ Ty* TypeConstraints::rewrite(Ty* type)
 
 		Ty* ret = rewrite(t->ret);
 
-		return UNION_NEW(Ty, Function, { args, ret });
+		return UNION_NEW(Ty, Function, { args, ret, t->varargs });
 	}
 
 	if (UNION_CASE(Instance, t, type))
@@ -119,6 +119,9 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 		UNION_CASE(Function, rf, rhs);
 
 		if (lf->args.size != rf->args.size)
+			return false;
+
+		if (lf->varargs != rf->varargs)
 			return false;
 
 		for (size_t i = 0; i < lf->args.size; ++i)
@@ -255,7 +258,7 @@ Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 
 		Ty* ret = typeInstantiate(t->ret, inst);
 
-		return UNION_NEW(Ty, Function, { args, ret });
+		return UNION_NEW(Ty, Function, { args, ret, t->varargs });
 	}
 
 	if (UNION_CASE(Instance, t, type))
@@ -373,6 +376,12 @@ static void typeName(string& buffer, Ty* type)
 		{
 			if (i != 0) buffer += ", ";
 			typeName(buffer, t->args[i]);
+		}
+
+		if (t->varargs)
+		{
+			if (t->args.size != 0) buffer += ", ";
+			buffer += "...";
 		}
 
 		buffer += ")";
