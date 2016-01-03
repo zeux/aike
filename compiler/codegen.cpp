@@ -166,6 +166,14 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		for (auto& a: t->args)
 			args.push_back(codegenType(cg, a));
 
+		if (t->varargs)
+		{
+			Type* any = StructType::get(*cg.context, { Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context) });
+
+			args.push_back(PointerType::get(any, 0));
+			args.push_back(Type::getInt32Ty(*cg.context));
+		}
+
 		return PointerType::get(FunctionType::get(ret, args, false), 0);
 	}
 
@@ -445,7 +453,7 @@ static void codegenVariable(Codegen& cg, Variable* var, Value* value)
 	value->setName(var->name.str());
 }
 
-static Value* codegenAlloca(Codegen& cg, Type* type)
+static Value* codegenAlloca(Codegen& cg, Type* type, Constant* arraySize = nullptr)
 {
 	// LLVM has an undocumented convention related to alloca: alloca with
 	// constant size are treated as compile-time stack allocation only if
@@ -456,7 +464,7 @@ static Value* codegenAlloca(Codegen& cg, Type* type)
 	BasicBlock* ib = cg.ir->GetInsertBlock();
 	BasicBlock* bb = &ib->getParent()->getEntryBlock();
 
-	Instruction* inst = new AllocaInst(type, nullptr);
+	Instruction* inst = new AllocaInst(type, arraySize);
 
 	bb->getInstList().insert(bb->getFirstInsertionPt(), inst);
 	cg.ir->SetInstDebugLocation(inst);
@@ -688,9 +696,50 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 
 	Value* expr = codegenExpr(cg, n->expr);
 
+	UNION_CASE(Function, tf, n->exprty);
+	assert(tf);
+
 	vector<Value*> args;
-	for (auto& a: n->args)
-		args.push_back(codegenExpr(cg, a));
+
+	if (tf->varargs)
+	{
+		assert(n->args.size >= tf->args.size);
+
+		size_t baseArgs = tf->args.size;
+		size_t extraArgs = n->args.size - baseArgs;
+
+		Type* any = StructType::get(*cg.context, { Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context) });
+
+		Value* extraArray = codegenAlloca(cg, any, cg.ir->getInt32(extraArgs));
+
+		for (size_t i = 0; i < baseArgs; ++i)
+			args.push_back(codegenExpr(cg, n->args[i]));
+
+		for (size_t i = 0; i < extraArgs; ++i)
+		{
+			Value* av = codegenExpr(cg, n->args[baseArgs + i]);
+			Value* at = codegenTypeInfo(cg, n->argtys[baseArgs + i]);
+
+			Value* ap = codegenAlloca(cg, av->getType());
+
+			cg.ir->CreateStore(av, ap);
+
+			Value* app = cg.ir->CreatePointerCast(ap, Type::getInt8PtrTy(*cg.context));
+
+			cg.ir->CreateStore(at, cg.ir->CreateConstInBoundsGEP2_32(any, extraArray, i, 0));
+			cg.ir->CreateStore(app, cg.ir->CreateConstInBoundsGEP2_32(any, extraArray, i, 1));
+		}
+
+		args.push_back(extraArray);
+		args.push_back(cg.ir->getInt32(extraArgs));
+	}
+	else
+	{
+		assert(n->args.size == tf->args.size);
+
+		for (auto& a: n->args)
+			args.push_back(codegenExpr(cg, a));
+	}
 
 	return cg.ir->CreateCall(expr, args);
 }
