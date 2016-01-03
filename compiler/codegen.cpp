@@ -247,7 +247,7 @@ static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
 			{
 				Constant* fn = cast<Constant>(cg.ir->CreateGlobalStringPtr(d->fields[i].name.str()));
 				Constant* ft = codegenTypeInfo(cg, typeMember(type, i));
-				Constant* fo = cg.ir->getInt32(sl->getElementOffset(i) * 8);
+				Constant* fo = cg.ir->getInt32(sl->getElementOffset(i));
 
 				fields.push_back(ConstantStruct::getAnon({ fn, ft, fo }));
 			}
