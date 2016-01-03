@@ -157,9 +157,18 @@ static Ty* parseType(TokenStream& ts)
 		ts.eat(Token::TypeBracket, "(");
 
 		Arr<Ty*> args;
+		bool varargs = false;
 
 		while (!ts.is(Token::TypeBracket, ")"))
 		{
+			if (ts.is(Token::TypeAtom, "..."))
+			{
+				ts.move();
+
+				varargs = true;
+				break;
+			}
+
 			args.push(parseType(ts));
 
 			if (!ts.is(Token::TypeBracket, ")"))
@@ -171,7 +180,7 @@ static Ty* parseType(TokenStream& ts)
 
 		Ty* ret = parseType(ts);
 
-		return UNION_NEW(Ty, Function, { args, ret });
+		return UNION_NEW(Ty, Function, { args, ret, varargs });
 	}
 
 	if (ts.is(Token::TypeIdent))
@@ -298,11 +307,20 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts)
 {
 	Arr<Variable*> args;
 	Arr<Ty*> argtys;
+	bool varargs = false;
 
 	ts.eat(Token::TypeBracket, "(");
 
 	while (!ts.is(Token::TypeBracket, ")"))
 	{
+		if (ts.is(Token::TypeAtom, "..."))
+		{
+			ts.move();
+
+			varargs = true;
+			break;
+		}
+
 		auto argname = ts.eat(Token::TypeIdent);
 
 		Ty* type = parseTypeAscription(ts);
@@ -318,7 +336,7 @@ static pair<Ty*, Arr<Variable*>> parseFnSignature(TokenStream& ts)
 
 	Ty* ret = parseTypeAscription(ts);
 
-	Ty* ty = UNION_NEW(Ty, Function, { argtys, ret });
+	Ty* ty = UNION_NEW(Ty, Function, { argtys, ret, varargs });
 
 	return make_pair(ty, args);
 }

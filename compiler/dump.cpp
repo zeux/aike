@@ -75,14 +75,20 @@ static void dumpTypeSignature(const Arr<Ty*>& args)
 
 static void dumpFunctionSignature(Ty* ty, const Arr<Variable*>& args)
 {
+	UNION_CASE(Function, f, ty);
+	assert(f);
+
 	printf("(");
 	dumpList(args, [&](Variable* v) { dumpString(v->name); printf(": "); dump(v->type); });
-	printf("): ");
 
-	if (UNION_CASE(Function, f, ty))
-		dump(f->ret);
-	else
-		ICE("Fn type is not Function");
+	if (f->varargs)
+	{
+		if (args.size != 0) printf(", ");
+		printf("...");
+	}
+
+	printf("): ");
+	dump(f->ret);
 }
 
 static void dumpTypeArguments(const Arr<Ty*>& args)
