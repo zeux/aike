@@ -256,6 +256,8 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		auto expr = type(output, n->expr, constraints);
 
+		n->exprty = expr.first;
+
 		// This is important for vararg functions and generates nicer errors for argument count/type mismatch
 		if (UNION_CASE(Function, fnty, expr.first))
 		{
