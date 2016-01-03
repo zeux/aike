@@ -23,7 +23,7 @@ union TypeInfo
 	};
 
 	Kind kind;
-	struct { Kind kind; TypeInfo* element; } dataArray;
+	struct { Kind kind; TypeInfo* element; int stride; } dataArray;
 	struct { Kind kind; TypeInfo* element; } dataPointer;
 	struct { Kind kind; const char* name; int fieldCount; StructField fields[1]; } dataStruct;
 };

@@ -206,6 +206,8 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type);
 
 static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
 {
+	const DataLayout& layout = cg.module->getDataLayout();
+
 	if (UNION_CASE(Void, t, type))
 		return ConstantStruct::getAnon({ cg.ir->getInt32(0) });
 
@@ -222,7 +224,11 @@ static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
 		return ConstantStruct::getAnon({ cg.ir->getInt32(4) });
 
 	if (UNION_CASE(Array, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(5), codegenTypeInfo(cg, t->element) });
+	{
+		int stride = layout.getTypeAllocSize(codegenType(cg, t->element));
+
+		return ConstantStruct::getAnon({ cg.ir->getInt32(5), codegenTypeInfo(cg, t->element), cg.ir->getInt32(stride) });
+	}
 
 	if (UNION_CASE(Pointer, t, type))
 		return ConstantStruct::getAnon({ cg.ir->getInt32(6), codegenTypeInfo(cg, t->element) });
@@ -237,8 +243,6 @@ static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
-			const DataLayout& layout = cg.module->getDataLayout();
-
 			StructType* sty = cast<StructType>(codegenType(cg, type));
 			const StructLayout* sl = layout.getStructLayout(sty);
 
