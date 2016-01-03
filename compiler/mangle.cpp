@@ -68,6 +68,9 @@ static void mangle(string& buffer, Ty* type)
 		for (auto& a: t->args)
 			mangle(buffer, a);
 
+		if (t->varargs)
+			buffer += "z";
+
 		buffer += "E";
 		return;
 	}
@@ -163,14 +166,17 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 		mangle(result, t->ret);
 	}
 
-	if (t->args.size > 0)
+	if (t->args.size == 0 && !t->varargs)
 	{
-		for (auto& a: t->args)
-			mangle(result, a);
+		result += "v";
 	}
 	else
 	{
-		result += "v";
+		for (auto& a: t->args)
+			mangle(result, a);
+
+		if (t->varargs)
+			result += "z";
 	}
 
 	return result;
