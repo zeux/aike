@@ -3,6 +3,8 @@ builtin fn sizeof<T>(): int
 builtin fn length<T>(arr: [T]): int
 builtin fn assert(expr: bool): void
 
+extern fn print(...): void
+
 inline fn operatorPlus(a: int): int
     a
 
