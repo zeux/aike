@@ -256,7 +256,11 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		auto expr = type(output, n->expr, constraints);
 
+		// TODO: this is a horrible and very expensive hack
 		n->exprty = expr.first;
+		n->argtys = Arr<Ty*>();
+		for (auto& a: n->args)
+			n->argtys.push(type(output, a, constraints).first);
 
 		// This is important for vararg functions and generates nicer errors for argument count/type mismatch
 		if (UNION_CASE(Function, fnty, expr.first))
