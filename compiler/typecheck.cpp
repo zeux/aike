@@ -77,6 +77,11 @@ static string getCandidates(const Arr<Variable*>& targets)
 	return result;
 }
 
+static bool isArgumentCountValid(Ty::Function* fnty, size_t args)
+{
+	return fnty->varargs ? fnty->args.size <= args : fnty->args.size == args;
+}
+
 static bool isCandidateValid(Variable* target, const vector<Ty*>& args)
 {
 	assert(target->kind == Variable::KindFunction);
@@ -84,12 +89,12 @@ static bool isCandidateValid(Variable* target, const vector<Ty*>& args)
 	UNION_CASE(Function, fnty, target->type);
 	assert(fnty);
 
-	if (fnty->args.size != args.size())
+	if (!isArgumentCountValid(fnty, args.size()))
 		return false;
 
 	TypeConstraints constraints;
 
-	for (size_t i = 0; i < args.size(); ++i)
+	for (size_t i = 0; i < fnty->args.size; ++i)
 		if (!typeUnify(fnty->args[i], args[i], &constraints))
 			return false;
 
@@ -251,12 +256,12 @@ static pair<Ty*, Location> type(Output& output, Ast* root, TypeConstraints* cons
 
 		auto expr = type(output, n->expr, constraints);
 
-		// This is not important for correctness but generates nicer errors for argument count/type mismatch
+		// This is important for vararg functions and generates nicer errors for argument count/type mismatch
 		if (UNION_CASE(Function, fnty, expr.first))
 		{
-			if (fnty->args.size == n->args.size)
+			if (isArgumentCountValid(fnty, n->args.size))
 			{
-				for (size_t i = 0; i < n->args.size; ++i)
+				for (size_t i = 0; i < fnty->args.size; ++i)
 				{
 					auto arg = type(output, n->args[i], constraints);
 
