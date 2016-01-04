@@ -241,7 +241,7 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 
 	parseIndent(ts, indent, /* allowSingleLine= */ true, [&]() { body.push(parseExpr(ts)); });
 
-	return UNION_NEW(Ast, Block, { body });
+	return UNION_NEW(Ast, Block, { nullptr, Location(), body });
 }
 
 static Arr<Ty*> parseTypeSignature(TokenStream& ts)
@@ -352,9 +352,9 @@ static Ast* parseFn(TokenStream& ts)
 	Ast* body = parseBlock(ts, &start);
 
 	Variable* var = new Variable { Variable::KindFunction, Str(), sig.first, start };
-	Ast* decl = UNION_NEW(Ast, FnDecl, { var, Arr<Ty*>(), sig.second, 0, body });
+	Ast* decl = UNION_NEW(Ast, FnDecl, { nullptr, start, var, Arr<Ty*>(), sig.second, 0, body });
 
-	return UNION_NEW(Ast, Fn, { start, int(ts.index), decl });
+	return UNION_NEW(Ast, Fn, { nullptr, start, int(ts.index), decl });
 }
 
 static Ast* parseFnBody(TokenStream& ts, const Location* indent)
@@ -365,7 +365,7 @@ static Ast* parseFnBody(TokenStream& ts, const Location* indent)
 
 		auto code = ts.eat(Token::TypeString);
 
-		return UNION_NEW(Ast, LLVM, { code.location, code.data });
+		return UNION_NEW(Ast, LLVM, { nullptr, code.location, code.data });
 	}
 
 	return parseBlock(ts, indent);
@@ -407,7 +407,7 @@ static Ast* parseFnDecl(TokenStream& ts)
 	Ast* body = bodyImplicit ? nullptr : parseFnBody(ts, &indent);
 
 	Variable* var = new Variable { Variable::KindFunction, name.data, sig.first, name.location };
-	Ast* result = UNION_NEW(Ast, FnDecl, { var, tysig, sig.second, attributes, body });
+	Ast* result = UNION_NEW(Ast, FnDecl, { nullptr, Location(), var, tysig, sig.second, attributes, body });
 
 	var->fn = result;
 
@@ -426,7 +426,7 @@ static Ast* parseVarDecl(TokenStream& ts)
 
 	Ast* expr = parseExpr(ts);
 
-	return UNION_NEW(Ast, VarDecl, { new Variable { Variable::KindVariable, name.data, type, name.location }, expr });
+	return UNION_NEW(Ast, VarDecl, { nullptr, Location(), new Variable { Variable::KindVariable, name.data, type, name.location }, expr });
 }
 
 static Ast* parseStructDecl(TokenStream& ts)
@@ -474,7 +474,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 	TyDef* def = UNION_NEW(TyDef, Struct, { tysig, fields });
 
-	return UNION_NEW(Ast, TyDecl, { name.data, name.location, def });
+	return UNION_NEW(Ast, TyDecl, { nullptr, name.location, name.data, def });
 }
 
 static Ast* parseImport(TokenStream& ts)
@@ -497,7 +497,7 @@ static Ast* parseImport(TokenStream& ts)
 		location = Location(location, name.location);
 	}
 
-	return UNION_NEW(Ast, Import, { Str::copy(path.c_str()), location });
+	return UNION_NEW(Ast, Import, { nullptr, location, Str::copy(path.c_str()) });
 }
 
 static Ast* parseCall(TokenStream& ts, Ast* expr, Location start, Ast* self = nullptr)
@@ -521,7 +521,7 @@ static Ast* parseCall(TokenStream& ts, Ast* expr, Location start, Ast* self = nu
 
 	ts.eat(Token::TypeBracket, ")");
 
-	return UNION_NEW(Ast, Call, { expr, args, Location(start, end) });
+	return UNION_NEW(Ast, Call, { nullptr, Location(start, end), expr, args });
 }
 
 static Ast* parseIndex(TokenStream& ts, Ast* expr)
@@ -534,7 +534,7 @@ static Ast* parseIndex(TokenStream& ts, Ast* expr)
 
 	ts.eat(Token::TypeBracket, "]");
 
-	return UNION_NEW(Ast, Index, { expr, index, start });
+	return UNION_NEW(Ast, Index, { nullptr, start, expr, index });
 }
 
 static Ast* parseIdent(TokenStream& ts)
@@ -543,7 +543,7 @@ static Ast* parseIdent(TokenStream& ts)
 
 	auto tyargs = parseTypeArguments(ts);
 
-	return UNION_NEW(Ast, Ident, { name.data, name.location, nullptr, tyargs });
+	return UNION_NEW(Ast, Ident, { nullptr, name.location, name.data, tyargs });
 }
 
 static Ast* parseMember(TokenStream& ts, Ast* expr)
@@ -565,7 +565,7 @@ static Ast* parseMember(TokenStream& ts, Ast* expr)
 	{
 		FieldRef field = { name.data, name.location, -1 };
 
-		return UNION_NEW(Ast, Member, { expr, name.location, nullptr, field });
+		return UNION_NEW(Ast, Member, { nullptr, name.location, expr, nullptr, field });
 	}
 }
 
@@ -577,7 +577,7 @@ static Ast* parseAssign(TokenStream& ts, Ast* expr)
 
 	Ast* value = parseExpr(ts);
 
-	return UNION_NEW(Ast, Assign, { location, expr, value });
+	return UNION_NEW(Ast, Assign, { nullptr, location, expr, value });
 }
 
 static Ast* parseIf(TokenStream& ts)
@@ -603,7 +603,7 @@ static Ast* parseIf(TokenStream& ts)
 		elsebody = parseBlock(ts, &start);
 	}
 
-	return UNION_NEW(Ast, If, { cond, thenbody, elsebody, start });
+	return UNION_NEW(Ast, If, { nullptr, start, cond, thenbody, elsebody });
 }
 
 static Ast* parseFor(TokenStream& ts)
@@ -630,7 +630,7 @@ static Ast* parseFor(TokenStream& ts)
 	Ast* expr = parseExpr(ts);
 	Ast* body = parseBlock(ts, &start);
 
-	return UNION_NEW(Ast, For, { start, var, index, expr, body });
+	return UNION_NEW(Ast, For, { nullptr, start, var, index, expr, body });
 }
 
 static Ast* parseWhile(TokenStream& ts)
@@ -642,7 +642,7 @@ static Ast* parseWhile(TokenStream& ts)
 	Ast* expr = parseExpr(ts);
 	Ast* body = parseBlock(ts, &start);
 
-	return UNION_NEW(Ast, While, { start, expr, body });
+	return UNION_NEW(Ast, While, { nullptr, start, expr, body });
 }
 
 static Ast* parseLiteralArray(TokenStream& ts)
@@ -665,7 +665,7 @@ static Ast* parseLiteralArray(TokenStream& ts)
 
 	Ty* ty = UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) });
 
-	return UNION_NEW(Ast, LiteralArray, { start, ty, elements });
+	return UNION_NEW(Ast, LiteralArray, { ty, start, elements });
 }
 
 static Ast* parseLiteralStruct(TokenStream& ts)
@@ -692,7 +692,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 			expr = parseExpr(ts);
 		}
 		else
-			expr = UNION_NEW(Ast, Ident, { fname.data, fname.location, nullptr });
+			expr = UNION_NEW(Ast, Ident, { nullptr, fname.location, fname.data });
 
 		FieldRef field = { fname.data, fname.location, -1 };
 
@@ -705,9 +705,9 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, "}");
 
-	Ty* ty = name.data.size == 0 ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
+	Ty* ty = (name.data.size == 0) ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
 
-	return UNION_NEW(Ast, LiteralStruct, { name.data, start, ty, fields });
+	return UNION_NEW(Ast, LiteralStruct, { ty, start, name.data, fields });
 }
 
 static Ast* parseNumber(TokenStream& ts)
@@ -726,7 +726,7 @@ static Ast* parseNumber(TokenStream& ts)
 			if (errno)
 				ts.output->panic(value.location, "Invalid integer literal '%s'", contents.c_str());
 
-			return UNION_NEW(Ast, LiteralInteger, { valueInteger, value.location });
+			return UNION_NEW(Ast, LiteralInteger, { nullptr, value.location, valueInteger });
 		}
 	}
 
@@ -741,7 +741,7 @@ static Ast* parseNumber(TokenStream& ts)
 			if (errno)
 				ts.output->panic(value.location, "Invalid floating-point literal '%s'", contents.c_str());
 
-			return UNION_NEW(Ast, LiteralFloat, { valueDouble, value.location });
+			return UNION_NEW(Ast, LiteralFloat, { nullptr, value.location, valueDouble });
 		}
 	}
 
@@ -754,14 +754,14 @@ static Ast* parseTerm(TokenStream& ts)
 	{
 		auto value = ts.eat(Token::TypeIdent);
 
-		return UNION_NEW(Ast, LiteralBool, { true, value.location });
+		return UNION_NEW(Ast, LiteralBool, { nullptr, value.location, true });
 	}
 
 	if (ts.is(Token::TypeIdent, "false"))
 	{
 		auto value = ts.eat(Token::TypeIdent);
 
-		return UNION_NEW(Ast, LiteralBool, { false, value.location });
+		return UNION_NEW(Ast, LiteralBool, { nullptr, value.location, false });
 	}
 
 	if (ts.is(Token::TypeNumber))
@@ -773,7 +773,7 @@ static Ast* parseTerm(TokenStream& ts)
 	{
 		auto value = ts.eat(Token::TypeString);
 
-		return UNION_NEW(Ast, LiteralString, { value.data, value.location });
+		return UNION_NEW(Ast, LiteralString, { nullptr, value.location, value.data });
 	}
 
 	if (ts.is(Token::TypeBracket, "{") || (ts.is(Token::TypeIdent) && ts.get(1).type == Token::TypeBracket && ts.get(1).data == "{"))
@@ -831,12 +831,12 @@ Ast* lowerUnaryOp(const OpDef<UnaryOp>& def, Ast* expr, Location location)
 {
 	if (def.opname)
 	{
-		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
+		Ast* ident = UNION_NEW(Ast, Ident, { nullptr, location, Str(def.opname) });
 
-		return UNION_NEW(Ast, Call, { ident, { expr }, location });
+		return UNION_NEW(Ast, Call, { nullptr, location, ident, { expr } });
 	}
 	else
-		return UNION_NEW(Ast, Unary, { def.op, expr, location });
+		return UNION_NEW(Ast, Unary, { nullptr, location, def.op, expr });
 }
 
 static OpDef<BinaryOp> parseBinaryOp(TokenStream& ts)
@@ -866,12 +866,12 @@ Ast* lowerBinaryOp(const OpDef<BinaryOp>& def, Ast* left, Ast* right, Location l
 {
 	if (def.opname)
 	{
-		Ast* ident = UNION_NEW(Ast, Ident, { Str(def.opname), location, nullptr });
+		Ast* ident = UNION_NEW(Ast, Ident, { nullptr, location, Str(def.opname) });
 
-		return UNION_NEW(Ast, Call, { ident, { left, right }, location });
+		return UNION_NEW(Ast, Call, { nullptr, location, ident, { left, right } });
 	}
 	else
-		return UNION_NEW(Ast, Binary, { def.op, left, right, location });
+		return UNION_NEW(Ast, Binary, { nullptr, location, def.op, left, right });
 }
 
 static Ast* parsePrimary(TokenStream& ts)
@@ -988,5 +988,5 @@ Ast* parse(Output& output, const Tokens& tokens, const Str& moduleName)
 	if (tokens.tokens.size == 0)
 		return result;
 
-	return UNION_NEW(Ast, Module, { moduleName, tokens.tokens[0].location, result });
+	return UNION_NEW(Ast, Module, { nullptr, tokens.tokens[0].location, moduleName, result });
 }

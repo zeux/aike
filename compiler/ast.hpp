@@ -65,29 +65,30 @@ struct FieldRef
 };
 
 #define UD_AST(X) \
-	X(LiteralBool, { bool value; Location location; }) \
-	X(LiteralInteger, { long long value; Location location; }) \
-	X(LiteralFloat, { double value; Location location; }) \
-	X(LiteralString, { Str value; Location location; }) \
-	X(LiteralArray, { Location location; Ty* type; Arr<Ast*> elements; }) \
-	X(LiteralStruct, { Str name; Location location; Ty* type; Arr<pair<FieldRef, Ast*>> fields; }) \
-	X(Ident, { Str name; Location location; Ty* type; Arr<Ty*> tyargs; Arr<Variable*> targets; }) \
-	X(Member, { Ast* expr; Location location; Ty* exprty; FieldRef field; }) \
-	X(Block, { Arr<Ast*> body; }) \
-	X(Module, { Str name; Location location; Ast* body; Arr<Str> autoimports; }) \
-	X(Call, { Ast* expr; Arr<Ast*> args; Location location; Ty* exprty; Arr<Ty*> argtys; }) \
-	X(Unary, { UnaryOp op; Ast* expr; Location location; Ty* type; }) \
-	X(Binary, { BinaryOp op; Ast* left; Ast* right; Location location; }) \
-	X(Index, { Ast* expr; Ast* index; Location location; }) \
-	X(Assign, { Location location; Ast* left; Ast* right; }) \
-	X(If, { Ast* cond; Ast* thenbody; Ast* elsebody; Location location; }) \
-	X(For, { Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
-	X(While, { Location location; Ast* expr; Ast* body; }) \
-	X(Fn, { Location location; int id; Ast* decl; }) \
-	X(LLVM, { Location location; Str code; }) \
-	X(FnDecl, { Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; Ast::Module* module; }) \
-	X(VarDecl, { Variable* var; Ast* expr; }) \
-	X(TyDecl, { Str name; Location location; TyDef* def; }) \
-	X(Import, { Str name; Location location; })
+	X(Common, { Ty* type; Location location; }) \
+	X(LiteralBool, { Ty* type; Location location; bool value; }) \
+	X(LiteralInteger, { Ty* type; Location location; long long value; }) \
+	X(LiteralFloat, { Ty* type; Location location; double value; }) \
+	X(LiteralString, { Ty* type; Location location; Str value; }) \
+	X(LiteralArray, { Ty* type; Location location; Arr<Ast*> elements; }) \
+	X(LiteralStruct, { Ty* type; Location location; Str name; Arr<pair<FieldRef, Ast*>> fields; }) \
+	X(Ident, { Ty* type; Location location; Str name; Arr<Ty*> tyargs; Arr<Variable*> targets; }) \
+	X(Member, { Ty* type; Location location; Ast* expr; Ty* exprty; /* TODO */ FieldRef field; }) \
+	X(Block, { Ty* type; Location location; Arr<Ast*> body; }) \
+	X(Module, { Ty* type; Location location; Str name; Ast* body; Arr<Str> autoimports; }) \
+	X(Call, { Ty* type; Location location; Ast* expr; Arr<Ast*> args; Ty* exprty; /* TODO */ Arr<Ty*> argtys; /* TODO */ }) \
+	X(Unary, { Ty* type; Location location; UnaryOp op; Ast* expr; }) \
+	X(Binary, { Ty* type; Location location; BinaryOp op; Ast* left; Ast* right; }) \
+	X(Index, { Ty* type; Location location; Ast* expr; Ast* index; }) \
+	X(Assign, { Ty* type; Location location; Ast* left; Ast* right; }) \
+	X(If, { Ty* type; Location location; Ast* cond; Ast* thenbody; Ast* elsebody; }) \
+	X(For, { Ty* type; Location location; Variable* var; Variable* index; Ast* expr; Ast* body; }) \
+	X(While, { Ty* type; Location location; Ast* expr; Ast* body; }) \
+	X(Fn, { Ty* type; Location location; int id; Ast* decl; }) \
+	X(LLVM, { Ty* type; Location location; Str code; }) \
+	X(FnDecl, { Ty* type; Location location; Variable* var; Arr<Ty*> tyargs; Arr<Variable*> args; unsigned attributes; Ast* body; Ast::FnDecl* parent; Ast::Module* module; }) \
+	X(VarDecl, { Ty* type; Location location; Variable* var; Ast* expr; }) \
+	X(TyDecl, { Ty* type; Location location; Str name; TyDef* def; }) \
+	X(Import, { Ty* type; Location location; Str name; })
 
 UNION_DECL(Ast, UD_AST)

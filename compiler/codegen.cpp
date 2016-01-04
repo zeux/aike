@@ -1440,7 +1440,7 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 	Function* entry = Function::Create(entryType, GlobalValue::InternalLinkage, entryName, module);
 
 	Variable* entryVar = new Variable { Variable::KindFunction, Str(entryName.c_str()), nullptr, entryLocation, nullptr };
-	Ast::FnDecl* entryDecl = new Ast::FnDecl { entryVar, Arr<Ty*>(), Arr<Variable*>(), 0, root };
+	Ast::FnDecl* entryDecl = new Ast::FnDecl { nullptr, Location(), entryVar, Arr<Ty*>(), Arr<Variable*>(), 0, root };
 
 	cg.pendingFunctions.push_back(new FunctionInstance { entry, entryDecl });
 
