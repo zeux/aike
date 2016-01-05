@@ -343,8 +343,8 @@ static bool resolveMembersNode(ResolveMembers& rs, Ast* root)
 {
 	if (UNION_CASE(Member, n, root))
 	{
-		if (n->exprty)
-			rs.counter += resolveFieldRef(rs.output, n->field, n->exprty);
+		if (Ty* type = astType(n->expr))
+			rs.counter += resolveFieldRef(rs.output, n->field, type);
 	}
 	else if (UNION_CASE(LiteralStruct, n, root))
 	{

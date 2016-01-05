@@ -565,7 +565,7 @@ static Ast* parseMember(TokenStream& ts, Ast* expr)
 	{
 		FieldRef field = { name.data, name.location, -1 };
 
-		return UNION_NEW(Ast, Member, { nullptr, name.location, expr, nullptr, field });
+		return UNION_NEW(Ast, Member, { nullptr, name.location, expr, field });
 	}
 }
 

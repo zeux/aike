@@ -232,12 +232,12 @@ static void typeMember(Output& output, Ast::Member* n, TypeConstraints* constrai
 	if (!n->type)
 		n->type = UNION_NEW(Ty, Unknown, {});
 
-	n->exprty = astType(n->expr);
+	Ty* exprty = astType(n->expr);
 
 	if (n->field.index >= 0)
-		n->type = typeMember(n->exprty, n->field.index);
+		n->type = typeMember(exprty, n->field.index);
 	else if (!constraints)
-		output.panic(astLocation(n->expr), "%s does not have a field %s", typeName(n->exprty).c_str(), n->field.name.str().c_str());
+		output.panic(astLocation(n->expr), "%s does not have a field %s", typeName(exprty).c_str(), n->field.name.str().c_str());
 }
 
 static void typeBlock(Output& output, Ast::Block* n, TypeConstraints* constraints)
@@ -274,12 +274,6 @@ static void typeCall(Output& output, Ast::Call* n, TypeConstraints* constraints)
 			constraints->rewrites += reduceCandidates(ne->targets, args);
 		}
 	}
-
-	// TODO: this is a horrible hack
-	n->exprty = astType(n->expr);
-	n->argtys = Arr<Ty*>();
-	for (auto& a: n->args)
-		n->argtys.push(astType(a));
 
 	// This is important for vararg functions and generates nicer errors for argument count/type mismatch
 	if (UNION_CASE(Function, fnty, astType(n->expr)))

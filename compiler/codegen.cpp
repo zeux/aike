@@ -446,6 +446,11 @@ static Ty* finalType(Codegen& cg, Ty* type)
 	});
 }
 
+static Ty* finalType(Codegen& cg, Ast* node)
+{
+	return finalType(cg, astType(node));
+}
+
 static void codegenVariable(Codegen& cg, Variable* var, Value* value)
 {
 	cg.vars[var] = value;
@@ -696,7 +701,7 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 
 	Value* expr = codegenExpr(cg, n->expr);
 
-	UNION_CASE(Function, tf, n->exprty);
+	UNION_CASE(Function, tf, astType(n->expr));
 	assert(tf);
 
 	vector<Value*> args;
@@ -718,7 +723,7 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 		for (size_t i = 0; i < extraArgs; ++i)
 		{
 			Value* av = codegenExpr(cg, n->args[baseArgs + i]);
-			Value* at = codegenTypeInfo(cg, n->argtys[baseArgs + i]);
+			Value* at = codegenTypeInfo(cg, astType(n->args[baseArgs + i]));
 
 			Value* ap = codegenAlloca(cg, av->getType());
 

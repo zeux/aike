@@ -73,10 +73,10 @@ struct FieldRef
 	X(LiteralArray, { Ty* type; Location location; Arr<Ast*> elements; }) \
 	X(LiteralStruct, { Ty* type; Location location; Str name; Arr<pair<FieldRef, Ast*>> fields; }) \
 	X(Ident, { Ty* type; Location location; Str name; Arr<Ty*> tyargs; Arr<Variable*> targets; bool resolved; }) \
-	X(Member, { Ty* type; Location location; Ast* expr; Ty* exprty; /* TODO */ FieldRef field; }) \
+	X(Member, { Ty* type; Location location; Ast* expr; FieldRef field; }) \
 	X(Block, { Ty* type; Location location; Arr<Ast*> body; }) \
 	X(Module, { Ty* type; Location location; Str name; Ast* body; Arr<Str> autoimports; }) \
-	X(Call, { Ty* type; Location location; Ast* expr; Arr<Ast*> args; Ty* exprty; /* TODO */ Arr<Ty*> argtys; /* TODO */ }) \
+	X(Call, { Ty* type; Location location; Ast* expr; Arr<Ast*> args; }) \
 	X(Unary, { Ty* type; Location location; UnaryOp op; Ast* expr; }) \
 	X(Binary, { Ty* type; Location location; BinaryOp op; Ast* left; Ast* right; }) \
 	X(Index, { Ty* type; Location location; Ast* expr; Ast* index; }) \
