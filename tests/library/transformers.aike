@@ -1,5 +1,5 @@
 var x =
-    [1, 2, 3]
+    array(3, fn (i) i + 1)
     .map(fn (x) x * x)
     .filter(fn (x) x > 1)
     .reduce(fn (s, e) s + e, 0)
