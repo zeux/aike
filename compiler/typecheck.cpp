@@ -561,7 +561,7 @@ static void instantiateType(Output& output, Ty* type)
 	}
 }
 
-static bool instantiateNode(Output& output, Ast* node)
+static bool instantiateNode(Output& output, Ast* node, TypeConstraints* constraints)
 {
 	visitAstTypes(node, instantiateType, output);
 
@@ -606,6 +606,8 @@ static bool instantiateNode(Output& output, Ast* node)
 
 		n->resolved = true;
 
+		constraints->rewrites++;
+
 		return true;
 	}
 
@@ -614,14 +616,11 @@ static bool instantiateNode(Output& output, Ast* node)
 
 int typeckPropagate(Output& output, Ast* root)
 {
-	// HACK: we need to make this better somehow
-	visitAst(root, instantiateNode, output);
-
 	TypeConstraints constraints;
 	type(output, root, &constraints);
 
-	// HACK: we need to make this better somehow
-	visitAst(root, instantiateNode, output);
+	// Currently this also resolves overloads; it's probably better to do it in the type() to speed up convergence
+	visitAst(root, [&](Ast* node) { return instantiateNode(output, node, &constraints); });
 
 	if (!constraints.data.empty())
 		visitAst(root, propagate, constraints);
