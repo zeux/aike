@@ -92,3 +92,13 @@ struct FieldRef
 	X(Import, { Ty* type; Location location; Str name; })
 
 UNION_DECL(Ast, UD_AST)
+
+inline Ty* astType(Ast* node)
+{
+	return node->dataCommon.type;
+}
+
+inline Location astLocation(Ast* node)
+{
+	return node->dataCommon.location;
+}

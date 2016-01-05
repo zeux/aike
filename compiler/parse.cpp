@@ -663,9 +663,7 @@ static Ast* parseLiteralArray(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, "]");
 
-	Ty* ty = UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) });
-
-	return UNION_NEW(Ast, LiteralArray, { ty, start, elements });
+	return UNION_NEW(Ast, LiteralArray, { nullptr, start, elements });
 }
 
 static Ast* parseLiteralStruct(TokenStream& ts)
@@ -705,7 +703,7 @@ static Ast* parseLiteralStruct(TokenStream& ts)
 
 	ts.eat(Token::TypeBracket, "}");
 
-	Ty* ty = (name.data.size == 0) ? UNION_NEW(Ty, Unknown, {}) : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
+	Ty* ty = (name.data.size == 0) ? nullptr : UNION_NEW(Ty, Instance, { name.data, name.location, tyargs });
 
 	return UNION_NEW(Ast, LiteralStruct, { ty, start, name.data, fields });
 }

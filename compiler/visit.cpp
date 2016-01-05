@@ -124,15 +124,10 @@ void visitAstInner(Ast* node, function<bool (Ast*)> f)
 
 void visitAstTypes(Ast* node, function<void (Ty*)> f)
 {
-	if (UNION_CASE(LiteralArray, n, node))
-	{
-		f(n->type);
-	}
-	else if (UNION_CASE(LiteralStruct, n, node))
-	{
-		f(n->type);
-	}
-	else if (UNION_CASE(Ident, n, node))
+	if (Ty* type = astType(node))
+		f(type);
+
+	if (UNION_CASE(Ident, n, node))
 	{
 		for (auto& a: n->tyargs)
 			f(a);
