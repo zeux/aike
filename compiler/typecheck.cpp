@@ -574,7 +574,7 @@ static bool instantiateNode(Output& output, Ast* node)
 
 	if (UNION_CASE(Ident, n, node))
 	{
-		if (n->type)
+		if (n->resolved)
 			return true;
 
 		if (n->targets.size != 1)
@@ -610,6 +610,8 @@ static bool instantiateNode(Output& output, Ast* node)
 		{
 			n->type = var->type;
 		}
+
+		n->resolved = true;
 
 		return true;
 	}
