@@ -798,10 +798,7 @@ static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
 
 	case UnaryOpNew:
 	{
-		UNION_CASE(Pointer, pt, n->type);
-		assert(pt);
-
-		Value* ptr = codegenNew(cg, pt->element);
+		Value* ptr = codegenNew(cg, astType(n->expr));
 
 		cg.ir->CreateStore(expr, ptr);
 
