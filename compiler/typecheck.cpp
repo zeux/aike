@@ -136,357 +136,395 @@ static bool isAssignable(Ast* node)
 		return false;
 }
 
-static void type(Output& output, Ast* root, TypeConstraints* constraints)
+static void type(Output& output, Ast* root, TypeConstraints* constraints);
+
+static void typeCommon(Output& output, Ast::Common* n, TypeConstraints* constraints)
 {
-	if (UNION_CASE(LiteralBool, n, root))
+}
+
+static void typeLiteralBool(Output& output, Ast::LiteralBool* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Bool, {});
+}
+
+static void typeLiteralInteger(Output& output, Ast::LiteralInteger* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Integer, {});
+}
+
+static void typeLiteralFloat(Output& output, Ast::LiteralFloat* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Float, {});
+}
+
+static void typeLiteralString(Output& output, Ast::LiteralString* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, String, {});
+}
+
+static void typeLiteralArray(Output& output, Ast::LiteralArray* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) });
+
+	UNION_CASE(Array, ta, n->type);
+	assert(ta);
+
+	for (auto& e: n->elements)
 	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Bool, {});
+		type(output, e, constraints);
+
+		typeMustEqual(e, ta->element, constraints, output);
 	}
-	else if (UNION_CASE(LiteralInteger, n, root))
+}
+
+static void typeLiteralStruct(Output& output, Ast::LiteralStruct* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Unknown, {});
+
+	for (auto& f: n->fields)
 	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Integer, {});
+		type(output, f.second, constraints);
+
+		if (f.first.index >= 0)
+			typeMustEqual(f.second, typeMember(n->type, f.first.index), constraints, output);
 	}
-	else if (UNION_CASE(LiteralFloat, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Float, {});
-	}
-	else if (UNION_CASE(LiteralString, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, String, {});
-	}
-	else if (UNION_CASE(LiteralArray, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Array, { UNION_NEW(Ty, Unknown, {}) });
 
-		UNION_CASE(Array, ta, n->type);
-		assert(ta);
+	if (!constraints)
+		validateLiteralStruct(output, n);
+}
 
-		for (auto& e: n->elements)
-		{
-			type(output, e, constraints);
+static void typeIdent(Output& output, Ast::Ident* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Unknown, {});
 
-			typeMustEqual(e, ta->element, constraints, output);
-		}
-	}
-	else if (UNION_CASE(LiteralStruct, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Unknown, {});
+	if (n->targets.size == 0 && !constraints)
+		output.panic(n->location, "Unable to deduce the type of %s", n->name.str().c_str());
 
-		for (auto& f: n->fields)
-		{
-			type(output, f.second, constraints);
+	if (n->targets.size > 1 && !constraints)
+		output.panic(n->location, "Ambiguous identifier %s\n%s", n->name.str().c_str(), getCandidates(n->targets).c_str());
 
-			if (f.first.index >= 0)
-				typeMustEqual(f.second, typeMember(n->type, f.first.index), constraints, output);
-		}
-
-		if (!constraints)
-			validateLiteralStruct(output, n);
-	}
-	else if (UNION_CASE(Ident, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Unknown, {});
-
-		if (n->targets.size == 0 && !constraints)
-			output.panic(n->location, "Unable to deduce the type of %s", n->name.str().c_str());
-
-		if (n->targets.size > 1 && !constraints)
-			output.panic(n->location, "Ambiguous identifier %s\n%s", n->name.str().c_str(), getCandidates(n->targets).c_str());
-
-		if (!constraints)
-			for (auto& a: n->tyargs)
-				if (!typeKnown(a))
+	if (!constraints)
+		for (auto& a: n->tyargs)
+			if (!typeKnown(a))
+			{
+				string inst;
+				for (auto& a: n->tyargs)
 				{
-					string inst;
-					for (auto& a: n->tyargs)
-					{
-						if (!inst.empty()) inst += ", ";
-						inst += typeName(a);
-					}
-
-					output.panic(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
+					if (!inst.empty()) inst += ", ";
+					inst += typeName(a);
 				}
-	}
-	else if (UNION_CASE(Member, n, root))
-	{
-		type(output, n->expr, constraints);
 
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Unknown, {});
-
-		n->exprty = astType(n->expr);
-
-		if (n->field.index >= 0)
-			n->type = typeMember(n->exprty, n->field.index);
-		else if (!constraints)
-			output.panic(astLocation(n->expr), "%s does not have a field %s", typeName(n->exprty).c_str(), n->field.name.str().c_str());
-	}
-	else if (UNION_CASE(Block, n, root))
-	{
-		for (auto& b: n->body)
-			type(output, b, constraints);
-
-		n->type = (n->body.size == 0) ? UNION_NEW(Ty, Void, {}) : astType(n->body[n->body.size - 1]);
-	}
-	else if (UNION_CASE(Module, n, root))
-	{
-		type(output, n->body, constraints);
-
-		n->type = astType(n->body);
-	}
-	else if (UNION_CASE(Call, n, root))
-	{
-		type(output, n->expr, constraints);
-
-		for (auto& a: n->args)
-			type(output, a, constraints);
-
-		if (UNION_CASE(Ident, ne, n->expr))
-		{
-			if (constraints && ne->targets.size > 1)
-			{
-				vector<Ty*> args;
-
-				for (auto& a: n->args)
-					args.push_back(astType(a));
-
-				constraints->rewrites += reduceCandidates(ne->targets, args);
+				output.panic(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
 			}
-		}
+}
 
-		// TODO: this is a horrible hack
-		n->exprty = astType(n->expr);
-		n->argtys = Arr<Ty*>();
-		for (auto& a: n->args)
-			n->argtys.push(astType(a));
+static void typeMember(Output& output, Ast::Member* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
 
-		// This is important for vararg functions and generates nicer errors for argument count/type mismatch
-		if (UNION_CASE(Function, fnty, astType(n->expr)))
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Unknown, {});
+
+	n->exprty = astType(n->expr);
+
+	if (n->field.index >= 0)
+		n->type = typeMember(n->exprty, n->field.index);
+	else if (!constraints)
+		output.panic(astLocation(n->expr), "%s does not have a field %s", typeName(n->exprty).c_str(), n->field.name.str().c_str());
+}
+
+static void typeBlock(Output& output, Ast::Block* n, TypeConstraints* constraints)
+{
+	for (auto& b: n->body)
+		type(output, b, constraints);
+
+	n->type = (n->body.size == 0) ? UNION_NEW(Ty, Void, {}) : astType(n->body[n->body.size - 1]);
+}
+
+static void typeModule(Output& output, Ast::Module* n, TypeConstraints* constraints)
+{
+	type(output, n->body, constraints);
+
+	n->type = astType(n->body);
+}
+
+static void typeCall(Output& output, Ast::Call* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+
+	for (auto& a: n->args)
+		type(output, a, constraints);
+
+	if (UNION_CASE(Ident, ne, n->expr))
+	{
+		if (constraints && ne->targets.size > 1)
 		{
-			if (isArgumentCountValid(fnty, n->args.size))
-			{
-				for (size_t i = 0; i < fnty->args.size; ++i)
-					typeMustEqual(n->args[i], fnty->args[i], constraints, output);
-			}
-			else if (!constraints)
-				output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
-
-			n->type = fnty->ret;
-		}
-		else
-		{
-			Arr<Ty*> args;
+			vector<Ty*> args;
 
 			for (auto& a: n->args)
-				args.push(astType(a));
+				args.push_back(astType(a));
 
-			Ty* ret = UNION_NEW(Ty, Unknown, {});
-
-			typeMustEqual(n->expr, UNION_NEW(Ty, Function, { args, ret }), constraints, output);
-
-			n->type = ret;
+			constraints->rewrites += reduceCandidates(ne->targets, args);
 		}
 	}
-	else if (UNION_CASE(Unary, n, root))
+
+	// TODO: this is a horrible hack
+	n->exprty = astType(n->expr);
+	n->argtys = Arr<Ty*>();
+	for (auto& a: n->args)
+		n->argtys.push(astType(a));
+
+	// This is important for vararg functions and generates nicer errors for argument count/type mismatch
+	if (UNION_CASE(Function, fnty, astType(n->expr)))
 	{
-		type(output, n->expr, constraints);
+		if (isArgumentCountValid(fnty, n->args.size))
+		{
+			for (size_t i = 0; i < fnty->args.size; ++i)
+				typeMustEqual(n->args[i], fnty->args[i], constraints, output);
+		}
+		else if (!constraints)
+			output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
 
-		if (n->op == UnaryOpNot)
-		{
-			n->type = UNION_NEW(Ty, Bool, {});
-			typeMustEqual(n->expr, n->type, constraints, output);
-		}
-		else if (n->op == UnaryOpDeref)
-		{
-			if (UNION_CASE(Pointer, t, astType(n->expr)))
-			{
-				n->type = t->element;
-			}
-			else
-			{
-				n->type = UNION_NEW(Ty, Unknown, {});
-
-				typeMustEqual(n->expr, UNION_NEW(Ty, Pointer, { n->type }), constraints, output);
-			}
-		}
-		else if (n->op == UnaryOpNew)
-		{
-			n->type = UNION_NEW(Ty, Pointer, { astType(n->expr) });
-		}
-		else
-		{
-			ICE("Unknown UnaryOp %d", n->op);
-		}
+		n->type = fnty->ret;
 	}
-	else if (UNION_CASE(Binary, n, root))
+	else
 	{
-		type(output, n->left, constraints);
-		type(output, n->right, constraints);
+		Arr<Ty*> args;
 
-		if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
-		{
-			n->type = UNION_NEW(Ty, Bool, {});
+		for (auto& a: n->args)
+			args.push(astType(a));
 
-			typeMustEqual(n->left, n->type, constraints, output);
-			typeMustEqual(n->right, n->type, constraints, output);
-		}
-		else
-		{
-			ICE("Unknown BinaryOp %d", n->op);
-		}
+		Ty* ret = UNION_NEW(Ty, Unknown, {});
+
+		typeMustEqual(n->expr, UNION_NEW(Ty, Function, { args, ret }), constraints, output);
+
+		n->type = ret;
 	}
-	else if (UNION_CASE(Index, n, root))
+}
+
+static void typeUnary(Output& output, Ast::Unary* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+
+	if (n->op == UnaryOpNot)
 	{
-		type(output, n->expr, constraints);
-		type(output, n->index, constraints);
-
-		typeMustEqual(n->index, UNION_NEW(Ty, Integer, {}), constraints, output);
-
-		if (UNION_CASE(Array, t, astType(n->expr)))
+		n->type = UNION_NEW(Ty, Bool, {});
+		typeMustEqual(n->expr, n->type, constraints, output);
+	}
+	else if (n->op == UnaryOpDeref)
+	{
+		if (UNION_CASE(Pointer, t, astType(n->expr)))
 		{
 			n->type = t->element;
 		}
 		else
 		{
-			Ty* element = UNION_NEW(Ty, Unknown, {});
+			n->type = UNION_NEW(Ty, Unknown, {});
 
-			typeMustEqual(n->expr, UNION_NEW(Ty, Array, { element }), constraints, output);
-
-			n->type = element;
+			typeMustEqual(n->expr, UNION_NEW(Ty, Pointer, { n->type }), constraints, output);
 		}
 	}
-	else if (UNION_CASE(Assign, n, root))
+	else if (n->op == UnaryOpNew)
 	{
-		type(output, n->left, constraints);
-		type(output, n->right, constraints);
-
-		typeMustEqual(n->right, astType(n->left), constraints, output);
-
-		if (!isAssignable(n->left) && !constraints)
-			output.panic(n->location, "Expression is not assignable");
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(If, n, root))
-	{
-		type(output, n->cond, constraints);
-
-		typeMustEqual(n->cond, UNION_NEW(Ty, Bool, {}), constraints, output);
-
-		type(output, n->thenbody, constraints);
-
-		if (n->elsebody)
-		{
-			type(output, n->elsebody, constraints);
-
-			typeMustEqual(n->elsebody, astType(n->thenbody), constraints, output);
-		}
-		else
-		{
-			typeMustEqual(n->thenbody, UNION_NEW(Ty, Void, {}), constraints, output);
-		}
-
-		n->type = astType(n->thenbody);
-	}
-	else if (UNION_CASE(For, n, root))
-	{
-		type(output, n->expr, constraints);
-		type(output, n->body, constraints);
-
-		typeMustEqual(n->expr, UNION_NEW(Ty, Array, { n->var->type }), constraints, output);
-		typeMustEqual(n->body, UNION_NEW(Ty, Void, {}), constraints, output);
-
-		if (n->index)
-			typeMustEqual(n->index->type, UNION_NEW(Ty, Integer, {}), constraints, output, n->index->location);
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(While, n, root))
-	{
-		type(output, n->expr, constraints);
-		type(output, n->body, constraints);
-
-		typeMustEqual(n->expr, UNION_NEW(Ty, Bool, {}), constraints, output);
-		typeMustEqual(n->body, UNION_NEW(Ty, Void, {}), constraints, output);
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(Fn, n, root))
-	{
-		type(output, n->decl, constraints);
-
-		UNION_CASE(FnDecl, decl, n->decl);
-		assert(decl);
-
-		n->type = decl->var->type;
-	}
-	else if (UNION_CASE(FnDecl, n, root))
-	{
-		if (n->body && n->body->kind != Ast::KindLLVM)
-		{
-			type(output, n->body, constraints);
-
-			if (UNION_CASE(Function, fnty, n->var->type))
-			{
-				if (fnty->ret->kind != Ty::KindVoid)
-					typeMustEqual(n->body, fnty->ret, constraints, output);
-			}
-			else
-				ICE("FnDecl type is not Function");
-		}
-		else
-		{
-			if (!constraints)
-				typeMustKnow(n->var->type, output, n->var->location);
-		}
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(VarDecl, n, root))
-	{
-		type(output, n->expr, constraints);
-
-		typeMustEqual(n->expr, n->var->type, constraints, output);
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(TyDecl, n, root))
-	{
-		if (UNION_CASE(Struct, t, n->def))
-		{
-			for (auto& c: t->fields)
-				if (c.expr)
-				{
-					type(output, c.expr, constraints);
-
-					typeMustEqual(c.expr, c.type, constraints, output);
-				}
-		}
-
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
-	}
-	else if (UNION_CASE(Import, n, root))
-	{
-		if (!n->type)
-			n->type = UNION_NEW(Ty, Void, {});
+		n->type = UNION_NEW(Ty, Pointer, { astType(n->expr) });
 	}
 	else
 	{
-		ICE("Unknown Ast kind %d", root->kind);
+		ICE("Unknown UnaryOp %d", n->op);
 	}
+}
+
+static void typeBinary(Output& output, Ast::Binary* n, TypeConstraints* constraints)
+{
+	type(output, n->left, constraints);
+	type(output, n->right, constraints);
+
+	if (n->op == BinaryOpAnd || n->op == BinaryOpOr)
+	{
+		n->type = UNION_NEW(Ty, Bool, {});
+
+		typeMustEqual(n->left, n->type, constraints, output);
+		typeMustEqual(n->right, n->type, constraints, output);
+	}
+	else
+	{
+		ICE("Unknown BinaryOp %d", n->op);
+	}
+}
+
+static void typeIndex(Output& output, Ast::Index* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+	type(output, n->index, constraints);
+
+	typeMustEqual(n->index, UNION_NEW(Ty, Integer, {}), constraints, output);
+
+	if (UNION_CASE(Array, t, astType(n->expr)))
+	{
+		n->type = t->element;
+	}
+	else
+	{
+		Ty* element = UNION_NEW(Ty, Unknown, {});
+
+		typeMustEqual(n->expr, UNION_NEW(Ty, Array, { element }), constraints, output);
+
+		n->type = element;
+	}
+}
+
+static void typeAssign(Output& output, Ast::Assign* n, TypeConstraints* constraints)
+{
+	type(output, n->left, constraints);
+	type(output, n->right, constraints);
+
+	typeMustEqual(n->right, astType(n->left), constraints, output);
+
+	if (!isAssignable(n->left) && !constraints)
+		output.panic(n->location, "Expression is not assignable");
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeIf(Output& output, Ast::If* n, TypeConstraints* constraints)
+{
+	type(output, n->cond, constraints);
+
+	typeMustEqual(n->cond, UNION_NEW(Ty, Bool, {}), constraints, output);
+
+	type(output, n->thenbody, constraints);
+
+	if (n->elsebody)
+	{
+		type(output, n->elsebody, constraints);
+
+		typeMustEqual(n->elsebody, astType(n->thenbody), constraints, output);
+	}
+	else
+	{
+		typeMustEqual(n->thenbody, UNION_NEW(Ty, Void, {}), constraints, output);
+	}
+
+	n->type = astType(n->thenbody);
+}
+
+static void typeFor(Output& output, Ast::For* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+	type(output, n->body, constraints);
+
+	typeMustEqual(n->expr, UNION_NEW(Ty, Array, { n->var->type }), constraints, output);
+	typeMustEqual(n->body, UNION_NEW(Ty, Void, {}), constraints, output);
+
+	if (n->index)
+		typeMustEqual(n->index->type, UNION_NEW(Ty, Integer, {}), constraints, output, n->index->location);
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeWhile(Output& output, Ast::While* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+	type(output, n->body, constraints);
+
+	typeMustEqual(n->expr, UNION_NEW(Ty, Bool, {}), constraints, output);
+	typeMustEqual(n->body, UNION_NEW(Ty, Void, {}), constraints, output);
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeFn(Output& output, Ast::Fn* n, TypeConstraints* constraints)
+{
+	type(output, n->decl, constraints);
+
+	UNION_CASE(FnDecl, decl, n->decl);
+	assert(decl);
+
+	n->type = decl->var->type;
+}
+
+static void typeLLVM(Output& output, Ast::LLVM* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Unknown, {});
+}
+
+static void typeFnDecl(Output& output, Ast::FnDecl* n, TypeConstraints* constraints)
+{
+	if (n->body)
+	{
+		type(output, n->body, constraints);
+
+		if (UNION_CASE(Function, fnty, n->var->type))
+		{
+			if (fnty->ret->kind != Ty::KindVoid)
+				typeMustEqual(n->body, fnty->ret, constraints, output);
+		}
+		else
+			ICE("FnDecl type is not Function");
+	}
+	else
+	{
+		if (!constraints)
+			typeMustKnow(n->var->type, output, n->var->location);
+	}
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeVarDecl(Output& output, Ast::VarDecl* n, TypeConstraints* constraints)
+{
+	type(output, n->expr, constraints);
+
+	typeMustEqual(n->expr, n->var->type, constraints, output);
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeTyDecl(Output& output, Ast::TyDecl* n, TypeConstraints* constraints)
+{
+	if (UNION_CASE(Struct, t, n->def))
+	{
+		for (auto& c: t->fields)
+			if (c.expr)
+			{
+				type(output, c.expr, constraints);
+
+				typeMustEqual(c.expr, c.type, constraints, output);
+			}
+	}
+
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void typeImport(Output& output, Ast::Import* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
+static void type(Output& output, Ast* root, TypeConstraints* constraints)
+{
+#define CALL_TYPE(name, ...) else if (UNION_CASE(name, n, root)) type##name(output, n, constraints);
+
+	if (false) ;
+	UD_AST(CALL_TYPE)
+	else ICE("Unknown Ast kind %d", root->kind);
+
+#undef CALL_TYPE
 }
 
 static bool propagate(TypeConstraints& constraints, Ast* root)
@@ -513,6 +551,10 @@ static bool propagate(TypeConstraints& constraints, Ast* root)
 
 		if (n->index)
 			n->index->type = constraints.rewrite(n->index->type);
+	}
+	else if (UNION_CASE(LLVM, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
 	}
 	else if (UNION_CASE(FnDecl, n, root))
 	{
