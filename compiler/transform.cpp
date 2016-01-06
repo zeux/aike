@@ -1,8 +1,11 @@
 #include "common.hpp"
-#include "debuginfo.hpp"
+#include "transform.hpp"
 
-#include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 using namespace llvm;
 
@@ -31,7 +34,7 @@ static MDTuple* getArray(LLVMContext& context, const vector<Metadata*>& data)
 	return MDTuple::get(context, result);
 }
 
-void debugInfoMerge(Module* module)
+void transformMergeDebugInfo(Module* module)
 {
 	NamedMDNode* culist = module->getNamedMetadata("llvm.dbg.cu");
 	if (!culist || culist->getNumOperands() == 0)
@@ -64,4 +67,30 @@ void debugInfoMerge(Module* module)
 	culist->dropAllReferences();
 
 	culist->addOperand(mergedcu);
+}
+
+void transformOptimize(Module* module, int level)
+{
+	PassManagerBuilder pmb;
+
+	pmb.OptLevel = level;
+
+	pmb.Inliner = (level > 1) ? createFunctionInliningPass(level, 0) : createAlwaysInlinerPass();
+
+	pmb.LoopVectorize = level > 2;
+	pmb.SLPVectorize = level > 2;
+
+	legacy::FunctionPassManager fpm(module);
+	pmb.populateFunctionPassManager(fpm);
+
+	legacy::PassManager pm;
+
+	pmb.populateModulePassManager(pm);
+
+	fpm.doInitialization();
+	for (auto& f: *module)
+		fpm.run(f);
+	fpm.doFinalization();
+
+	pm.run(*module);
 }

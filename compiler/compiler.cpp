@@ -8,8 +8,7 @@
 #include "modules.hpp"
 #include "typecheck.hpp"
 #include "codegen.hpp"
-#include "optimize.hpp"
-#include "debuginfo.hpp"
+#include "transform.hpp"
 #include "target.hpp"
 #include "dump.hpp"
 #include "timer.hpp"
@@ -310,7 +309,7 @@ int main(int argc, const char** argv)
 
 	timer.checkpoint("verify");
 
-	optimize(module, options.optimize);
+	transformOptimize(module, options.optimize);
 
 	timer.checkpoint("optimize");
 
@@ -319,7 +318,7 @@ int main(int argc, const char** argv)
 
 	if (options.debugInfo)
 	{
-		debugInfoMerge(module);
+		transformMergeDebugInfo(module);
 
 		timer.checkpoint("debuginfo");
 	}
