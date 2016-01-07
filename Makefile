@@ -6,20 +6,24 @@ config=debug
 BUILD=build/$(config)
 
 CXXFLAGS=-g -std=c++11
+CFLAGS=-g
 LDFLAGS=
 TESTFLAGS=
 
 ifeq ($(config),release)
 CXXFLAGS+=-O3
+CFLAGS+=-O3
 endif
 
 ifeq ($(config),sanitize)
 CXXFLAGS+=-fsanitize=address
+CFLAGS+=-fsanitize=address
 LDFLAGS+=-fsanitize=address
 endif
 
 ifeq ($(config),coverage)
 CXXFLAGS+=-coverage
+CFLAGS+=-coverage
 LDFLAGS+=-coverage
 TESTFLAGS+=-coverage
 endif
@@ -35,6 +39,7 @@ RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
 $(RUNTIME_OBJ): CXXFLAGS+=-fno-rtti -fno-exceptions -fPIC -fvisibility=hidden
+$(RUNTIME_OBJ): CFLAGS+=-fPIC -fvisibility=hidden
 $(RUNTIME_BIN): LDFLAGS+=-shared -ldl
 
 RUNNER_SRC=tests/runner.cpp
