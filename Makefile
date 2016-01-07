@@ -25,7 +25,6 @@ ifeq ($(config),coverage)
 CXXFLAGS+=-coverage
 CFLAGS+=-coverage
 LDFLAGS+=-coverage
-TESTFLAGS+=-coverage
 endif
 
 COMPILER_SRC=$(wildcard compiler/*.cpp)
@@ -103,7 +102,7 @@ $(BUILD)/%.s.o: %.s
 
 $(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 	@mkdir -p $(dir $@)
-	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(TESTFLAGS) $(flags)
+	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(TESTFLAGS)
 	@touch $@
 
 -include $(OBJECTS:.o=.d)
