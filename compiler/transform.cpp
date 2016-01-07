@@ -4,6 +4,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
@@ -91,6 +92,14 @@ void transformOptimize(Module* module, int level)
 	for (auto& f: *module)
 		fpm.run(f);
 	fpm.doFinalization();
+
+	pm.run(*module);
+}
+
+void transformCoverage(Module* module)
+{
+	legacy::PassManager pm;
+	pm.add(createGCOVProfilerPass());
 
 	pm.run(*module);
 }

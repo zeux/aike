@@ -7,3 +7,4 @@ namespace llvm
 
 void transformMergeDebugInfo(llvm::Module* module);
 void transformOptimize(llvm::Module* module, int level);
+void transformCoverage(llvm::Module* module);

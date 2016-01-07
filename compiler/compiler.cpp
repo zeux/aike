@@ -38,6 +38,7 @@ struct Options
 
 	int optimize;
 	int debugInfo;
+	bool coverage;
 	bool compileOnly;
 
 	bool dumpParse;
@@ -75,6 +76,8 @@ Options parseOptions(int argc, const char** argv)
 				result.optimize = (arg == "-O") ? 2 : atoi(arg.str().c_str() + 2);
 			else if (arg.str().compare(0, 2, "-g") == 0)
 				result.debugInfo = (arg == "-g") ? 2 : atoi(arg.str().c_str() + 2);
+			else if (arg == "-coverage")
+				result.coverage = true;
 			else if (arg.str().compare(0, 6, "--llvm") == 0)
 			{
 				string opt = arg.str().substr(6);
@@ -92,6 +95,9 @@ Options parseOptions(int argc, const char** argv)
 			result.inputs.push_back(arg.str());
 		}
 	}
+
+	if (result.coverage)
+		result.debugInfo = max(result.debugInfo, 1);
 
 	return result;
 }
@@ -321,6 +327,13 @@ int main(int argc, const char** argv)
 		transformMergeDebugInfo(module);
 
 		timer.checkpoint("debuginfo");
+	}
+
+	if (options.coverage)
+	{
+		transformCoverage(module);
+
+		timer.checkpoint("coverage");
 	}
 
 	if (options.dumpLLVM)
