@@ -571,6 +571,7 @@ void llvm_register_flush_function(flush_fn fn) {
   }
 }
 
+static
 void __gcov_flush() {
   struct flush_fn_node *curr = flush_fn_head;
 
