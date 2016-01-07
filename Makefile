@@ -7,6 +7,7 @@ BUILD=build/$(config)
 
 CXXFLAGS=-g -std=c++11
 LDFLAGS=
+TESTFLAGS=
 
 ifeq ($(config),release)
 CXXFLAGS+=-O3
@@ -20,6 +21,7 @@ endif
 ifeq ($(config),coverage)
 CXXFLAGS+=-coverage
 LDFLAGS+=-coverage
+TESTFLAGS+=-coverage
 endif
 
 COMPILER_SRC=$(wildcard compiler/*.cpp)
@@ -96,7 +98,7 @@ $(BUILD)/%.s.o: %.s
 
 $(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 	@mkdir -p $(dir $@)
-	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(flags)
+	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(TESTFLAGS) $(flags)
 	@touch $@
 
 -include $(OBJECTS:.o=.d)
