@@ -1,0 +1,5 @@
+if 2.0 + 2.0 == 4.0
+    print("hello")
+
+## OK
+# hello
