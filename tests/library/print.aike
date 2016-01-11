@@ -1,0 +1,8 @@
+struct F
+    a: int
+    b: float
+
+print(true, 1, 0.5, "test", [0], F { a = 1, b = 2.0 })
+
+## OK
+# true 1 0.5 test [0] F { a=1 b=2 }
