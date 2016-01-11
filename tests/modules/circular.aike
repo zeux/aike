@@ -1,0 +1,4 @@
+import circular
+
+## FAIL
+# (1,8): Circular dependency detected: module circular transitively imports itself

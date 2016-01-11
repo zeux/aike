@@ -1,0 +1,6 @@
+import std.math
+
+print(abs(-3.0))
+
+## OK
+# 3
