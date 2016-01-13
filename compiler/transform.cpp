@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "transform.hpp"
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -101,8 +102,13 @@ void transformCoverage(Module* module)
 	auto options = GCOVOptions::getDefault();
 
 	// required to make output compatible with "recent" (4.4+) gcov
-	options.UseCfgChecksum = true;
 	memcpy(options.Version, "404*", 4);
+	options.UseCfgChecksum = true;
+
+	// ideally we should be able to just omit function names from gcda but llvm-cov can't read that
+	// isOSLinux is a proxy for "does target platform use gcov"
+	if (Triple(module->getTargetTriple()).isOSLinux())
+		options.FunctionNamesInData = false;
 
 	legacy::PassManager pm;
 	pm.add(createGCOVProfilerPass(options));
