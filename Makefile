@@ -25,6 +25,7 @@ ifeq ($(config),coverage)
 CXXFLAGS+=-coverage
 CFLAGS+=-coverage
 LDFLAGS+=-coverage
+TESTFLAGS+=-coverage
 endif
 
 COMPILER_SRC=$(wildcard compiler/*.cpp)
