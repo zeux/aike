@@ -230,6 +230,7 @@ int main(int argc, const char** argv)
 
 	llvm::Module* module = new llvm::Module("main", context);
 
+	module->setTargetTriple(triple);
 	module->setDataLayout(targetDataLayout(triple));
 
 	if (options.debugInfo)
