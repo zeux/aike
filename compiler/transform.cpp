@@ -98,8 +98,14 @@ void transformOptimize(Module* module, int level)
 
 void transformCoverage(Module* module)
 {
+	auto options = GCOVOptions::getDefault();
+
+	// required to make output compatible with "recent" (4.4+) gcov
+	options.UseCfgChecksum = true;
+	memcpy(options.Version, "404*", 4);
+
 	legacy::PassManager pm;
-	pm.add(createGCOVProfilerPass());
+	pm.add(createGCOVProfilerPass(options));
 
 	pm.run(*module);
 }
