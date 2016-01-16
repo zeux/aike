@@ -1,7 +1,0 @@
-var foo = new 5
-
-if not false
-    print(- *foo)
-
-## OK
-# -5
