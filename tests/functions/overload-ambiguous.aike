@@ -1,0 +1,10 @@
+fn foo(a: [int])
+    print()
+
+fn foo(a: [float])
+    print()
+
+foo([])
+
+## FAIL
+# (7,1): Ambiguous identifier foo

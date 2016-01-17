@@ -1,0 +1,17 @@
+fn foo(a: int)
+    print("int", a)
+
+fn foo(a: float)
+    print("float", a)
+
+fn foo(a: float, b: int)
+    print("float", a, "int", b)
+
+foo(1)
+foo(2.0)
+foo(3.0, 4)
+
+## OK
+# int 1
+# float 2
+# float 3 int 4
