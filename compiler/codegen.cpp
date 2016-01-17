@@ -1312,7 +1312,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 
 	vector<Value*> args = getFunctionArguments(inst.value);
 
-	for (size_t i = 0; i < args.size(); ++i)
+	for (size_t i = 0; i < inst.decl->args.size; ++i)
 		codegenVariable(cg, inst.decl->args[i], args[i]);
 
 	BasicBlock* bb = BasicBlock::Create(*cg.context, "entry", inst.value);
@@ -1322,7 +1322,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	{
 		DIFile* file = cg.di->createFile(inst.decl->var->location.source, StringRef());
 
-		for (size_t i = 0; i < args.size(); ++i)
+		for (size_t i = 0; i < inst.decl->args.size; ++i)
 		{
 			Variable* var = inst.decl->args[i];
 			Value* storage = args[i];
