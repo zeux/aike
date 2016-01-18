@@ -20,6 +20,15 @@ struct TokenStream
 		return index + offset < tokens->tokens.size ? tokens->tokens[index + offset] : kEnd;
 	}
 
+	void skipLineWarn()
+	{
+		if (get().type == Token::TypeLine)
+		{
+			// output->warning(get().location, "Skipped newline");
+			index++;
+		}
+	}
+
 	void move()
 	{
 		assert(!is(Token::TypeEnd));
@@ -29,6 +38,8 @@ struct TokenStream
 
 	bool is(Token::Type type)
 	{
+		if (type != Token::TypeLine) skipLineWarn();
+
 		const Token& t = get();
 
 		return (t.type == type);
@@ -36,6 +47,8 @@ struct TokenStream
 
 	bool is(Token::Type type, const char* data)
 	{
+		if (type != Token::TypeLine) skipLineWarn();
+
 		const Token& t = get();
 
 		return (t.type == type && t.data == data);
@@ -197,6 +210,8 @@ static Ty* parseType(TokenStream& ts)
 template <typename F>
 static void parseIndent(TokenStream& ts, const Location* indent, bool allowSingleLine, F f)
 {
+	ts.skipLineWarn();
+
 	if (isFirstOnLine(ts, ts.get().location))
 	{
 		int startIndent = indent ? getLineIndent(ts, *indent) : 0;
@@ -222,6 +237,8 @@ static void parseIndent(TokenStream& ts, const Location* indent, bool allowSingl
 			}
 
 			f();
+
+			ts.skipLineWarn();
 		}
 	}
 	else

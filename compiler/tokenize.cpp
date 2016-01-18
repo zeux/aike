@@ -205,6 +205,38 @@ static void matchBrackets(Output& output, Arr<Token>& tokens)
 	}
 }
 
+static bool continueLine(const Token& token)
+{
+	return false;
+}
+
+static Token getLineToken(const Token& pt)
+{
+	const Location& pl = pt.location;
+
+	Location loc(pl.source, pl.line, pl.column + pt.data.size, pl.offset + pt.data.size, 0);
+
+	return { Token::TypeLine, Str(), pt.offset + pt.data.size, 0, loc };
+}
+
+static void insertNewline(Arr<Token>& tokens)
+{
+	vector<Token> result;
+
+	for (size_t i = 0; i < tokens.size; ++i)
+	{
+		if (i > 0 && tokens[i-1].location.line < tokens[i].location.line && !continueLine(tokens[i-1]))
+			result.push_back(getLineToken(tokens[i-1]));
+
+		result.push_back(tokens[i]);
+	}
+
+	if (tokens.size > 0)
+		result.push_back(getLineToken(tokens[tokens.size-1]));
+
+	tokens = { result.begin(), result.end() };
+}
+
 Tokens tokenize(Output& output, const char* source, const Str& data)
 {
 	auto lines = parseLines(output, source, data);
@@ -227,6 +259,8 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 
 	matchBrackets(output, tokens);
 
+	insertNewline(tokens);
+
 	return { lines, tokens };
 }
 
@@ -240,7 +274,7 @@ string tokenName(Token::Type type)
 		case Token::TypeString: return "string";
 		case Token::TypeCharacter: return "character";
 		case Token::TypeNumber: return "number";
-		case Token::TypeNewline: return "newline";
+		case Token::TypeLine: return "newline";
 		case Token::TypeEnd: return "end";
 		default: return "unknown";
 	}

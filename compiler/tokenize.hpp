@@ -23,7 +23,7 @@ struct Token
 		TypeString,
 		TypeCharacter,
 		TypeNumber,
-		TypeNewline,
+		TypeLine,
 		TypeEnd,
 	};
 
