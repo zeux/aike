@@ -453,7 +453,7 @@ static Ty* finalType(Codegen& cg, Ast* node)
 
 static Value* codegenVoid(Codegen& cg)
 {
-	return nullptr;
+	return UndefValue::get(Type::getVoidTy(*cg.context));
 }
 
 static void codegenVariable(Codegen& cg, Variable* var, Value* value)
@@ -899,7 +899,11 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		func->getBasicBlockList().push_back(endbb);
 		cg.ir->SetInsertPoint(endbb);
 
-		if (thenbody)
+		if (thenbody->getType()->isVoidTy())
+		{
+			return codegenVoid(cg);
+		}
+		else
 		{
 			PHINode* pn = cg.ir->CreatePHI(thenbody->getType(), 2);
 
@@ -907,10 +911,6 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 			pn->addIncoming(elsebody, elsebb);
 
 			return pn;
-		}
-		else
-		{
-			return codegenVoid(cg);
 		}
 	}
 	else
@@ -1358,10 +1358,10 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	// is hard to get manually, and is not part of IR state because of CodegenDebugLocation dtor.
 	cg.ir->SetCurrentDebugLocation(DebugLoc());
 
-	if (ret)
-		cg.ir->CreateRet(ret);
-	else
+	if (ret->getType()->isVoidTy())
 		cg.ir->CreateRetVoid();
+	else
+		cg.ir->CreateRet(ret);
 }
 
 static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
