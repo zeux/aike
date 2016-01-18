@@ -48,8 +48,15 @@ static void print(FILE* file, Output* output, Location loc, const char* format, 
 		for (size_t i = line.first; i < loc.offset; ++i)
 			fputc(' ', file);
 
-		for (size_t i = loc.offset; i < line.second && i < loc.offset + loc.length; ++i)
+		if (loc.length == 0)
+		{
 			fputc('^', file);
+		}
+		else
+		{
+			for (size_t i = loc.offset; i < line.second && i < loc.offset + loc.length; ++i)
+				fputc('^', file);
+		}
 
 		fputc('\n', file);
 	}
