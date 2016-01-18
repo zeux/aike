@@ -451,6 +451,11 @@ static Ty* finalType(Codegen& cg, Ast* node)
 	return finalType(cg, astType(node));
 }
 
+static Value* codegenVoid(Codegen& cg)
+{
+	return nullptr;
+}
+
 static void codegenVariable(Codegen& cg, Variable* var, Value* value)
 {
 	cg.vars[var] = value;
@@ -687,7 +692,7 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 
 static Value* codegenBlock(Codegen& cg, Ast::Block* n)
 {
-	Value* result = nullptr;
+	Value* result = codegenVoid(cg);
 
 	for (auto& e: n->body)
 		result = codegenExpr(cg, e);
@@ -746,7 +751,12 @@ static Value* codegenCall(Codegen& cg, Ast::Call* n)
 			args.push_back(codegenExpr(cg, a));
 	}
 
-	return cg.ir->CreateCall(expr, args);
+	Value* ret = cg.ir->CreateCall(expr, args);
+
+	if (ret->getType()->isVoidTy())
+		return codegenVoid(cg);
+	else
+		return ret;
 }
 
 static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
@@ -776,7 +786,9 @@ static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
 	Value* left = codegenExpr(cg, n->left, KindRef);
 	Value* right = codegenExpr(cg, n->right);
 
-	return cg.ir->CreateStore(right, left);
+	cg.ir->CreateStore(right, left);
+
+	return codegenVoid(cg);
 }
 
 static Value* codegenUnary(Codegen& cg, Ast::Unary* n, CodegenKind kind)
@@ -887,11 +899,7 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		func->getBasicBlockList().push_back(endbb);
 		cg.ir->SetInsertPoint(endbb);
 
-		if (thenbody->getType()->isVoidTy())
-		{
-			return nullptr;
-		}
-		else
+		if (thenbody)
 		{
 			PHINode* pn = cg.ir->CreatePHI(thenbody->getType(), 2);
 
@@ -899,6 +907,10 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 			pn->addIncoming(elsebody, elsebb);
 
 			return pn;
+		}
+		else
+		{
+			return codegenVoid(cg);
 		}
 	}
 	else
@@ -917,7 +929,7 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 		func->getBasicBlockList().push_back(endbb);
 		cg.ir->SetInsertPoint(endbb);
 
-		return nullptr;
+		return codegenVoid(cg);
 	}
 }
 
@@ -964,7 +976,7 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 	func->getBasicBlockList().push_back(endbb);
 	cg.ir->SetInsertPoint(endbb);
 
-	return nullptr;
+	return codegenVoid(cg);
 }
 
 static Value* codegenWhile(Codegen& cg, Ast::While* n)
@@ -997,7 +1009,7 @@ static Value* codegenWhile(Codegen& cg, Ast::While* n)
 	func->getBasicBlockList().push_back(endbb);
 	cg.ir->SetInsertPoint(endbb);
 
-	return nullptr;
+	return codegenVoid(cg);
 }
 
 static Value* codegenFn(Codegen& cg, Ast::Fn* n)
@@ -1036,7 +1048,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 		cg.di->insertDeclare(storage, dvar, cg.di->createExpression(), dloc, cg.ir->GetInsertBlock());
 	}
 
-	return storage;
+	return codegenVoid(cg);
 }
 
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
@@ -1099,16 +1111,16 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 		return codegenFn(cg, n);
 
 	if (UNION_CASE(FnDecl, n, node))
-		return nullptr;
+		return codegenVoid(cg);
 
 	if (UNION_CASE(VarDecl, n, node))
 		return codegenVarDecl(cg, n);
 
 	if (UNION_CASE(TyDecl, n, node))
-		return nullptr;
+		return codegenVoid(cg);
 
 	if (UNION_CASE(Import, n, node))
-		return nullptr;
+		return codegenVoid(cg);
 
 	ICE("Unknown Ast kind %d", node->kind);
 }
@@ -1346,7 +1358,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 	// is hard to get manually, and is not part of IR state because of CodegenDebugLocation dtor.
 	cg.ir->SetCurrentDebugLocation(DebugLoc());
 
-	if (!inst.value->getFunctionType()->getReturnType()->isVoidTy())
+	if (ret)
 		cg.ir->CreateRet(ret);
 	else
 		cg.ir->CreateRetVoid();
