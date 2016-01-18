@@ -44,7 +44,7 @@ static bool isAtom(char ch)
 		ch == '!' ||
 		ch == '$' || ch == '%' || ch == '&' ||
 		ch == '*' || ch == '+' || ch == ',' || ch == '-' || ch == '.' || ch == '/' ||
-		ch == ':' || ch == ';' || ch == '<' || ch == '<' || ch == '=' || ch == '>' || ch == '?' || ch == '@' ||
+		ch == ':' || ch == ';' || ch == '<' || ch == '=' || ch == '>' || ch == '?' || ch == '@' ||
 		ch == '\\' || ch == '^' || ch == '`' || ch == '|' || ch == '~';
 }
 
@@ -230,7 +230,7 @@ Tokens tokenize(Output& output, const char* source, const Str& data)
 	return { lines, tokens };
 }
 
-const char* tokenTypeName(Token::Type type)
+string tokenName(Token::Type type)
 {
 	switch (type)
 	{
@@ -240,7 +240,16 @@ const char* tokenTypeName(Token::Type type)
 		case Token::TypeString: return "string";
 		case Token::TypeCharacter: return "character";
 		case Token::TypeNumber: return "number";
+		case Token::TypeNewline: return "newline";
 		case Token::TypeEnd: return "end";
 		default: return "unknown";
 	}
+}
+
+string tokenName(const Token& token)
+{
+	if (token.data.size)
+		return "'" + token.data.str() + "'";
+	else
+		return tokenName(token.type);
 }

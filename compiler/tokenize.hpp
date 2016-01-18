@@ -23,7 +23,8 @@ struct Token
 		TypeString,
 		TypeCharacter,
 		TypeNumber,
-		TypeEnd
+		TypeNewline,
+		TypeEnd,
 	};
 
 	Type type;
@@ -40,4 +41,6 @@ struct Tokens
 };
 
 Tokens tokenize(Output& output, const char* source, const Str& data);
-const char* tokenTypeName(Token::Type type);
+
+string tokenName(Token::Type type);
+string tokenName(const Token& token);
