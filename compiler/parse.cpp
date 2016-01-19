@@ -208,45 +208,35 @@ static Ty* parseType(TokenStream& ts)
 }
 
 template <typename F>
-static void parseIndent(TokenStream& ts, const Location* indent, bool allowSingleLine, F f)
+static void parseIndent(TokenStream& ts, const Location* indent, F f)
 {
 	ts.skipLineWarn();
 
-	if (isFirstOnLine(ts, ts.get().location))
+	int startIndent = indent ? getLineIndent(ts, *indent) : 0;
+	int firstIndent = getLineIndent(ts, ts.get().location);
+
+	if (indent && firstIndent <= startIndent)
+		ts.output->panic(ts.get().location, "Invalid indentation: expected >%d, got %d", startIndent, firstIndent);
+
+	while (!ts.is(Token::TypeEnd))
 	{
-		int startIndent = indent ? getLineIndent(ts, *indent) : 0;
-		int firstIndent = getLineIndent(ts, ts.get().location);
-
-		if (indent && firstIndent <= startIndent)
-			ts.output->panic(ts.get().location, "Invalid indentation: expected >%d, got %d", startIndent, firstIndent);
-
-		while (!ts.is(Token::TypeEnd))
-		{
-			if (!isFirstOnLine(ts, ts.get().location))
-				ts.output->panic(ts.get().location, "Expected newline");
-
-			if (indent)
-			{
-				int lineIndent = getLineIndent(ts, ts.get().location);
-
-				if (lineIndent <= startIndent)
-					break;
-
-				if (lineIndent != firstIndent)
-					ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", firstIndent, lineIndent);
-			}
-
-			f();
-
-			ts.skipLineWarn();
-		}
-	}
-	else
-	{
-		if (allowSingleLine)
-			f();
-		else
+		if (!isFirstOnLine(ts, ts.get().location))
 			ts.output->panic(ts.get().location, "Expected newline");
+
+		if (indent)
+		{
+			int lineIndent = getLineIndent(ts, ts.get().location);
+
+			if (lineIndent <= startIndent)
+				break;
+
+			if (lineIndent != firstIndent)
+				ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", firstIndent, lineIndent);
+		}
+
+		f();
+
+		ts.skipLineWarn();
 	}
 }
 
@@ -256,9 +246,23 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 {
 	Arr<Ast*> body;
 
-	parseIndent(ts, indent, /* allowSingleLine= */ true, [&]() { body.push(parseExpr(ts)); });
+	parseIndent(ts, indent, [&]() { body.push(parseExpr(ts)); });
 
 	return UNION_NEW(Ast, Block, { nullptr, Location(), body });
+}
+
+static Ast* parseBlockExpr(TokenStream& ts, const Location* indent)
+{
+	ts.skipLineWarn();
+
+	if (isFirstOnLine(ts, ts.get().location))
+	{
+		return parseBlock(ts, indent);
+	}
+	else
+	{
+		return parseExpr(ts);
+	}
 }
 
 static Arr<Ty*> parseTypeSignature(TokenStream& ts)
@@ -366,7 +370,7 @@ static Ast* parseFn(TokenStream& ts)
 
 	auto sig = parseFnSignature(ts);
 
-	Ast* body = parseBlock(ts, &start);
+	Ast* body = parseBlockExpr(ts, &start);
 
 	Variable* var = new Variable { Variable::KindFunction, Str(), sig.first, start };
 	Ast* decl = UNION_NEW(Ast, FnDecl, { nullptr, start, var, Arr<Ty*>(), sig.second, 0, body });
@@ -458,7 +462,7 @@ static Ast* parseStructDecl(TokenStream& ts)
 
 	Arr<StructField> fields;
 
-	parseIndent(ts, &indent, /* allowSingleLine= */ false, [&]() {
+	parseIndent(ts, &indent, [&]() {
 		vector<Token> fnames;
 
 		for (;;)
@@ -604,7 +608,7 @@ static Ast* parseIf(TokenStream& ts)
 	ts.eat(Token::TypeIdent, "if");
 
 	Ast* cond = parseExpr(ts);
-	Ast* thenbody = parseBlock(ts, &start);
+	Ast* thenbody = parseBlockExpr(ts, &start);
 	Ast* elsebody = nullptr;
 
 	if (ts.is(Token::TypeIdent, "else"))
@@ -617,7 +621,7 @@ static Ast* parseIf(TokenStream& ts)
 
 		ts.eat(Token::TypeIdent);
 
-		elsebody = parseBlock(ts, &start);
+		elsebody = parseBlockExpr(ts, &start);
 	}
 
 	return UNION_NEW(Ast, If, { nullptr, start, cond, thenbody, elsebody });
@@ -645,7 +649,7 @@ static Ast* parseFor(TokenStream& ts)
 	ts.eat(Token::TypeIdent, "in");
 
 	Ast* expr = parseExpr(ts);
-	Ast* body = parseBlock(ts, &start);
+	Ast* body = parseBlockExpr(ts, &start);
 
 	return UNION_NEW(Ast, For, { nullptr, start, var, index, expr, body });
 }
@@ -657,7 +661,7 @@ static Ast* parseWhile(TokenStream& ts)
 	ts.eat(Token::TypeIdent, "while");
 
 	Ast* expr = parseExpr(ts);
-	Ast* body = parseBlock(ts, &start);
+	Ast* body = parseBlockExpr(ts, &start);
 
 	return UNION_NEW(Ast, While, { nullptr, start, expr, body });
 }
