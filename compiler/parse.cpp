@@ -221,7 +221,7 @@ static void parseIndent(TokenStream& ts, const Location* indent, F f)
 	while (!ts.is(Token::TypeEnd))
 	{
 		if (!isFirstOnLine(ts, ts.get().location))
-			ts.output->panic(ts.get().location, "Expected newline");
+			ts.output->panic(ts.get().location, "Expected newline, got %s", tokenName(ts.get()).c_str());
 
 		if (indent)
 		{
