@@ -40,6 +40,7 @@ struct Options
 	int debugInfo;
 	bool coverage;
 	bool compileOnly;
+	bool disablePrelude;
 
 	bool dumpParse;
 	bool dumpAst;
@@ -78,6 +79,8 @@ Options parseOptions(int argc, const char** argv)
 				result.debugInfo = (arg == "-g") ? 2 : atoi(arg.str().c_str() + 2);
 			else if (arg == "-coverage")
 				result.coverage = true;
+			else if (arg == "-noprelude")
+				result.disablePrelude = true;
 			else if (arg.str().compare(0, 6, "--llvm") == 0)
 			{
 				string opt = arg.str().substr(6);
@@ -286,9 +289,12 @@ int main(int argc, const char** argv)
 
 		Ast* root = parseModule(timer, output, source, contents.second, pm.name, options);
 
-		if (UNION_CASE(Module, m, root))
-			if (pm.name != "std.prelude")
-				m->autoimports.push(Str("std.prelude"));
+		if (!options.disablePrelude)
+		{
+			if (UNION_CASE(Module, m, root))
+				if (pm.name != "std.prelude")
+					m->autoimports.push(Str("std.prelude"));
+		}
 
 		moduleGatherImports(root, [&](Str name, Location location) {
 			pendingModules.push_back({ name, location, getModulePath(name) });
