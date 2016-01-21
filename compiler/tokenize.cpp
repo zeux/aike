@@ -207,7 +207,9 @@ static void matchBrackets(Output& output, Arr<Token>& tokens)
 
 static bool continueLine(const Token& token)
 {
-	return false;
+	return
+		(token.type == Token::TypeAtom && token.data != ">") ||
+		(token.type == Token::TypeBracket && (token.data == "(" || token.data == "[" || token.data == "{"));
 }
 
 static Token getLineToken(const Token& pt)

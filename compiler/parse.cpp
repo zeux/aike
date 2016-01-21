@@ -20,15 +20,6 @@ struct TokenStream
 		return index + offset < tokens->tokens.size ? tokens->tokens[index + offset] : kEnd;
 	}
 
-	void skipLineWarn()
-	{
-		if (get().type == Token::TypeLine)
-		{
-			// output->warning(get().location, "Skipped newline");
-			index++;
-		}
-	}
-
 	void move()
 	{
 		assert(!is(Token::TypeEnd));
@@ -38,8 +29,6 @@ struct TokenStream
 
 	bool is(Token::Type type)
 	{
-		if (type != Token::TypeLine) skipLineWarn();
-
 		const Token& t = get();
 
 		return (t.type == type);
@@ -47,8 +36,6 @@ struct TokenStream
 
 	bool is(Token::Type type, const char* data)
 	{
-		if (type != Token::TypeLine) skipLineWarn();
-
 		const Token& t = get();
 
 		return (t.type == type && t.data == data);
@@ -210,8 +197,6 @@ static Ty* parseType(TokenStream& ts)
 template <typename F>
 static void parseIndent(TokenStream& ts, const Location* indent, F f)
 {
-	ts.skipLineWarn();
-
 	int startIndent = indent ? getLineIndent(ts, *indent) : 0;
 	int firstIndent = getLineIndent(ts, ts.get().location);
 
@@ -220,8 +205,17 @@ static void parseIndent(TokenStream& ts, const Location* indent, F f)
 
 	while (!ts.is(Token::TypeEnd))
 	{
-		if (!isFirstOnLine(ts, ts.get().location))
-			ts.output->panic(ts.get().location, "Expected newline, got %s", tokenName(ts.get()).c_str());
+		f();
+
+		if (ts.is(Token::TypeEnd))
+			break;
+
+		// For nested blocks it could be that the newline already got consumed by f()
+		// so we handle that case as well as the case where f() did not consume it.
+		if (ts.is(Token::TypeLine))
+			ts.move();
+		else if (ts.get(-1).type != Token::TypeLine)
+			ts.expect(Token::TypeLine);
 
 		if (indent)
 		{
@@ -233,10 +227,6 @@ static void parseIndent(TokenStream& ts, const Location* indent, F f)
 			if (lineIndent != firstIndent)
 				ts.output->panic(ts.get().location, "Invalid indentation: expected %d, got %d", firstIndent, lineIndent);
 		}
-
-		f();
-
-		ts.skipLineWarn();
 	}
 }
 
@@ -253,15 +243,22 @@ static Ast* parseBlock(TokenStream& ts, const Location* indent)
 
 static Ast* parseBlockExpr(TokenStream& ts, const Location* indent)
 {
-	ts.skipLineWarn();
-
-	if (isFirstOnLine(ts, ts.get().location))
+	if (ts.is(Token::TypeLine))
 	{
+		ts.move();
+
 		return parseBlock(ts, indent);
 	}
 	else
 	{
-		return parseExpr(ts);
+		Ast* result = parseExpr(ts);
+
+		// parseBlockExpr reads newline after blocks so we do this here as well to match the behavior
+		// This is important for if-else blocks where the if body is an expr but else is on the next line
+		if (ts.is(Token::TypeLine))
+			ts.move();
+
+		return result;
 	}
 }
 
@@ -380,6 +377,8 @@ static Ast* parseFn(TokenStream& ts)
 
 static Ast* parseFnBody(TokenStream& ts, const Location* indent)
 {
+	ts.eat(Token::TypeLine);
+
 	if (ts.is(Token::TypeIdent, "llvm"))
 	{
 		ts.move();
@@ -459,6 +458,8 @@ static Ast* parseStructDecl(TokenStream& ts)
 	auto name = ts.eat(Token::TypeIdent);
 
 	auto tysig = parseTypeSignature(ts);
+
+	ts.eat(Token::TypeLine);
 
 	Arr<StructField> fields;
 
