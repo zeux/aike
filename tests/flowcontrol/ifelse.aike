@@ -3,6 +3,9 @@ var x = if (1 < 2) 3 else 4
 if x > 2
     print(x)
 
+if x > 2
+    ()
+
 if x < 2
     print(1)
 else

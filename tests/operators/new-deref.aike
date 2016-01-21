@@ -5,12 +5,7 @@ var x = new 1
 
 foo(x)
 
-# TODO: this is a very crude hack to work around parsing issues (try replacing with *x = 2...)
-if false
-    var y = 0
-    y = 1 # TODO: this is a hack to work around void issues
-else
-    (*x) = 2
+(*x) = 2
 
 foo(x)
 
