@@ -133,7 +133,11 @@ static void dumpDef(const Str& name, TyDef* def, int indent)
 
 static void dumpNode(Ast* root, int indent)
 {
-	if (UNION_CASE(LiteralBool, n, root))
+	if (UNION_CASE(LiteralVoid, n, root))
+	{
+		printf("()");
+	}
+	else if (UNION_CASE(LiteralBool, n, root))
 	{
 		printf("%s", n->value ? "true" : "false");
 	}

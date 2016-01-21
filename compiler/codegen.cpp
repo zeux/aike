@@ -1053,6 +1053,9 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 {
+	if (UNION_CASE(LiteralVoid, n, node))
+		return codegenVoid(cg);
+
 	if (UNION_CASE(LiteralBool, n, node))
 		return cg.ir->getInt1(n->value);
 

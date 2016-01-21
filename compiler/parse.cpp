@@ -813,13 +813,26 @@ static Ast* parseTerm(TokenStream& ts)
 
 	if (ts.is(Token::TypeBracket, "("))
 	{
+		Location start = ts.get().location;
+
 		ts.move();
 
-		Ast* result = parseExpr(ts);
+		if (ts.is(Token::TypeBracket, ")"))
+		{
+			Location end = ts.get().location;
 
-		ts.eat(Token::TypeBracket, ")");
+			ts.move();
 
-		return result;
+			return UNION_NEW(Ast, LiteralVoid, { nullptr, Location(start, end) });
+		}
+		else
+		{
+			Ast* result = parseExpr(ts);
+
+			ts.eat(Token::TypeBracket, ")");
+
+			return result;
+		}
 	}
 
 	auto t = ts.get();

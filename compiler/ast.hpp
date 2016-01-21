@@ -66,6 +66,7 @@ struct FieldRef
 
 #define UD_AST(X) \
 	X(Common, { Ty* type; Location location; }) \
+	X(LiteralVoid, { Ty* type; Location location; }) \
 	X(LiteralBool, { Ty* type; Location location; bool value; }) \
 	X(LiteralInteger, { Ty* type; Location location; long long value; }) \
 	X(LiteralFloat, { Ty* type; Location location; double value; }) \

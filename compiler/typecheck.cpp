@@ -142,6 +142,12 @@ static void typeCommon(Output& output, Ast::Common* n, TypeConstraints* constrai
 {
 }
 
+static void typeLiteralVoid(Output& output, Ast::LiteralVoid* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+		n->type = UNION_NEW(Ty, Void, {});
+}
+
 static void typeLiteralBool(Output& output, Ast::LiteralBool* n, TypeConstraints* constraints)
 {
 	if (!n->type)
