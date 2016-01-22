@@ -1421,8 +1421,8 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
 	cg.builtinDebugTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::debugtrap);
 
-	cg.runtimeNew = cg.module->getOrInsertFunction("aikeNew", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
-	cg.runtimeNewArray = cg.module->getOrInsertFunction("aikeNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNew = cg.module->getOrInsertFunction("gcNew", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNewArray = cg.module->getOrInsertFunction("gcNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
 }
 
 llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options)
