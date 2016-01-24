@@ -1,0 +1,10 @@
+fn foo(a: float)
+    a
+
+fn foo(a: float, b: float, c: float)
+    a + b + c
+
+foo()
+
+## FAIL
+# (7,1): Unable to deduce the type of foo
