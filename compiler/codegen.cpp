@@ -531,6 +531,14 @@ static Value* codegenNewArr(Codegen& cg, Ty* type, Value* count)
 	return ptr;
 }
 
+static Value* codegenNewArrEmpty(Codegen& cg, Ty* type)
+{
+	Type* elementType = codegenType(cg, type);
+	Type* pointerType = PointerType::get(elementType, 0);
+
+	return Constant::getNullValue(pointerType);
+}
+
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue);
 
 static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
@@ -556,7 +564,10 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 	UNION_CASE(Array, ta, n->type);
 	assert(ta);
 
-	Value* ptr = codegenNewArr(cg, ta->element, cg.ir->getInt32(n->elements.size));
+	Value* ptr =
+		n->elements.size
+		? codegenNewArr(cg, ta->element, cg.ir->getInt32(n->elements.size))
+		: codegenNewArrEmpty(cg, ta->element);
 
 	for (size_t i = 0; i < n->elements.size; ++i)
 	{
