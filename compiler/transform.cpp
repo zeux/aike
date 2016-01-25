@@ -42,7 +42,7 @@ void transformMergeDebugInfo(Module* module)
 	if (!culist || culist->getNumOperands() == 0)
 		return;
 
-	vector<Metadata*> enumTypes, retainedTypes, subprograms, globalVariables, importedEntities;
+	vector<Metadata*> enumTypes, retainedTypes, subprograms, globalVariables, importedEntities, macros;
 
 	for (MDNode* node: culist->operands())
 	{
@@ -53,6 +53,7 @@ void transformMergeDebugInfo(Module* module)
 		mergeArray(subprograms, cu->getSubprograms());
 		mergeArray(globalVariables, cu->getGlobalVariables());
 		mergeArray(importedEntities, cu->getImportedEntities());
+		mergeArray(macros, cu->getMacros());
 	}
 
 	DICompileUnit* maincu = cast<DICompileUnit>(culist->getOperand(culist->getNumOperands() - 1));
@@ -64,7 +65,8 @@ void transformMergeDebugInfo(Module* module)
 		maincu->getRuntimeVersion(), maincu->getSplitDebugFilename(), maincu->getEmissionKind(),
 		getArray(context, enumTypes), getArray(context, retainedTypes),
 		getArray(context, subprograms), getArray(context, globalVariables),
-		getArray(context, importedEntities), maincu->getDWOId());
+		getArray(context, importedEntities), getArray(context, macros),
+		maincu->getDWOId());
 
 	culist->dropAllReferences();
 

@@ -397,7 +397,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 		for (auto& a: t->args)
 			args.push_back(codegenTypeDebug(cg, a));
 
-		return cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray(args));
+		return cg.di->createSubroutineType(cg.di->getOrCreateTypeArray(args));
 	}
 
 	if (UNION_CASE(Instance, t, type))
@@ -1056,7 +1056,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 		DIFile* file = cg.di->createFile(n->var->location.source, StringRef());
 
 		DIType* dty = codegenTypeDebug(cg, n->var->type);
-		DILocalVariable* dvar = cg.di->createLocalVariable(dwarf::DW_TAG_auto_variable,
+		DILocalVariable* dvar = cg.di->createAutoVariable(
 			cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty,
 			/* alwaysPreserve= */ false, /* flags= */ 0);
 
@@ -1360,9 +1360,9 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 			Value* storage = args[i];
 
 			DIType* dty = codegenTypeDebug(cg, var->type);
-			DILocalVariable* dvar = cg.di->createLocalVariable(dwarf::DW_TAG_arg_variable,
-				cg.debugBlocks.back(), var->name.str(), file, var->location.line + 1, dty,
-				/* alwaysPreserve= */ false, /* flags= */ 0, i + 1);
+			DILocalVariable* dvar = cg.di->createParameterVariable(
+				cg.debugBlocks.back(), var->name.str(), i + 1, file, var->location.line + 1, dty,
+				/* alwaysPreserve= */ false, /* flags= */ 0);
 
 			DebugLoc dloc = DebugLoc::get(var->location.line + 1, var->location.column + 1, cg.debugBlocks.back());
 
@@ -1414,12 +1414,13 @@ static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 		DISubroutineType* fty =
 			(cg.options.debugInfo >= 2 && inst.decl->var->type)
 			? cast<DISubroutineType>(codegenTypeDebug(cg, inst.decl->var->type))
-			: cg.di->createSubroutineType(nullptr, cg.di->getOrCreateTypeArray({}));
+			: cg.di->createSubroutineType(cg.di->getOrCreateTypeArray({}));
 
 		DISubprogram* func = cg.di->createFunction(
 			cg.debugBlocks.back(), inst.value->getName(), inst.value->getName(), file, loc.line + 1, fty,
-			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1,
-			0, false, inst.value);
+			/* isLocalToUnit= */ false, /* isDefinition= */ true, loc.line + 1);
+
+		inst.value->setSubprogram(func);
 
 		cg.debugBlocks.push_back(func);
 
