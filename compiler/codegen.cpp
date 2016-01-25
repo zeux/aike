@@ -113,8 +113,20 @@ static FunctionInstance* getFunctionInstance(Codegen& cg, Ast::FnDecl* decl)
 	return nullptr;
 }
 
+static Ty* tryGetGenericInstance(Codegen& cg, Ty* type)
+{
+	if (UNION_CASE(Instance, t, type))
+		if (t->generic)
+			return getGenericInstance(cg, t->generic);
+
+	return nullptr;
+}
+
 static Type* codegenType(Codegen& cg, Ty* type)
 {
+	if (Ty* inst = tryGetGenericInstance(cg, type))
+		return codegenType(cg, inst);
+
 	if (UNION_CASE(Void, t, type))
 		return Type::getVoidTy(*cg.context);
 
@@ -171,36 +183,27 @@ static Type* codegenType(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
-		if (t->generic)
+		assert(t->def);
+
+		if (UNION_CASE(Struct, d, t->def))
 		{
-			Ty* inst = getGenericInstance(cg, t->generic);
+			string name = mangleType(type);
 
-			return codegenType(cg, inst);
+			if (StructType* st = cg.module->getTypeByName(name))
+				return st;
+
+			StructType* result = StructType::create(*cg.context, name);
+
+			vector<Type*> fields;
+			for (size_t i = 0; i < d->fields.size; ++i)
+				fields.push_back(codegenType(cg, typeMember(type, i)));
+
+			result->setBody(fields);
+
+			return result;
 		}
-		else
-		{
-			assert(t->def);
 
-			if (UNION_CASE(Struct, d, t->def))
-			{
-				string name = mangleType(type);
-
-				if (StructType* st = cg.module->getTypeByName(name))
-					return st;
-
-				StructType* result = StructType::create(*cg.context, name);
-
-				vector<Type*> fields;
-				for (size_t i = 0; i < d->fields.size; ++i)
-					fields.push_back(codegenType(cg, typeMember(type, i)));
-
-				result->setBody(fields);
-
-				return result;
-			}
-
-			ICE("Unknown TyDef kind %d", t->def->kind);
-		}
+		ICE("Unknown TyDef kind %d", t->def->kind);
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
@@ -226,15 +229,8 @@ static Constant* codegenMakeTypeInfo(Codegen& cg, const string& name, Constant* 
 
 static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 {
-	if (UNION_CASE(Instance, t, type))
-	{
-		if (t->generic)
-		{
-			Ty* inst = getGenericInstance(cg, t->generic);
-
-			return codegenTypeInfo(cg, inst);
-		}
-	}
+	if (Ty* inst = tryGetGenericInstance(cg, type))
+		return codegenTypeInfo(cg, inst);
 
 	string name = mangleTypeInfo(type);
 
@@ -278,7 +274,6 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
-		assert(!t->generic);
 		assert(t->def);
 
 		if (UNION_CASE(Struct, d, t->def))
@@ -324,6 +319,9 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 	assert(cg.di);
 
 	const DataLayout& layout = cg.module->getDataLayout();
+
+	if (Ty* inst = tryGetGenericInstance(cg, type))
+		return codegenTypeDebug(cg, inst);
 
 	if (UNION_CASE(Void, t, type))
 		return nullptr;
@@ -404,41 +402,32 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
-		if (t->generic)
-		{
-			Ty* inst = getGenericInstance(cg, t->generic);
+		assert(t->def);
 
-			return codegenTypeDebug(cg, inst);
-		}
-		else
+		if (UNION_CASE(Struct, d, t->def))
 		{
-			assert(t->def);
+			StructType* ty = cast<StructType>(codegenType(cg, type));
+			const StructLayout* sl = layout.getStructLayout(ty);
 
-			if (UNION_CASE(Struct, d, t->def))
+			vector<Metadata*> fields;
+
+			for (size_t i = 0; i < d->fields.size; ++i)
 			{
-				StructType* ty = cast<StructType>(codegenType(cg, type));
-				const StructLayout* sl = layout.getStructLayout(ty);
+				DIType* dty = codegenTypeDebug(cg, typeMember(type, i));
 
-				vector<Metadata*> fields;
-
-				for (size_t i = 0; i < d->fields.size; ++i)
-				{
-					DIType* dty = codegenTypeDebug(cg, typeMember(type, i));
-
-					fields.push_back(cg.di->createMemberType(
-						nullptr, d->fields[i].name.str(), nullptr, 0,
-						layout.getTypeSizeInBits(ty->getElementType(i)),
-						0, sl->getElementOffset(i) * 8, 0, dty));
-				}
-
-				return cg.di->createStructType(
-					nullptr, t->name.str(), nullptr, 0,
-					sl->getSizeInBits(), 0, 0,
-					nullptr, cg.di->getOrCreateArray(fields));
+				fields.push_back(cg.di->createMemberType(
+					nullptr, d->fields[i].name.str(), nullptr, 0,
+					layout.getTypeSizeInBits(ty->getElementType(i)),
+					0, sl->getElementOffset(i) * 8, 0, dty));
 			}
 
-			ICE("Unknown TyDef kind %d", t->def->kind);
+			return cg.di->createStructType(
+				nullptr, t->name.str(), nullptr, 0,
+				sl->getSizeInBits(), 0, 0,
+				nullptr, cg.di->getOrCreateArray(fields));
 		}
+
+		ICE("Unknown TyDef kind %d", t->def->kind);
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
