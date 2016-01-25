@@ -5,13 +5,13 @@ union TypeInfo;
 struct AikeString
 {
 	const char* data;
-	size_t size;
+	int size;
 };
 
 template <typename T> struct AikeArray
 {
 	T* data;
-	size_t size;
+	int size;
 };
 
 struct AikeAny
