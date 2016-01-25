@@ -106,7 +106,12 @@ static ssize_t gc_used_size  = 0;               // Total used memory.
 #include <stdarg.h>
 static void gc_debug(const char *format, ...)
 {
-    fprintf(stderr, "%1.f: GC: ", (double)clock() / CLOCKS_PER_SEC * 1000);
+    static clock_t last;
+
+    clock_t timer = clock();
+    fprintf(stderr, "%+6.1f ms: GC: ", (double)(timer - last) / CLOCKS_PER_SEC * 1000);
+    last = timer;
+
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -567,14 +572,14 @@ extern void GC_collect(void)
     if (!gc_enabled)
         return;
 
+    gc_debug("collect: started");
+
     // Initialize stack
     gc_stackbottom = gc_get_stackbottom();
 
     // Initialize marking
-    gc_debug("collect [stage=init_marks]");
     gc_mark_init();
 
-    gc_debug("collect [stage=mark]");
     struct gc_root_s root_0;
     gc_root_t root = &root_0;
     root->ptr = (void *)gc_stacktop();
@@ -585,9 +590,13 @@ extern void GC_collect(void)
     root->next = gc_roots;
     gc_root_t roots = root;
 
+    gc_debug("collect: prepare finished (%lld bytes heap, %lld bytes stack)", (long long)gc_total_size, (long long)root_0.size);
+
     gc_mark(roots);
+    gc_debug("collect: mark finished (%lld bytes marked)", (long long)gc_used_size);
+
     gc_sweep();
-    gc_debug("collect [stage=done]");
+    gc_debug("collect: sweep finished");
 }
 
 /*
@@ -684,7 +693,6 @@ static void gc_mark(gc_root_t roots)
                 goto gc_mark_loop_inner;
             }
 
-            gc_debug("collect [stage=sweep]");
             return;
         }
         else
