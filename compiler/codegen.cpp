@@ -116,24 +116,16 @@ static FunctionInstance* getFunctionInstance(Codegen& cg, Ast::FnDecl* decl)
 static Type* codegenType(Codegen& cg, Ty* type)
 {
 	if (UNION_CASE(Void, t, type))
-	{
 		return Type::getVoidTy(*cg.context);
-	}
 
 	if (UNION_CASE(Bool, t, type))
-	{
 		return Type::getInt1Ty(*cg.context);
-	}
 
 	if (UNION_CASE(Integer, t, type))
-	{
 		return Type::getInt32Ty(*cg.context);
-	}
 
 	if (UNION_CASE(Float, t, type))
-	{
 		return Type::getFloatTy(*cg.context);
-	}
 
 	if (UNION_CASE(String, t, type))
 	{
@@ -334,24 +326,16 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 	const DataLayout& layout = cg.module->getDataLayout();
 
 	if (UNION_CASE(Void, t, type))
-	{
 		return nullptr;
-	}
 
 	if (UNION_CASE(Bool, t, type))
-	{
 		return cg.di->createBasicType("bool", 8, 0, dwarf::DW_ATE_boolean);
-	}
 
 	if (UNION_CASE(Integer, t, type))
-	{
 		return cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
-	}
 
 	if (UNION_CASE(Float, t, type))
-	{
 		return cg.di->createBasicType("float", 32, 0, dwarf::DW_ATE_float);
-	}
 
 	if (UNION_CASE(String, t, type))
 	{
