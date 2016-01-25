@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "gc.h"
 
@@ -101,11 +102,11 @@ static ssize_t gc_used_size  = 0;               // Total used memory.
 /*
  * GC debugging.
  */
-#ifdef GCDEBUG
+#ifndef NODEBUG
 #include <stdarg.h>
 static void gc_debug(const char *format, ...)
 {
-    fprintf(stderr, "GC: ");
+    fprintf(stderr, "%1.f: GC: ", (double)clock() / CLOCKS_PER_SEC * 1000);
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -270,8 +271,6 @@ extern bool GC_init(void)
 {
     if (gc_inited)
         return true;    // Already initialised.
-
-    gc_debug("initializing");
 
     // Check that we are in a 64-bit environment.
     if (sizeof(void *) != sizeof(uint64_t) ||
@@ -588,6 +587,7 @@ extern void GC_collect(void)
 
     gc_mark(roots);
     gc_sweep();
+    gc_debug("collect [stage=done]");
 }
 
 /*
