@@ -406,8 +406,21 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
+			string name = "dbg." + mangleType(type);
+			NamedMDNode* node = cg.module->getOrInsertNamedMetadata(name);
+
+			if (node->getNumOperands())
+				return cast<DIType>(node->getOperand(0));
+
 			StructType* ty = cast<StructType>(codegenType(cg, type));
 			const StructLayout* sl = layout.getStructLayout(ty);
+
+			DICompositeType* result = cg.di->createStructType(
+				nullptr, t->name.str(), nullptr, 0,
+				sl->getSizeInBits(), 0, 0,
+				nullptr, cg.di->getOrCreateArray({}));
+
+			node->addOperand(result);
 
 			vector<Metadata*> fields;
 
@@ -421,10 +434,9 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 					0, sl->getElementOffset(i) * 8, 0, dty));
 			}
 
-			return cg.di->createStructType(
-				nullptr, t->name.str(), nullptr, 0,
-				sl->getSizeInBits(), 0, 0,
-				nullptr, cg.di->getOrCreateArray(fields));
+			cg.di->replaceArrays(result, cg.di->getOrCreateArray(fields));
+
+			return result;
 		}
 
 		ICE("Unknown TyDef kind %d", t->def->kind);
