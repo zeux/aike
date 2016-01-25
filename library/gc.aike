@@ -1,0 +1,3 @@
+fn collect()
+    extern fn gcCollect(): void
+    gcCollect()
