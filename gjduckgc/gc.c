@@ -101,7 +101,7 @@ static ssize_t gc_used_size  = 0;               // Total used memory.
 /*
  * GC debugging.
  */
-#ifndef NODEBUG
+#ifdef GCDEBUG
 #include <stdarg.h>
 static void gc_debug(const char *format, ...)
 {
@@ -565,6 +565,9 @@ extern void GC_collect(void)
     // Is collection enabled?
     if (!gc_enabled)
         return;
+
+    // Initialize stack
+    gc_stackbottom = gc_get_stackbottom();
 
     // Initialize marking
     gc_debug("collect [stage=init_marks]");

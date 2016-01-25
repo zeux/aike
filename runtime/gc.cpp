@@ -1,6 +1,13 @@
 #include "common.hpp"
 #include "gc.hpp"
 
+#include <time.h>
+
+extern "C"
+{
+	#include "../gjduckgc/gc.h"
+}
+
 struct GCHeader
 {
 	void* type;
@@ -14,7 +21,7 @@ struct GCHeaderArray
 
 void* gcAlloc(size_t size)
 {
-	void* result = malloc(size);
+	void* result = GC_malloc(size);
 	if (!result) panic("Out of memory while allocating %lld bytes", static_cast<long long>(size));
 
 	return result;
@@ -22,6 +29,8 @@ void* gcAlloc(size_t size)
 
 void gcInit()
 {
+	GC_init();
+	GC_disable();
 }
 
 AIKE_EXTERN void* gcNew(void* ti, size_t size)
@@ -54,4 +63,7 @@ AIKE_EXTERN void* gcNewArray(void* ti, size_t count, size_t elementSize)
 
 AIKE_EXTERN void gcCollect()
 {
+	GC_enable();
+	GC_collect();
+	GC_disable();
 }
