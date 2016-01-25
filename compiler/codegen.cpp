@@ -214,39 +214,65 @@ static Type* codegenType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static Constant* codegenTypeInfo(Codegen& cg, Ty* type);
-
-static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
+static Constant* codegenMakeTypeInfo(Codegen& cg, const string& name, Constant* data)
 {
+	GlobalVariable* gv = new GlobalVariable(*cg.module, data->getType(), /* isConstant= */ true, GlobalValue::PrivateLinkage, data, name);
+	gv->setUnnamedAddr(true);
+
+	return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
+}
+
+static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
+{
+	if (UNION_CASE(Instance, t, type))
+	{
+		if (t->generic)
+		{
+			Ty* inst = getGenericInstance(cg, t->generic);
+
+			return codegenTypeInfo(cg, inst);
+		}
+	}
+
+	string name = mangleTypeInfo(type);
+
+	if (GlobalVariable* gv = cg.module->getNamedGlobal(name))
+		return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
+
 	const DataLayout& layout = cg.module->getDataLayout();
 
 	if (UNION_CASE(Void, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(0) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(0) }));
 
 	if (UNION_CASE(Bool, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(1) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(1) }));
 
 	if (UNION_CASE(Integer, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(2) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(2) }));
 
 	if (UNION_CASE(Float, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(3) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(3) }));
 
 	if (UNION_CASE(String, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(4) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(4) }));
 
 	if (UNION_CASE(Array, t, type))
 	{
 		int stride = layout.getTypeAllocSize(codegenType(cg, t->element));
+		Constant* element = codegenTypeInfo(cg, t->element);
 
-		return ConstantStruct::getAnon({ cg.ir->getInt32(5), codegenTypeInfo(cg, t->element), cg.ir->getInt32(stride) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(5), element, cg.ir->getInt32(stride) }));
 	}
 
 	if (UNION_CASE(Pointer, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(6), codegenTypeInfo(cg, t->element) });
+	{
+		Constant* element = codegenTypeInfo(cg, t->element);
+
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(6), element }));
+	}
 
 	if (UNION_CASE(Function, t, type))
-		return ConstantStruct::getAnon({ cg.ir->getInt32(7) });
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(7) }));
 
 	if (UNION_CASE(Instance, t, type))
 	{
@@ -274,40 +300,13 @@ static Constant* codegenTypeInfoData(Codegen& cg, Ty* type)
 
 			Constant* sn = cast<Constant>(cg.ir->CreateGlobalStringPtr(t->name.str()));
 
-			return ConstantStruct::getAnon({ cg.ir->getInt32(8), sn, cg.ir->getInt32(fields.size()), fieldsArr });
+			return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(8), sn, cg.ir->getInt32(fields.size()), fieldsArr }));
 		}
 
 		ICE("Unknown TyDef kind %d", t->def->kind);
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
-}
-
-static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
-{
-	if (UNION_CASE(Instance, t, type))
-	{
-		if (t->generic)
-		{
-			Ty* inst = getGenericInstance(cg, t->generic);
-
-			return codegenTypeInfo(cg, inst);
-		}
-	}
-
-	string name = mangleTypeInfo(type);
-
-	GlobalVariable* gv = cg.module->getNamedGlobal(name);
-
-	if (!gv)
-	{
-		Constant* data = codegenTypeInfoData(cg, type);
-
-		gv = new GlobalVariable(*cg.module, data->getType(), /* isConstant= */ true, GlobalValue::PrivateLinkage, data, name);
-		gv->setUnnamedAddr(true);
-	}
-
-	return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
 }
 
 static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
