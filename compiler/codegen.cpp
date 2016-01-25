@@ -196,11 +196,15 @@ static Type* codegenType(Codegen& cg, Ty* type)
 				if (StructType* st = cg.module->getTypeByName(name))
 					return st;
 
+				StructType* result = StructType::create(*cg.context, name);
+
 				vector<Type*> fields;
 				for (size_t i = 0; i < d->fields.size; ++i)
 					fields.push_back(codegenType(cg, typeMember(type, i)));
 
-				return StructType::create(*cg.context, fields, name);
+				result->setBody(fields);
+
+				return result;
 			}
 
 			ICE("Unknown TyDef kind %d", t->def->kind);
