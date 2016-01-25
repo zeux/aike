@@ -290,7 +290,8 @@ extern bool GC_init(void)
         goto init_error;
 
     // Initialize all of the region information structures.
-    for (size_t i = 0; i < GC_NUM_REGIONS; i++)
+    size_t i;
+    for (i = 0; i < GC_NUM_REGIONS; i++)
     {
         void *startptr = GC_MEMORY + i*GC_REGION_SIZE;
         size_t unit = gc_index_unit(i);
@@ -474,7 +475,8 @@ nonempty_freelist:
         ptr = region->markstartptr;
         uint32_t ptridx = (uint32_t)(gc_objidx(ptr) - region->startidx);
         uint8_t *markptr = region->markptr;
-        for (size_t i = 0; i < GC_FREELIST_LEN && ptr < region->markendptr; )
+        size_t i;
+        for (i = 0; i < GC_FREELIST_LEN && ptr < region->markendptr; )
         {
             if (!gc_is_marked_index(markptr, ptridx))
             {
@@ -596,7 +598,8 @@ static void gc_mark_init(void)
     gc_total_size = 0;
 
     // Zero all mark bits.
-    for (size_t i = 0; i < GC_NUM_REGIONS; i++)
+    size_t i;
+    for (i = 0; i < GC_NUM_REGIONS; i++)
     {
         gc_region_t region = __gc_regions + i;
         size_t regionsize = region->freeptr - region->startptr;
@@ -755,7 +758,8 @@ static void gc_sweep(void)
     sweep_count++;
     bool returning = (sweep_count % GC_RETURN_SWEEP == 0);
 
-    for (size_t i = 0; i < GC_NUM_REGIONS; i++)
+    size_t i;
+    for (i = 0; i < GC_NUM_REGIONS; i++)
     {
         gc_region_t region = __gc_regions + i;
         if (region->freeptr == region->startptr)
