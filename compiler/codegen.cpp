@@ -214,10 +214,20 @@ static Type* codegenType(Codegen& cg, Ty* type)
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
+static GlobalVariable* codegenPrepareTypeInfo(Codegen& cg, const string& name, Type* dataType)
+{
+	GlobalVariable* gv = new GlobalVariable(*cg.module, dataType, /* isConstant= */ true, GlobalValue::PrivateLinkage, nullptr, name);
+
+	gv->setUnnamedAddr(true);
+
+	return gv;
+}
+
 static Constant* codegenMakeTypeInfo(Codegen& cg, const string& name, Constant* data)
 {
-	GlobalVariable* gv = new GlobalVariable(*cg.module, data->getType(), /* isConstant= */ true, GlobalValue::PrivateLinkage, data, name);
-	gv->setUnnamedAddr(true);
+	GlobalVariable* gv = codegenPrepareTypeInfo(cg, name, data->getType());
+
+	gv->setInitializer(data);
 
 	return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
 }
@@ -281,6 +291,12 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
+			Type* fieldType = StructType::get(Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+			Type* fieldArrType = ArrayType::get(fieldType, d->fields.size);
+			Type* dataType = StructType::get(Type::getInt32Ty(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), fieldArrType, nullptr);
+
+			GlobalVariable* gv = codegenPrepareTypeInfo(cg, name, dataType);
+
 			StructType* sty = cast<StructType>(codegenType(cg, type));
 			const StructLayout* sl = layout.getStructLayout(sty);
 
@@ -296,11 +312,13 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 
 			assert(!fields.empty());
 
-			Constant* fieldsArr = ConstantArray::get(ArrayType::get(fields[0]->getType(), fields.size()), fields);
+			Constant* fieldArr = ConstantArray::get(ArrayType::get(fields[0]->getType(), fields.size()), fields);
 
 			Constant* sn = cast<Constant>(cg.ir->CreateGlobalStringPtr(t->name.str()));
 
-			return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(8), sn, cg.ir->getInt32(fields.size()), fieldsArr }));
+			gv->setInitializer(ConstantStruct::getAnon({ cg.ir->getInt32(8), sn, cg.ir->getInt32(fields.size()), fieldArr }));
+
+			return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
 		}
 
 		ICE("Unknown TyDef kind %d", t->def->kind);
