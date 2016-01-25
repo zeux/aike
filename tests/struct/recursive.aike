@@ -1,0 +1,9 @@
+struct Node
+    name: string
+    children: [*Node]
+
+var n1 = new Node { name = "n1", children = [] }
+var n2 = new Node { name = "n2", children = [] }
+var n3 = new Node { name = "n3", children = [n1, n2] }
+
+## OK
