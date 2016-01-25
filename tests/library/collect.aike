@@ -1,0 +1,35 @@
+import std.gc
+
+struct Node
+    name: string
+    children: [*Node]
+
+fn append<T>(a: [T], b: T): [T]
+    var result = newarr(length(a) + 1)
+
+    for e,i in a
+        result[i] = e
+
+    result[length(a)] = b
+
+    result
+
+fn build(depth: int): *Node
+    var node = { name="name", children=[] }
+
+    if depth >= 0
+        while length(node.children) < 5
+            node.children = append(node.children, build(depth - 1))
+
+    new node
+
+fn test()
+    var n = build(6)
+
+    collect()
+
+collect()
+test()
+collect()
+
+## OK
