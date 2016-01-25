@@ -34,7 +34,7 @@ COMPILER_OBJ=$(COMPILER_SRC:%=$(BUILD)/%.o)
 
 $(COMPILER_OBJ): CXXFLAGS+=-fno-rtti
 
-RUNTIME_SRC=$(wildcard runtime/*.cpp) $(wildcard runtime/*.s) $(wildcard compiler-rt/*.c)
+RUNTIME_SRC=$(wildcard runtime/*.cpp) $(wildcard runtime/*.s) $(wildcard compiler-rt/*.c) $(wildcard gjduckgc/*.c)
 RUNTIME_BIN=$(BUILD)/aike-runtime.so
 RUNTIME_OBJ=$(RUNTIME_SRC:%=$(BUILD)/%.o)
 
