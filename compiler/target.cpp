@@ -13,8 +13,6 @@
 #include <fstream>
 
 #ifdef AIKE_USE_LLD
-#include "lld/ReaderWriter/MachOLinkingContext.h"
-#include "lld/ReaderWriter/ELFLinkingContext.h"
 #include "lld/Driver/Driver.h"
 #endif
 
@@ -178,61 +176,11 @@ static void targetLinkLD(const Triple& triple, const string& ld, const string& o
 }
 
 #ifdef AIKE_USE_LLD
-class CustomDriver: public Driver
-{
-public:
-	static bool link(const Triple& triple, ArrayRef<const char*> args, const vector<string>& inputs)
-	{
-		unique_ptr<LinkingContext> ctx;
-
-		if (triple.getObjectFormat() == Triple::MachO)
-		{
-			unique_ptr<MachOLinkingContext> tctx(new MachOLinkingContext());
-			if (!DarwinLdDriver::parse(args, *tctx))
-				return false;
-
-			tctx->registry().addSupportMachOObjects(*tctx);
-
-			ctx = move(tctx);
-		}
-		else if (triple.getObjectFormat() == Triple::ELF)
-		{
-			unique_ptr<ELFLinkingContext> tctx;
-
-			if (!GnuLdDriver::parse(args, tctx) || !tctx)
-				return false;
-
-			tctx->registry().addSupportELFObjects(*tctx);
-			tctx->registry().addSupportELFDynamicSharedObjects(*tctx);
-
-			ctx = move(tctx);
-		}
-		else
-		{
-			return false;
-		}
-
-		ctx->registry().addSupportArchives(ctx->logInputFiles());
-		ctx->registry().addSupportYamlFiles();
-
-		for (auto& i: inputs)
-		{
-			auto mb = MemoryBuffer::getMemBuffer(i, "input");
-
-			ErrorOr<unique_ptr<File>> file = ctx->registry().loadFile(move(mb));
-			if (!file)
-				return false;
-
-			ctx->getNodes().push_back(unique_ptr<FileNode>(new FileNode(std::move(*file))));
-		}
-
-		return Driver::link(*ctx);
-	}
-};
-
 static void targetLinkLLD(const Triple& triple, const string& outputPath, const vector<string>& inputs, const string& runtimePath)
 {
-	std::vector<const char*> args;
+	vector<string> files = targetDumpObjects(outputPath, inputs);
+
+	vector<const char*> args;
 
 	args.push_back("lld");
 	targetLinkFillArgs(triple, args);
@@ -240,9 +188,19 @@ static void targetLinkLLD(const Triple& triple, const string& outputPath, const 
 	args.push_back("-o");
 	args.push_back(outputPath.c_str());
 
+	for (auto& file: files)
+		args.push_back(file.c_str());
+
 	args.push_back(runtimePath.c_str());
 
-	if (!CustomDriver::link(triple, args, inputs))
+	bool result = false;
+
+	if (triple.getObjectFormat() == Triple::MachO)
+		result = DarwinLdDriver::linkMachO(args);
+	else if (triple.getObjectFormat() == Triple::ELF)
+		result = (elf2::link(args), true); // elf2 does not have error handling support yet
+
+	if (!result)
 		panic("Error linking output");
 }
 #endif
