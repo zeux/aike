@@ -8,6 +8,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include <unistd.h>
 #include <fstream>
@@ -46,6 +47,19 @@ static unique_ptr<TargetMachine> createTargetMachine(const string& triple, CodeG
 
 	return unique_ptr<TargetMachine>(target->createTargetMachine(
 		triple, StringRef(), StringRef(), options, Reloc::Default, CodeModel::Default, optimizationLevel));
+}
+
+void targetInitialize()
+{
+#if 1
+	InitializeNativeTarget();
+	InitializeNativeTargetAsmPrinter();
+#else
+	InitializeAllTargetInfos();
+	InitializeAllTargets();
+	InitializeAllTargetMCs();
+	InitializeAllAsmPrinters();
+#endif
 }
 
 string targetHostTriple()

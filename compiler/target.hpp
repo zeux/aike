@@ -7,6 +7,8 @@ namespace llvm
 	class DataLayout;
 }
 
+void targetInitialize();
+
 string targetHostTriple();
 
 llvm::DataLayout targetDataLayout(const string& triple);

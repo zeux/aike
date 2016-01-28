@@ -18,7 +18,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Timer.h"
@@ -224,8 +223,7 @@ int main(int argc, const char** argv)
 
 	Output output;
 
-	llvm::InitializeNativeTarget();
-	llvm::InitializeNativeTargetAsmPrinter();
+	targetInitialize();
 
 	string triple = options.triple.empty() ? targetHostTriple() : options.triple;
 
