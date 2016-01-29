@@ -29,6 +29,7 @@ enum class TestType
 	Unknown,
 	Ok,
 	Fail,
+	XFail
 };
 
 TestType parseTest(const char* path, std::string& output)
@@ -61,6 +62,11 @@ TestType parseTest(const char* path, std::string& output)
 			{
 				error |= (type != TestType::Unknown);
 				type = TestType::Fail;
+			}
+			else if (strcmp(line, "## XFAIL") == 0)
+			{
+				error |= (type != TestType::Unknown);
+				type = TestType::XFail;
 			}
 			else
 			{
@@ -177,6 +183,17 @@ int main(int argc, char** argv)
 			fprintf(stderr, "Test %s failed: error output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected errors:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual errors:\n%s", errors.c_str());
+			return 1;
+		}
+	}
+	else if (testType == TestType::XFail)
+	{
+		std::string output;
+		int rc = system(command.c_str(), output);
+
+		if (rc == 0)
+		{
+			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
 			return 1;
 		}
 	}
