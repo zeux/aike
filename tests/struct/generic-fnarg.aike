@@ -11,6 +11,6 @@ var p2 = Pair { first = "d", second = p1.first }
 dump(p1)
 dump(p2)
 
-## XFAIL
+## OK
 # Pair { first=1 second=true }
 # Pair { first=d second=1 }

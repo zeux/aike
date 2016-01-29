@@ -12,7 +12,7 @@ static void mangleName(string& result, const Str& name)
 	result += name.str();
 }
 
-static void mangle(string& buffer, Ty* type)
+static void mangle(string& buffer, Ty* type, const function<Ty*(Ty*)>& inst)
 {
 	if (UNION_CASE(Void, t, type))
 	{
@@ -48,14 +48,14 @@ static void mangle(string& buffer, Ty* type)
 	if (UNION_CASE(Array, t, type))
 	{
 		buffer += "U5array";
-		mangle(buffer, t->element);
+		mangle(buffer, t->element, inst);
 		return;
 	}
 
 	if (UNION_CASE(Pointer, t, type))
 	{
 		buffer += "U3ptr";
-		mangle(buffer, t->element);
+		mangle(buffer, t->element, inst);
 		return;
 	}
 
@@ -63,10 +63,10 @@ static void mangle(string& buffer, Ty* type)
 	{
 		buffer += "F";
 
-		mangle(buffer, t->ret);
+		mangle(buffer, t->ret, inst);
 
 		for (auto& a: t->args)
-			mangle(buffer, a);
+			mangle(buffer, a, inst);
 
 		if (t->varargs)
 			buffer += "z";
@@ -77,29 +77,35 @@ static void mangle(string& buffer, Ty* type)
 
 	if (UNION_CASE(Instance, t, type))
 	{
-		assert(!t->generic);
-
-		// N..E is a workaround for http://reviews.llvm.org/D13192
-		buffer += "N";
-		mangleName(buffer, t->name);
-
-		if (t->tyargs.size > 0)
+		if (t->generic)
 		{
-			buffer += "I";
-
-			for (auto& a: t->tyargs)
-				mangle(buffer, a);
-
-			buffer += "E";
+			mangle(buffer, inst(t->generic), inst);
+			return;
 		}
-		buffer += "E";
-		return;
+		else
+		{
+			// N..E is a workaround for http://reviews.llvm.org/D13192
+			buffer += "N";
+			mangleName(buffer, t->name);
+
+			if (t->tyargs.size > 0)
+			{
+				buffer += "I";
+
+				for (auto& a: t->tyargs)
+					mangle(buffer, a, inst);
+
+				buffer += "E";
+			}
+			buffer += "E";
+			return;
+		}
 	}
 
 	ICE("Unknown Ty kind %d", type->kind);
 }
 
-static void mangleFnName(string& result, const Str& name, int unnamed, const Arr<Ty*>& tyargs)
+static void mangleFnName(string& result, const Str& name, int unnamed, const Arr<Ty*>& tyargs, const function<Ty*(Ty*)>& inst)
 {
 	if (name.size > 0)
 	{
@@ -118,13 +124,13 @@ static void mangleFnName(string& result, const Str& name, int unnamed, const Arr
 		result += "I";
 
 		for (auto& a: tyargs)
-			mangle(result, a);
+			mangle(result, a, inst);
 
 		result += "E";
 	}
 }
 
-string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const string& parent)
+string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, const function<Ty*(Ty*)>& inst, const string& parent)
 {
 	UNION_CASE(Function, t, type);
 	assert(t);
@@ -143,27 +149,27 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 			result += parent.substr(2);
 			result += "E";
 
-			mangleFnName(result, name, unnamed, tyargs);
+			mangleFnName(result, name, unnamed, tyargs, inst);
 		}
 		else
 		{
 			result += "N";
 			result += parent;
 
-			mangleFnName(result, name, unnamed, tyargs);
+			mangleFnName(result, name, unnamed, tyargs, inst);
 
 			result += "E";
 		}
 	}
 	else
 	{
-		mangleFnName(result, name, unnamed, tyargs);
+		mangleFnName(result, name, unnamed, tyargs, inst);
 	}
 
 	if (tyargs.size > 0)
 	{
 		// Itanium mangling rules are... weird
-		mangle(result, t->ret);
+		mangle(result, t->ret, inst);
 	}
 
 	if (t->args.size == 0 && !t->varargs)
@@ -173,7 +179,7 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 	else
 	{
 		for (auto& a: t->args)
-			mangle(result, a);
+			mangle(result, a, inst);
 
 		if (t->varargs)
 			result += "z";
@@ -182,21 +188,21 @@ string mangleFn(const Str& name, int unnamed, Ty* type, const Arr<Ty*>& tyargs, 
 	return result;
 }
 
-string mangleType(Ty* type)
+string mangleType(Ty* type, const function<Ty*(Ty*)>& inst)
 {
 	string result;
-	mangle(result, type);
+	mangle(result, type, inst);
 	return result;
 }
 
-string mangleTypeInfo(Ty* type)
+string mangleTypeInfo(Ty* type, const function<Ty*(Ty*)>& inst)
 {
 	string result;
 
 	result += "_Z";
 	result += "TI";
 
-	mangle(result, type);
+	mangle(result, type, inst);
 
 	return result;
 }

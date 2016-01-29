@@ -187,7 +187,7 @@ static Type* codegenType(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
-			string name = mangleType(type);
+			string name = mangleType(type, [&](Ty* ty) { return getGenericInstance(cg, ty); });
 
 			if (StructType* st = cg.module->getTypeByName(name))
 				return st;
@@ -232,7 +232,7 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 	if (Ty* inst = tryGetGenericInstance(cg, type))
 		return codegenTypeInfo(cg, inst);
 
-	string name = mangleTypeInfo(type);
+	string name = mangleTypeInfo(type, [&](Ty* ty) { return getGenericInstance(cg, ty); });
 
 	if (GlobalVariable* gv = cg.module->getNamedGlobal(name))
 		return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
@@ -406,7 +406,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
-			string name = "dbg." + mangleType(type);
+			string name = "dbg." + mangleType(type, [&](Ty* ty) { return getGenericInstance(cg, ty); });
 			NamedMDNode* node = cg.module->getOrInsertNamedMetadata(name);
 
 			if (node->getNumOperands())
@@ -637,30 +637,28 @@ static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
 	return result;
 }
 
-static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* ty, const Arr<Ty*>& tyargs)
+static Value* codegenFunctionDecl(Codegen& cg, Ast::FnDecl* decl, int id, Ty* type, const Arr<Ty*>& tyargs)
 {
 	FunctionInstance* parent = getFunctionInstance(cg, decl->parent);
 
-	Ty* type = finalType(cg, ty);
-
-	Arr<Ty*> ftyargs;
-	for (auto& a: tyargs)
-		ftyargs.push(finalType(cg, a));
-
 	string parentName = parent ? string(parent->value->getName()) : decl->module ? mangleModule(decl->module->name) : "";
-	string name = mangleFn(decl->var->name, id, type, ftyargs, parentName);
+	string name = mangleFn(decl->var->name, id, type, tyargs, [&](Ty* ty) { return getGenericInstance(cg, ty); }, parentName);
 
 	if (Function* fun = cg.module->getFunction(name))
 		return fun;
 
-	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, ty))->getElementType());
+	FunctionType* funty = cast<FunctionType>(cast<PointerType>(codegenType(cg, type))->getElementType());
 	Function* fun = Function::Create(funty, GlobalValue::InternalLinkage, name, cg.module);
 
 	vector<pair<Ty*, Ty*>> inst;
 	assert(tyargs.size == decl->tyargs.size);
 
 	for (size_t i = 0; i < tyargs.size; ++i)
-		inst.push_back(make_pair(decl->tyargs[i], ftyargs[i]));
+	{
+		Ty* ft = finalType(cg, tyargs[i]);
+
+		inst.push_back(make_pair(decl->tyargs[i], ft));
+	}
 
 	cg.pendingFunctions.push_back(new FunctionInstance { fun, decl, parent, inst });
 
