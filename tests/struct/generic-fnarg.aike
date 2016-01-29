@@ -1,0 +1,16 @@
+struct Pair<T, U>
+    first: T
+    second: U
+
+fn dump<T, U>(v: Pair.<T, U>)
+    print(v)
+
+var p1 = Pair { first = 1, second = true }
+var p2 = Pair { first = "d", second = p1.first }
+
+dump(p1)
+dump(p2)
+
+## XFAIL
+# Pair { first=1 second=true }
+# Pair { first=d second=1 }
