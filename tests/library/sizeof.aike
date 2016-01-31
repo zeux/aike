@@ -1,0 +1,13 @@
+struct Foo
+    a, b: int
+
+print(sizeof.<bool>())
+print(sizeof.<int>())
+print(sizeof.<float>())
+print(sizeof.<Foo>())
+
+## OK
+# 1
+# 4
+# 4
+# 8
