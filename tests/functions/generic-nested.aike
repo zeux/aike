@@ -1,0 +1,12 @@
+fn dump<T>(a: [T])
+    fn dumpone(v: T)
+        print(v)
+
+    for e in a dumpone(e)
+
+dump([1, 2, 3])
+
+## OK
+# 1
+# 2
+# 3
