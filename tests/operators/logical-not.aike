@@ -1,0 +1,6 @@
+print(not true)
+print(not false)
+
+## OK
+# false
+# true
