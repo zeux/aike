@@ -1,0 +1,12 @@
+fn ignore(...)
+    ()
+
+ignore(true)
+ignore(1)
+ignore(1.0)
+ignore("data")
+ignore([1,2,3])
+ignore(fn () ())
+ignore(new 1)
+
+## OK
