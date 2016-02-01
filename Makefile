@@ -8,7 +8,7 @@ BUILD=build/$(config)
 CXXFLAGS=-g -std=c++11
 CFLAGS=-g
 LDFLAGS=
-TESTFLAGS=-g
+TESTFLAGS=
 
 ifeq ($(config),release)
 CXXFLAGS+=-O3
