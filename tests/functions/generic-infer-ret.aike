@@ -1,0 +1,7 @@
+fn foo<T>(a: T)
+    a
+
+print(foo(1))
+
+## XFAIL
+# 1
