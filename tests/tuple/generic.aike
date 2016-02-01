@@ -1,8 +1,8 @@
 fn first<T1, T2>(t: (T1, T2))
-    t._1
+    t._0
 
 fn first<T1, T2, T3>(t: (T1, T2, T3))
-    t._1
+    t._0
 
 print(first((1, true)))
 print(first((false, 2)))
