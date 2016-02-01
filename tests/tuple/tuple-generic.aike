@@ -1,0 +1,14 @@
+fn first<T1, T2>(t: (T1, T2))
+    t._1
+
+fn first<T1, T2, T3>(t: (T1, T2, T3))
+    t._1
+
+print(first((1, true)))
+print(first((false, 2)))
+print(first(("hello", "from", "tuple")))
+
+## XFAIL
+# 1
+# false
+# hello

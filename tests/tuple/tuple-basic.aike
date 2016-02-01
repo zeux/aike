@@ -1,0 +1,8 @@
+var x = (1, "test")
+
+print(x._0)
+print(x._1)
+
+## OK
+# 1
+# test
