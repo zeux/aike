@@ -155,6 +155,12 @@ static void dumpNode(Ast* root, int indent)
 		dumpString(n->value);
 		printf("\"");
 	}
+	else if (UNION_CASE(LiteralTuple, n, root))
+	{
+		printf("(");
+		dumpList(n->fields, [&](Ast* c) { dumpNode(c, indent); });
+		printf(")");
+	}
 	else if (UNION_CASE(LiteralArray, n, root))
 	{
 		printf("[");
