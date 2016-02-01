@@ -115,29 +115,33 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	std::string command = argv[3];
-
-	// add extra aikec flags
-	for (int i = 4; i < argc; ++i)
-	{
-		command += " ";
-		command += argv[i];
-	}
-
-	// add test source/output
+	// get options
 	std::string source = argv[1];
 	std::string target = argv[2];
+	std::string compiler = argv[3];
+	std::string extraFlags;
 
+	for (int i = 4; i < argc; ++i)
+	{
+		extraFlags += " ";
+		extraFlags += argv[i];
+	}
+
+	// parse expected test results
+	std::string expectedOutput;
+	std::string testFlags;
+	TestType testType = parseTest(source.c_str(), expectedOutput, testFlags);
+
+	// build command line
+	std::string command = compiler;
+
+	command += extraFlags;
+	command += testFlags;
 	command += " ";
 	command += source;
 	command += " -o ";
 	command += target;
 	command += " 2>&1";
-
-	// parse expected test results
-	std::string expectedOutput;
-	std::string extraFlags;
-	TestType testType = parseTest(source.c_str(), expectedOutput, extraFlags);
 
 	if (testType == TestType::Ok)
 	{
