@@ -1,0 +1,7 @@
+fn test()
+    ()
+
+test()
+
+## FLAGS --dump-ast
+## OK

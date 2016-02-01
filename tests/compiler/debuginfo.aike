@@ -1,0 +1,7 @@
+fn test1(a: int)
+    var b = a
+
+test1(1)
+
+## FLAGS -g
+## OK
