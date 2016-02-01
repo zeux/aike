@@ -130,6 +130,30 @@ static Ty* parseType(TokenStream& ts)
 		return UNION_NEW(Ty, String, {});
 	}
 
+	if (ts.is(Token::TypeBracket, "("))
+	{
+		ts.eat(Token::TypeBracket, "(");
+
+		Arr<Ty*> fields;
+
+		while (!ts.is(Token::TypeBracket, ")"))
+		{
+			fields.push(parseType(ts));
+
+			if (!ts.is(Token::TypeBracket, ")"))
+				ts.eat(Token::TypeAtom, ",");
+		}
+
+		ts.eat(Token::TypeBracket, ")");
+
+		if (fields.size == 0)
+			return UNION_NEW(Ty, Void, {});
+		else if (fields.size == 1)
+			return fields[0];
+		else
+			return UNION_NEW(Ty, Tuple, { fields });
+	}
+
 	if (ts.is(Token::TypeBracket, "["))
 	{
 		ts.eat(Token::TypeBracket, "[");
@@ -817,22 +841,26 @@ static Ast* parseTerm(TokenStream& ts)
 
 		ts.move();
 
-		if (ts.is(Token::TypeBracket, ")"))
+		Arr<Ast*> fields;
+
+		while (!ts.is(Token::TypeBracket, ")"))
 		{
-			Location end = ts.get().location;
+			fields.push(parseExpr(ts));
 
-			ts.move();
+			if (!ts.is(Token::TypeBracket, ")"))
+				ts.eat(Token::TypeAtom, ",");
+		}
 
+		Location end = ts.get().location;
+
+		ts.eat(Token::TypeBracket, ")");
+
+		if (fields.size == 0)
 			return UNION_NEW(Ast, LiteralVoid, { nullptr, Location(start, end) });
-		}
+		else if (fields.size == 1)
+			return fields[0];
 		else
-		{
-			Ast* result = parseExpr(ts);
-
-			ts.eat(Token::TypeBracket, ")");
-
-			return result;
-		}
+			ts.output->panic(Location(start, end), "Tuple literals are not supported yet");
 	}
 
 	auto t = ts.get();
