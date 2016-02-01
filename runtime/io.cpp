@@ -27,6 +27,21 @@ static void print(TypeInfo* type, void* value)
 
 		printf("%.*s", int(data->size), data->data);
 	}
+	else if (type->kind == TypeInfo::KindTuple)
+	{
+		printf("(");
+
+		for (int i = 0; i < type->dataTuple.fieldCount; ++i)
+		{
+			const TypeInfo::TupleField& f = type->dataTuple.fields[i];
+
+			if (i != 0) printf(", ");
+
+			print(f.type, static_cast<char*>(value) + f.offset);
+		}
+
+		printf(")");
+	}
 	else if (type->kind == TypeInfo::KindArray)
 	{
 		auto data = static_cast<AikeArray<char>*>(value);
