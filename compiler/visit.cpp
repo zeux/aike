@@ -18,7 +18,12 @@ static void visitAstStackless(Ast* root, function<bool (Ast*)> f, Ast* ignore = 
 
 		size_t offset = stack.size();
 
-		if (UNION_CASE(LiteralArray, n, node))
+		if (UNION_CASE(LiteralTuple, n, node))
+		{
+			for (auto& c: n->fields)
+				stack.push_back(c);
+		}
+		else if (UNION_CASE(LiteralArray, n, node))
 		{
 			for (auto& c: n->elements)
 				stack.push_back(c);
@@ -161,7 +166,12 @@ void visitType(Ty* type, function<void (Ty*)> f)
 {
 	f(type);
 
-	if (UNION_CASE(Array, t, type))
+	if (UNION_CASE(Tuple, t, type))
+	{
+		for (auto& e: t->fields)
+			visitType(e, f);
+	}
+	else if (UNION_CASE(Array, t, type))
 	{
 		visitType(t->element, f);
 	}
