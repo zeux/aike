@@ -259,18 +259,18 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 		int stride = layout.getTypeAllocSize(codegenType(cg, t->element));
 		Constant* element = codegenTypeInfo(cg, t->element);
 
-		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(5), element, cg.ir->getInt32(stride) }));
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(6), element, cg.ir->getInt32(stride) }));
 	}
 
 	if (UNION_CASE(Pointer, t, type))
 	{
 		Constant* element = codegenTypeInfo(cg, t->element);
 
-		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(6), element }));
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(7), element }));
 	}
 
 	if (UNION_CASE(Function, t, type))
-		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(7) }));
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(8) }));
 
 	if (UNION_CASE(Instance, t, type))
 	{
@@ -303,7 +303,7 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 
 			Constant* sn = cast<Constant>(cg.ir->CreateGlobalStringPtr(t->name.str()));
 
-			gv->setInitializer(ConstantStruct::getAnon({ cg.ir->getInt32(8), sn, cg.ir->getInt32(fields.size()), fieldArr }));
+			gv->setInitializer(ConstantStruct::getAnon({ cg.ir->getInt32(9), sn, cg.ir->getInt32(fields.size()), fieldArr }));
 
 			return ConstantExpr::getPointerCast(gv, Type::getInt8PtrTy(*cg.context));
 		}
