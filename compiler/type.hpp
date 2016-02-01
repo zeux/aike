@@ -25,6 +25,7 @@ UNION_DECL(TyDef, UD_TYDEF)
 	X(Integer, {}) \
 	X(Float, {}) \
 	X(String, {}) \
+	X(Tuple, { Arr<Ty*> fields; }) \
 	X(Array, { Ty* element; }) \
 	X(Pointer, { Ty* element; }) \
 	X(Function, { Arr<Ty*> args; Ty* ret; bool varargs; }) \

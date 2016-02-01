@@ -50,6 +50,16 @@ Ty* TypeConstraints::rewrite(Ty* type)
 		type = it->second;
 	}
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		Arr<Ty*> fields;
+
+		for (Ty* field: t->fields)
+			fields.push(rewrite(field));
+
+		return UNION_NEW(Ty, Tuple, { fields });
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		Ty* element = rewrite(t->element);
@@ -99,6 +109,20 @@ bool typeUnify(Ty* lhs, Ty* rhs, TypeConstraints* constraints)
 
 	if (lhs->kind != rhs->kind)
 		return false;
+
+	if (UNION_CASE(Tuple, lt, lhs))
+	{
+		UNION_CASE(Tuple, rt, rhs);
+
+		if (lt->fields.size != rt->fields.size)
+			return false;
+
+		for (size_t i = 0; i < lt->fields.size; ++i)
+			if (!typeUnify(lt->fields[i], rt->fields[i], constraints))
+				return false;
+
+		return true;
+	}
 
 	if (UNION_CASE(Array, la, lhs))
 	{
@@ -164,6 +188,15 @@ bool typeOccurs(Ty* lhs, Ty* rhs)
 	if (lhs == rhs)
 		return true;
 
+	if (UNION_CASE(Tuple, lt, lhs))
+	{
+		for (auto& f: lt->fields)
+			if (typeOccurs(f, rhs))
+				return true;
+
+		return false;
+	}
+
 	if (UNION_CASE(Array, la, lhs))
 	{
 		return typeOccurs(la->element, rhs);
@@ -202,6 +235,15 @@ bool typeKnown(Ty* type)
 		return false;
 	}
 
+	if (UNION_CASE(Tuple, tt, type))
+	{
+		for (auto& f: tt->fields)
+			if (!typeKnown(f))
+				return false;
+
+		return true;
+	}
+
 	if (UNION_CASE(Array, ta, type))
 	{
 		return typeKnown(ta->element);
@@ -235,6 +277,16 @@ bool typeKnown(Ty* type)
 
 Ty* typeInstantiate(Ty* type, const function<Ty*(Ty*)>& inst)
 {
+	if (UNION_CASE(Tuple, t, type))
+	{
+		Arr<Ty*> fields;
+
+		for (Ty* field: t->fields)
+			fields.push(typeInstantiate(field, inst));
+
+		return UNION_NEW(Ty, Tuple, { fields });
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		Ty* element = typeInstantiate(t->element, inst);
@@ -350,6 +402,20 @@ static void typeName(string& buffer, Ty* type)
 	if (UNION_CASE(String, t, type))
 	{
 		buffer += "string";
+		return;
+	}
+
+	if (UNION_CASE(Tuple, t, type))
+	{
+		buffer += "(";
+
+		for (size_t i = 0; i < t->fields.size; ++i)
+		{
+			if (i != 0) buffer += ", ";
+			typeName(buffer, t->fields[i]);
+		}
+
+		buffer += ")";
 		return;
 	}
 
