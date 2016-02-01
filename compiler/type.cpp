@@ -343,6 +343,13 @@ Ty* typeMember(Ty* type, int index)
 {
 	assert(index >= 0);
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		assert(index < t->fields.size);
+
+		return t->fields[index];
+	}
+
 	if (UNION_CASE(Instance, inst, type))
 	{
 		if (UNION_CASE(Struct, def, inst->def))
