@@ -540,13 +540,13 @@ static void typeImport(Output& output, Ast::Import* n, TypeConstraints* constrai
 
 static void type(Output& output, Ast* root, TypeConstraints* constraints)
 {
-#define CALL_TYPE(name, ...) else if (UNION_CASE(name, n, root)) type##name(output, n, constraints);
+#define CALL(name, ...) else if (UNION_CASE(name, n, root)) type##name(output, n, constraints);
 
 	if (false) ;
-	UD_AST(CALL_TYPE)
+	UD_AST(CALL)
 	else ICE("Unknown Ast kind %d", root->kind);
 
-#undef CALL_TYPE
+#undef CALL
 }
 
 static bool propagate(TypeConstraints& constraints, Ast* root)

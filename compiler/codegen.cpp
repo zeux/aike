@@ -599,7 +599,32 @@ static Value* codegenNewArrEmpty(Codegen& cg, Ty* type)
 
 static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind = KindValue);
 
-static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
+static Value* codegenCommon(Codegen& cg, Ast::Common* n, CodegenKind kind)
+{
+	return nullptr;
+}
+
+static Value* codegenLiteralVoid(Codegen& cg, Ast::LiteralVoid* n, CodegenKind kind)
+{
+	return codegenVoid(cg);
+}
+
+static Value* codegenLiteralBool(Codegen& cg, Ast::LiteralBool* n, CodegenKind kind)
+{
+	return cg.ir->getInt1(n->value);
+}
+
+static Value* codegenLiteralInteger(Codegen& cg, Ast::LiteralInteger* n, CodegenKind kind)
+{
+	return ConstantInt::getSigned(cg.ir->getInt32Ty(), n->value);
+}
+
+static Value* codegenLiteralFloat(Codegen& cg, Ast::LiteralFloat* n, CodegenKind kind)
+{
+	return ConstantFP::get(cg.ir->getFloatTy(), n->value);
+}
+
+static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -615,7 +640,7 @@ static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 	return result;
 }
 
-static Value* codegenLiteralTuple(Codegen& cg, Ast::LiteralTuple* n)
+static Value* codegenLiteralTuple(Codegen& cg, Ast::LiteralTuple* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -629,7 +654,7 @@ static Value* codegenLiteralTuple(Codegen& cg, Ast::LiteralTuple* n)
 	return result;
 }
 
-static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
+static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -658,7 +683,7 @@ static Value* codegenLiteralArray(Codegen& cg, Ast::LiteralArray* n)
 	return result;
 }
 
-static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n)
+static Value* codegenLiteralStruct(Codegen& cg, Ast::LiteralStruct* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -771,7 +796,7 @@ static Value* codegenMember(Codegen& cg, Ast::Member* n, CodegenKind kind)
 		return cg.ir->CreateExtractValue(expr, n->field.index);
 }
 
-static Value* codegenBlock(Codegen& cg, Ast::Block* n)
+static Value* codegenBlock(Codegen& cg, Ast::Block* n, CodegenKind kind)
 {
 	Value* result = codegenVoid(cg);
 
@@ -781,7 +806,12 @@ static Value* codegenBlock(Codegen& cg, Ast::Block* n)
 	return result;
 }
 
-static Value* codegenCall(Codegen& cg, Ast::Call* n)
+static Value* codegenModule(Codegen& cg, Ast::Module* n, CodegenKind kind)
+{
+	return codegenExpr(cg, n->body);
+}
+
+static Value* codegenCall(Codegen& cg, Ast::Call* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -860,7 +890,7 @@ static Value* codegenIndex(Codegen& cg, Ast::Index* n, CodegenKind kind)
 		return cg.ir->CreateLoad(cg.ir->CreateInBoundsGEP(ptr, index));
 }
 
-static Value* codegenAssign(Codegen& cg, Ast::Assign* n)
+static Value* codegenAssign(Codegen& cg, Ast::Assign* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -940,14 +970,14 @@ static Value* codegenBinaryAndOr(Codegen& cg, Ast::Binary* n)
 	return pn;
 }
 
-static Value* codegenBinary(Codegen& cg, Ast::Binary* n)
+static Value* codegenBinary(Codegen& cg, Ast::Binary* n, CodegenKind kind)
 {
 	assert(n->op == BinaryOpAnd || n->op == BinaryOpOr);
 
 	return codegenBinaryAndOr(cg, n);
 }
 
-static Value* codegenIf(Codegen& cg, Ast::If* n)
+static Value* codegenIf(Codegen& cg, Ast::If* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -1014,7 +1044,7 @@ static Value* codegenIf(Codegen& cg, Ast::If* n)
 	}
 }
 
-static Value* codegenFor(Codegen& cg, Ast::For* n)
+static Value* codegenFor(Codegen& cg, Ast::For* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -1060,7 +1090,7 @@ static Value* codegenFor(Codegen& cg, Ast::For* n)
 	return codegenVoid(cg);
 }
 
-static Value* codegenWhile(Codegen& cg, Ast::While* n)
+static Value* codegenWhile(Codegen& cg, Ast::While* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -1093,7 +1123,7 @@ static Value* codegenWhile(Codegen& cg, Ast::While* n)
 	return codegenVoid(cg);
 }
 
-static Value* codegenFn(Codegen& cg, Ast::Fn* n)
+static Value* codegenFn(Codegen& cg, Ast::Fn* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->location);
 
@@ -1102,7 +1132,17 @@ static Value* codegenFn(Codegen& cg, Ast::Fn* n)
 	return codegenFunctionDecl(cg, decl, n->id, decl->var->type, Arr<Ty*>());
 }
 
-static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
+static Value* codegenLLVM(Codegen& cg, Ast::LLVM* n, CodegenKind kind)
+{
+	return nullptr;
+}
+
+static Value* codegenFnDecl(Codegen& cg, Ast::FnDecl* n, CodegenKind kind)
+{
+	return codegenVoid(cg);
+}
+
+static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n, CodegenKind kind)
 {
 	CodegenDebugLocation dbg(cg, n->var->location);
 
@@ -1132,84 +1172,25 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n)
 	return codegenVoid(cg);
 }
 
-static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
+static Value* codegenTyDecl(Codegen& cg, Ast::TyDecl* n, CodegenKind kind)
 {
-	if (UNION_CASE(LiteralVoid, n, node))
-		return codegenVoid(cg);
+	return codegenVoid(cg);
+}
 
-	if (UNION_CASE(LiteralBool, n, node))
-		return cg.ir->getInt1(n->value);
+static Value* codegenImport(Codegen& cg, Ast::Import* n, CodegenKind kind)
+{
+	return codegenVoid(cg);
+}
 
-	if (UNION_CASE(LiteralInteger, n, node))
-		return ConstantInt::getSigned(cg.ir->getInt32Ty(), n->value);
+static Value* codegenExpr(Codegen& cg, Ast* root, CodegenKind kind)
+{
+#define CALL(name, ...) else if (UNION_CASE(name, n, root)) return codegen##name(cg, n, kind);
 
-	if (UNION_CASE(LiteralFloat, n, node))
-		return ConstantFP::get(cg.ir->getFloatTy(), n->value);
+	if (false) ;
+	UD_AST(CALL)
+	else ICE("Unknown Ast kind %d", root->kind);
 
-	if (UNION_CASE(LiteralString, n, node))
-		return codegenLiteralString(cg, n);
-
-	if (UNION_CASE(LiteralTuple, n, node))
-		return codegenLiteralTuple(cg, n);
-
-	if (UNION_CASE(LiteralArray, n, node))
-		return codegenLiteralArray(cg, n);
-
-	if (UNION_CASE(LiteralStruct, n, node))
-		return codegenLiteralStruct(cg, n);
-
-	if (UNION_CASE(Ident, n, node))
-		return codegenIdent(cg, n, kind);
-
-	if (UNION_CASE(Member, n, node))
-		return codegenMember(cg, n, kind);
-
-	if (UNION_CASE(Block, n, node))
-		return codegenBlock(cg, n);
-
-	if (UNION_CASE(Module, n, node))
-		return codegenExpr(cg, n->body, kind);
-
-	if (UNION_CASE(Call, n, node))
-		return codegenCall(cg, n);
-
-	if (UNION_CASE(Index, n, node))
-		return codegenIndex(cg, n, kind);
-
-	if (UNION_CASE(Assign, n, node))
-		return codegenAssign(cg, n);
-
-	if (UNION_CASE(Unary, n, node))
-		return codegenUnary(cg, n, kind);
-
-	if (UNION_CASE(Binary, n, node))
-		return codegenBinary(cg, n);
-
-	if (UNION_CASE(If, n, node))
-		return codegenIf(cg, n);
-
-	if (UNION_CASE(For, n, node))
-		return codegenFor(cg, n);
-
-	if (UNION_CASE(While, n, node))
-		return codegenWhile(cg, n);
-
-	if (UNION_CASE(Fn, n, node))
-		return codegenFn(cg, n);
-
-	if (UNION_CASE(FnDecl, n, node))
-		return codegenVoid(cg);
-
-	if (UNION_CASE(VarDecl, n, node))
-		return codegenVarDecl(cg, n);
-
-	if (UNION_CASE(TyDecl, n, node))
-		return codegenVoid(cg);
-
-	if (UNION_CASE(Import, n, node))
-		return codegenVoid(cg);
-
-	ICE("Unknown Ast kind %d", node->kind);
+#undef CALL
 }
 
 static vector<Value*> getFunctionArguments(Function* f)
