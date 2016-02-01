@@ -387,6 +387,29 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		StructType* sty = cast<StructType>(codegenType(cg, type));
+		const StructLayout* sl = layout.getStructLayout(sty);
+
+		vector<Metadata*> fields;
+
+		for (size_t i = 0; i < t->fields.size; ++i)
+		{
+			DIType* dty = codegenTypeDebug(cg, t->fields[i]);
+
+			fields.push_back(cg.di->createMemberType(
+				nullptr, "_" + to_string(i), nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(i)),
+				0, sl->getElementOffset(i) * 8, 0, dty));
+		}
+
+		return cg.di->createStructType(
+			nullptr, "tuple", nullptr, 0,
+			sl->getSizeInBits(), 0, 0,
+			nullptr, cg.di->getOrCreateArray(fields));
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		DIType* ety = codegenTypeDebug(cg, t->element);
