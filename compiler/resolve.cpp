@@ -6,6 +6,8 @@
 #include "visit.hpp"
 #include "output.hpp"
 
+#include <cerrno>
+
 template <typename T>
 struct NameMap
 {
@@ -318,6 +320,23 @@ static int findMember(Ty* type, const Str& name)
 			}
 
 			return -1;
+		}
+	}
+
+	if (UNION_CASE(Tuple, t, type))
+	{
+		if (type->kind == Ty::KindTuple && name[0] == '_')
+		{
+			string index = name.str().substr(1);
+
+			// TODO: extract this into a reusable function (share with parse.cpp)
+			errno = 0;
+
+			char* end = 0;
+			long long valueInteger = strtoll(index.c_str(), &end, 10);
+
+			if (*end == 0 && errno == 0 && valueInteger >= 0 && valueInteger < t->fields.size)
+				return valueInteger;
 		}
 	}
 
