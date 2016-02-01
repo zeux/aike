@@ -8,7 +8,7 @@ print(first((1, true)))
 print(first((false, 2)))
 print(first(("hello", "from", "tuple")))
 
-## XFAIL
+## OK
 # 1
 # false
 # hello

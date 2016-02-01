@@ -658,6 +658,18 @@ static bool instantiateNode(Output& output, Ast* node, TypeConstraints* constrai
 				if (n->tyargs.size != decl->tyargs.size)
 					output.panic(n->location, "Expected %d type arguments but given %d", int(decl->tyargs.size), int(n->tyargs.size));
 			}
+		}
+
+		if (var->kind == Variable::KindFunction && n->tyargs.size > 0)
+		{
+			UNION_CASE(FnDecl, decl, var->fn);
+			assert(decl);
+
+			// For generic functions, we can't instantiate unless function type is fully known.
+			// If we do this there's a risk of capturing an Unknown type from the function declaration
+			// that later gets bound to a generic argument, thus leaking the generic outside of function definition.
+			if (!typeKnown(var->type))
+				return true;
 
 			n->type = typeInstantiate(var->type, [&](Ty* ty) -> Ty* {
 				for (size_t i = 0; i < decl->tyargs.size; ++i)
