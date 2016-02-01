@@ -215,6 +215,15 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 	return entry;
 }
 
+string getRuntimePath(const string& compilerPath)
+{
+	string::size_type slash = compilerPath.find_last_of('/');
+
+	string path = (slash == string::npos) ? "" : compilerPath.substr(0, slash + 1);
+
+	return path + "aike-runtime.so";
+}
+
 int main(int argc, const char** argv)
 {
 	Options options = parseOptions(argc, argv);
@@ -368,9 +377,7 @@ int main(int argc, const char** argv)
 		}
 		else
 		{
-			string compilerPath = argv[0];
-			string::size_type compilerPathSlash = compilerPath.find_last_of('/');
-			string runtimePath = (compilerPathSlash == string::npos ? "" : compilerPath.substr(0, compilerPathSlash + 1)) + "aike-runtime.so";
+			string runtimePath = getRuntimePath(argv[0]);
 
 			timer.checkpoint();
 
