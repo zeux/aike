@@ -146,6 +146,16 @@ static Type* codegenType(Codegen& cg, Ty* type)
 		return StructType::get(*cg.context, { fields, 2 });
 	}
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		vector<Type*> fields;
+
+		for (auto& f: t->fields)
+			fields.push_back(codegenType(cg, f));
+
+		return StructType::get(*cg.context, fields);
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		Type* element = codegenType(cg, t->element);
@@ -559,6 +569,20 @@ static Value* codegenLiteralString(Codegen& cg, Ast::LiteralString* n)
 
 	result = cg.ir->CreateInsertValue(result, string, 0);
 	result = cg.ir->CreateInsertValue(result, cg.ir->getInt32(n->value.size), 1);
+
+	return result;
+}
+
+static Value* codegenLiteralTuple(Codegen& cg, Ast::LiteralTuple* n)
+{
+	CodegenDebugLocation dbg(cg, n->location);
+
+	Type* type = codegenType(cg, n->type);
+
+	Value* result = UndefValue::get(type);
+
+	for (size_t i = 0; i < n->fields.size; ++i)
+		result = cg.ir->CreateInsertValue(result, codegenExpr(cg, n->fields[i]), i);
 
 	return result;
 }
@@ -1082,6 +1106,9 @@ static Value* codegenExpr(Codegen& cg, Ast* node, CodegenKind kind)
 
 	if (UNION_CASE(LiteralString, n, node))
 		return codegenLiteralString(cg, n);
+
+	if (UNION_CASE(LiteralTuple, n, node))
+		return codegenLiteralTuple(cg, n);
 
 	if (UNION_CASE(LiteralArray, n, node))
 		return codegenLiteralArray(cg, n);
