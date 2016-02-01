@@ -264,6 +264,27 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 	if (UNION_CASE(String, t, type))
 		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(4) }));
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		StructType* sty = cast<StructType>(codegenType(cg, type));
+		const StructLayout* sl = layout.getStructLayout(sty);
+
+		vector<Constant*> fields;
+		for (size_t i = 0; i < t->fields.size; ++i)
+		{
+			Constant* ft = codegenTypeInfo(cg, t->fields[i]);
+			Constant* fo = cg.ir->getInt32(sl->getElementOffset(i));
+
+			fields.push_back(ConstantStruct::getAnon({ ft, fo }));
+		}
+
+		assert(!fields.empty());
+
+		Constant* fieldArr = ConstantArray::get(ArrayType::get(fields[0]->getType(), fields.size()), fields);
+
+		return codegenMakeTypeInfo(cg, name, ConstantStruct::getAnon({ cg.ir->getInt32(5), cg.ir->getInt32(fields.size()), fieldArr }));
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		int stride = layout.getTypeAllocSize(codegenType(cg, t->element));
@@ -289,7 +310,7 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 		if (UNION_CASE(Struct, d, t->def))
 		{
 			Type* fieldType = StructType::get(Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
-			Type* fieldArrType = ArrayType::get(fieldType, d->fields.size);
+			ArrayType* fieldArrType = ArrayType::get(fieldType, d->fields.size);
 			Type* dataType = StructType::get(Type::getInt32Ty(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), fieldArrType, nullptr);
 
 			GlobalVariable* gv = codegenPrepareTypeInfo(cg, name, dataType);
@@ -307,9 +328,7 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 				fields.push_back(ConstantStruct::getAnon({ fn, ft, fo }));
 			}
 
-			assert(!fields.empty());
-
-			Constant* fieldArr = ConstantArray::get(ArrayType::get(fields[0]->getType(), fields.size()), fields);
+			Constant* fieldArr = ConstantArray::get(fieldArrType, fields);
 
 			Constant* sn = cast<Constant>(cg.ir->CreateGlobalStringPtr(t->name.str()));
 
