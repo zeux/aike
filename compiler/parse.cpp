@@ -860,7 +860,7 @@ static Ast* parseTerm(TokenStream& ts)
 		else if (fields.size == 1)
 			return fields[0];
 		else
-			ts.output->panic(Location(start, end), "Tuple literals are not supported yet");
+			return UNION_NEW(Ast, LiteralTuple, { nullptr, Location(start, end), fields });
 	}
 
 	auto t = ts.get();

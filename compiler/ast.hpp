@@ -71,6 +71,7 @@ struct FieldRef
 	X(LiteralInteger, { Ty* type; Location location; long long value; }) \
 	X(LiteralFloat, { Ty* type; Location location; double value; }) \
 	X(LiteralString, { Ty* type; Location location; Str value; }) \
+	X(LiteralTuple, { Ty* type; Location location; Arr<Ast*> fields; }) \
 	X(LiteralArray, { Ty* type; Location location; Arr<Ast*> elements; }) \
 	X(LiteralStruct, { Ty* type; Location location; Str name; Arr<pair<FieldRef, Ast*>> fields; }) \
 	X(Ident, { Ty* type; Location location; Str name; Arr<Ty*> tyargs; Arr<Variable*> targets; bool resolved; }) \

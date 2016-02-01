@@ -172,6 +172,28 @@ static void typeLiteralString(Output& output, Ast::LiteralString* n, TypeConstra
 		n->type = UNION_NEW(Ty, String, {});
 }
 
+static void typeLiteralTuple(Output& output, Ast::LiteralTuple* n, TypeConstraints* constraints)
+{
+	if (!n->type)
+	{
+		Arr<Ty*> fields;
+		for (size_t i = 0; i < n->fields.size; ++i)
+			fields.push(UNION_NEW(Ty, Unknown, {}));
+
+		n->type = UNION_NEW(Ty, Tuple, { fields });
+	}
+
+	UNION_CASE(Tuple, tt, n->type);
+	assert(tt);
+
+	for (size_t i = 0; i < n->fields.size; ++i)
+	{
+		type(output, n->fields[i], constraints);
+
+		typeMustEqual(n->fields[i], tt->fields[i], constraints, output);
+	}
+}
+
 static void typeLiteralArray(Output& output, Ast::LiteralArray* n, TypeConstraints* constraints)
 {
 	if (!n->type)
