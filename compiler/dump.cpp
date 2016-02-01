@@ -131,194 +131,227 @@ static void dumpDef(const Str& name, TyDef* def, int indent)
 		ICE("Unknown TyDef kind %d", def->kind);
 }
 
-static void dumpNode(Ast* root, int indent)
+static void dumpCommon(Ast::Common* n, int indent)
 {
-	if (UNION_CASE(LiteralVoid, n, root))
-	{
-		printf("()");
-	}
-	else if (UNION_CASE(LiteralBool, n, root))
-	{
-		printf("%s", n->value ? "true" : "false");
-	}
-	else if (UNION_CASE(LiteralInteger, n, root))
-	{
-		printf("%lld", n->value);
-	}
-	else if (UNION_CASE(LiteralFloat, n, root))
-	{
-		printf("%f", n->value);
-	}
-	else if (UNION_CASE(LiteralString, n, root))
-	{
-		printf("\"");
-		dumpString(n->value);
-		printf("\"");
-	}
-	else if (UNION_CASE(LiteralTuple, n, root))
-	{
-		printf("(");
-		dumpList(n->fields, [&](Ast* c) { dumpNode(c, indent); });
-		printf(")");
-	}
-	else if (UNION_CASE(LiteralArray, n, root))
-	{
-		printf("[");
-		dumpList(n->elements, [&](Ast* c) { dumpNode(c, indent); });
-		printf("]");
-	}
-	else if (UNION_CASE(LiteralStruct, n, root))
-	{
-		dumpString(n->name);
-		printf(" { ");
-		dumpList(n->fields, [&](const pair<FieldRef, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
-		printf(" }");
-	}
-	else if (UNION_CASE(Ident, n, root))
-	{
-		dumpString(n->name);
-		dumpTypeArguments(n->tyargs);
-	}
-	else if (UNION_CASE(Member, n, root))
-	{
-		dumpNode(n->expr, indent);
-		printf(".");
-		dumpString(n->field.name);
-	}
-	else if (UNION_CASE(Block, n, root))
-	{
-		for (auto& c: n->body)
-		{
-			dumpIndent(indent);
-			dumpNode(c, indent);
-			printf("\n");
-		}
-	}
-	else if (UNION_CASE(Module, n, root))
-	{
-		dumpNode(n->body, indent);
-	}
-	else if (UNION_CASE(Call, n, root))
-	{
-		dumpNode(n->expr, indent);
+}
 
-		printf("(");
-		dumpList(n->args, [&](Ast* c) { dumpNode(c, indent); });
-		printf(")");
-	}
-	else if (UNION_CASE(Unary, n, root))
-	{
-		printf("(%s ", getOpName(n->op));
-		dumpNode(n->expr, indent);
-		printf(")");
-	}
-	else if (UNION_CASE(Binary, n, root))
-	{
-		printf("(");
-		dumpNode(n->left, indent);
-		printf(" %s ", getOpName(n->op));
-		dumpNode(n->right, indent);
-		printf(")");
-	}
-	else if (UNION_CASE(Index, n, root))
-	{
-		dumpNode(n->expr, indent);
-		printf("[");
-		dumpNode(n->index, indent);
-		printf("]");
-	}
-	else if (UNION_CASE(Assign, n, root))
-	{
-		dumpNode(n->left, indent);
-		printf(" = ");
-		dumpNode(n->right, indent);
-	}
-	else if (UNION_CASE(If, n, root))
-	{
-		printf("if ");
-		dumpNode(n->cond, indent);
-		printf("\n");
-		dumpNode(n->thenbody, indent + 1);
+static void dumpLiteralVoid(Ast::LiteralVoid* n, int indent)
+{
+	printf("()");
+}
 
-		if (n->elsebody)
-		{
-			printf("\n");
-			dumpIndent(indent);
-			printf("else\n");
-			dumpNode(n->elsebody, indent + 1);
-		}
-	}
-	else if (UNION_CASE(For, n, root))
-	{
-		printf("for ");
-		dumpString(n->var->name);
+static void dumpLiteralBool(Ast::LiteralBool* n, int indent)
+{
+	printf("%s", n->value ? "true" : "false");
+}
 
-		if (n->index)
-		{
-			printf(", ");
-			dumpString(n->index->name);
-		}
+static void dumpLiteralInteger(Ast::LiteralInteger* n, int indent)
+{
+	printf("%lld", n->value);
+}
 
-		printf(" in ");
-		dumpNode(n->expr, indent);
-		printf("\n");
-		dumpNode(n->body, indent + 1);
-	}
-	else if (UNION_CASE(While, n, root))
-	{
-		printf("while ");
-		dumpNode(n->expr, indent);
-		printf("\n");
-		dumpNode(n->body, indent + 1);
-	}
-	else if (UNION_CASE(Fn, n, root))
-	{
-		dumpNode(n->decl, indent);
-	}
-	else if (UNION_CASE(LLVM, n, root))
+static void dumpLiteralFloat(Ast::LiteralFloat* n, int indent)
+{
+	printf("%f", n->value);
+}
+
+static void dumpLiteralString(Ast::LiteralString* n, int indent)
+{
+	printf("\"");
+	dumpString(n->value);
+	printf("\"");
+}
+
+static void dumpLiteralTuple(Ast::LiteralTuple* n, int indent)
+{
+	printf("(");
+	dumpList(n->fields, [&](Ast* c) { dumpNode(c, indent); });
+	printf(")");
+}
+
+static void dumpLiteralArray(Ast::LiteralArray* n, int indent)
+{
+	printf("[");
+	dumpList(n->elements, [&](Ast* c) { dumpNode(c, indent); });
+	printf("]");
+}
+
+static void dumpLiteralStruct(Ast::LiteralStruct* n, int indent)
+{
+	dumpString(n->name);
+	printf(" { ");
+	dumpList(n->fields, [&](const pair<FieldRef, Ast*>& p) { dumpString(p.first.name); printf(" = "); dumpNode(p.second, indent); });
+	printf(" }");
+}
+
+static void dumpIdent(Ast::Ident* n, int indent)
+{
+	dumpString(n->name);
+	dumpTypeArguments(n->tyargs);
+}
+
+static void dumpMember(Ast::Member* n, int indent)
+{
+	dumpNode(n->expr, indent);
+	printf(".");
+	dumpString(n->field.name);
+}
+
+static void dumpBlock(Ast::Block* n, int indent)
+{
+	for (auto& c: n->body)
 	{
 		dumpIndent(indent);
-		printf("llvm \"");
-		dumpString(n->code);
-		printf("\"");
-	}
-	else if (UNION_CASE(FnDecl, n, root))
-	{
-		if (n->attributes & FnAttributeExtern)
-			printf("extern ");
-
-		printf("fn ");
-		dumpString(n->var->name);
-		dumpTypeSignature(n->tyargs);
-		dumpFunctionSignature(n->var->type, n->args);
-		printf("\n");
-
-		if (n->body)
-			dumpNode(n->body, indent + 1);
-	}
-	else if (UNION_CASE(VarDecl, n, root))
-	{
-		printf("var ");
-		dumpString(n->var->name);
-		printf(": ");
-		dump(n->var->type);
-		printf(" = ");
-		dump(n->expr);
-	}
-	else if (UNION_CASE(TyDecl, n, root))
-	{
-		dumpDef(n->name, n->def, indent);
-	}
-	else if (UNION_CASE(Import, n, root))
-	{
-		printf("import ");
-		dumpString(n->name);
+		dumpNode(c, indent);
 		printf("\n");
 	}
-	else
+}
+
+static void dumpModule(Ast::Module* n, int indent)
+{
+	dumpNode(n->body, indent);
+}
+
+static void dumpCall(Ast::Call* n, int indent)
+{
+	dumpNode(n->expr, indent);
+
+	printf("(");
+	dumpList(n->args, [&](Ast* c) { dumpNode(c, indent); });
+	printf(")");
+}
+
+static void dumpUnary(Ast::Unary* n, int indent)
+{
+	printf("(%s ", getOpName(n->op));
+	dumpNode(n->expr, indent);
+	printf(")");
+}
+
+static void dumpBinary(Ast::Binary* n, int indent)
+{
+	printf("(");
+	dumpNode(n->left, indent);
+	printf(" %s ", getOpName(n->op));
+	dumpNode(n->right, indent);
+	printf(")");
+}
+
+static void dumpIndex(Ast::Index* n, int indent)
+{
+	dumpNode(n->expr, indent);
+	printf("[");
+	dumpNode(n->index, indent);
+	printf("]");
+}
+
+static void dumpAssign(Ast::Assign* n, int indent)
+{
+	dumpNode(n->left, indent);
+	printf(" = ");
+	dumpNode(n->right, indent);
+}
+
+static void dumpIf(Ast::If* n, int indent)
+{
+	printf("if ");
+	dumpNode(n->cond, indent);
+	printf("\n");
+	dumpNode(n->thenbody, indent + 1);
+
+	if (n->elsebody)
 	{
-		ICE("Unknown Ast kind %d", root->kind);
+		printf("\n");
+		dumpIndent(indent);
+		printf("else\n");
+		dumpNode(n->elsebody, indent + 1);
 	}
+}
+
+static void dumpFor(Ast::For* n, int indent)
+{
+	printf("for ");
+	dumpString(n->var->name);
+
+	if (n->index)
+	{
+		printf(", ");
+		dumpString(n->index->name);
+	}
+
+	printf(" in ");
+	dumpNode(n->expr, indent);
+	printf("\n");
+	dumpNode(n->body, indent + 1);
+}
+
+static void dumpWhile(Ast::While* n, int indent)
+{
+	printf("while ");
+	dumpNode(n->expr, indent);
+	printf("\n");
+	dumpNode(n->body, indent + 1);
+}
+
+static void dumpFn(Ast::Fn* n, int indent)
+{
+	dumpNode(n->decl, indent);
+}
+
+static void dumpLLVM(Ast::LLVM* n, int indent)
+{
+	dumpIndent(indent);
+	printf("llvm \"");
+	dumpString(n->code);
+	printf("\"");
+}
+
+static void dumpFnDecl(Ast::FnDecl* n, int indent)
+{
+	if (n->attributes & FnAttributeExtern)
+		printf("extern ");
+
+	printf("fn ");
+	dumpString(n->var->name);
+	dumpTypeSignature(n->tyargs);
+	dumpFunctionSignature(n->var->type, n->args);
+	printf("\n");
+
+	if (n->body)
+		dumpNode(n->body, indent + 1);
+}
+
+static void dumpVarDecl(Ast::VarDecl* n, int indent)
+{
+	printf("var ");
+	dumpString(n->var->name);
+	printf(": ");
+	dump(n->var->type);
+	printf(" = ");
+	dump(n->expr);
+}
+
+static void dumpTyDecl(Ast::TyDecl* n, int indent)
+{
+	dumpDef(n->name, n->def, indent);
+}
+
+static void dumpImport(Ast::Import* n, int indent)
+{
+	printf("import ");
+	dumpString(n->name);
+	printf("\n");
+}
+
+static void dumpNode(Ast* root, int indent)
+{
+#define CALL(name, ...) else if (UNION_CASE(name, n, root)) dump##name(n, indent);
+
+	if (false) ;
+	UD_AST(CALL)
+	else ICE("Unknown Ast kind %d", root->kind);
+
+#undef CALL
 }
 
 void dump(Ty* type)
