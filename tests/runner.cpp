@@ -32,7 +32,7 @@ enum class TestType
 	XFail
 };
 
-TestType parseTest(const char* path, std::string& output)
+TestType parseTest(const char* path, std::string& output, std::string& extraFlags)
 {
 	FILE* f = fopen(path, "r");
 	if (!f)
@@ -67,6 +67,10 @@ TestType parseTest(const char* path, std::string& output)
 			{
 				error |= (type != TestType::Unknown);
 				type = TestType::XFail;
+			}
+			else if (strncmp(line, "## FLAGS ", 9) == 0)
+			{
+				extraFlags += (line + 8);
 			}
 			else
 			{
@@ -132,7 +136,8 @@ int main(int argc, char** argv)
 
 	// parse expected test results
 	std::string expectedOutput;
-	TestType testType = parseTest(source.c_str(), expectedOutput);
+	std::string extraFlags;
+	TestType testType = parseTest(source.c_str(), expectedOutput, extraFlags);
 
 	if (testType == TestType::Ok)
 	{
