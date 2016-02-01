@@ -45,6 +45,18 @@ static void mangle(string& buffer, Ty* type, const function<Ty*(Ty*)>& inst)
 		return;
 	}
 
+	if (UNION_CASE(Tuple, t, type))
+	{
+		// TODO: this name can collide with declared type tuple
+		buffer += "N5tupleI";
+
+		for (auto& e: t->fields)
+			mangle(buffer, e, inst);
+
+		buffer += "EE";
+		return;
+	}
+
 	if (UNION_CASE(Array, t, type))
 	{
 		buffer += "U5array";
