@@ -551,7 +551,11 @@ static void type(Output& output, Ast* root, TypeConstraints* constraints)
 
 static bool propagate(TypeConstraints& constraints, Ast* root)
 {
-	if (UNION_CASE(LiteralArray, n, root))
+	if (UNION_CASE(LiteralTuple, n, root))
+	{
+		n->type = constraints.rewrite(n->type);
+	}
+	else if (UNION_CASE(LiteralArray, n, root))
 	{
 		n->type = constraints.rewrite(n->type);
 	}
