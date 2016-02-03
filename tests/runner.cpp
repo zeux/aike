@@ -107,26 +107,8 @@ std::string sanitizeErrors(const std::string& output, const std::string& source)
 	return result;
 }
 
-int main(int argc, char** argv)
+bool runTest(const std::string& source, const std::string& target, const std::string& compiler, const std::string& extraFlags)
 {
-	if (argc < 4)
-	{
-		fprintf(stderr, "Usage: %s [test.aike] [test.aike.o] [aikec-path] [aikec-flags]\n", argv[0]);
-		return 1;
-	}
-
-	// get options
-	std::string source = argv[1];
-	std::string target = argv[2];
-	std::string compiler = argv[3];
-	std::string extraFlags;
-
-	for (int i = 4; i < argc; ++i)
-	{
-		extraFlags += " ";
-		extraFlags += argv[i];
-	}
-
 	// parse expected test results
 	std::string expectedOutput;
 	std::string testFlags;
@@ -152,7 +134,7 @@ int main(int argc, char** argv)
 		{
 			fprintf(stderr, "Test %s failed: compilation failed with code %d\n", source.c_str(), rc);
 			fprintf(stderr, "Errors:\n%s", output.c_str());
-			return 1;
+			return false;
 		}
 
 		int re = system(target.c_str(), output);
@@ -161,7 +143,7 @@ int main(int argc, char** argv)
 		{
 			fprintf(stderr, "Test %s failed: running failed with code %d\n", source.c_str(), re);
 			fprintf(stderr, "Output:\n%s", output.c_str());
-			return 1;
+			return false;
 		}
 
 		if (output != expectedOutput)
@@ -169,7 +151,7 @@ int main(int argc, char** argv)
 			fprintf(stderr, "Test %s failed: output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected output:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual output:\n%s", output.c_str());
-			return 1;
+			return false;
 		}
 	}
 	else if (testType == TestType::Fail)
@@ -182,7 +164,7 @@ int main(int argc, char** argv)
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
 			if (!output.empty())
 				fprintf(stderr, "Output:\n%s", output.c_str());
-			return 1;
+			return false;
 		}
 
 		std::string errors = sanitizeErrors(output, source);
@@ -192,7 +174,7 @@ int main(int argc, char** argv)
 			fprintf(stderr, "Test %s failed: error output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected errors:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual errors:\n%s", errors.c_str());
-			return 1;
+			return false;
 		}
 	}
 	else if (testType == TestType::XFail)
@@ -203,14 +185,37 @@ int main(int argc, char** argv)
 		if (rc == 0)
 		{
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
-			return 1;
+			return false;
 		}
 	}
 	else
 	{
 		fprintf(stderr, "Test %s failed: no valid test output detected\n", source.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+int main(int argc, char** argv)
+{
+	if (argc < 4)
+	{
+		fprintf(stderr, "Usage: %s [test.aike] [test.aike.o] [aikec-path] [aikec-flags]\n", argv[0]);
 		return 1;
 	}
 
-	return 0;
+	// get options
+	std::string source = argv[1];
+	std::string target = argv[2];
+	std::string compiler = argv[3];
+	std::string extraFlags;
+
+	for (int i = 4; i < argc; ++i)
+	{
+		extraFlags += " ";
+		extraFlags += argv[i];
+	}
+
+	return runTest(source, target, compiler, extraFlags) ? 0 : 1;
 }
