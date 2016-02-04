@@ -25,7 +25,7 @@ bool TypeConstraints::tryAdd(Ty* lhs, Ty* rhs)
 	else
 	{
 		if (lhs->kind != Ty::KindUnknown)
-			std::swap(lhs, rhs);
+			swap(lhs, rhs);
 
 		auto li = data.find(lhs);
 

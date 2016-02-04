@@ -86,7 +86,7 @@ static Arr<Line> parseLines(Output& output, const char* source, const Str& data)
 
 static Location getLocation(const char* source, const Arr<Line>& lines, size_t offset, size_t length)
 {
-	auto it = std::lower_bound(lines.begin(), lines.end(), offset, [](const Line& line, size_t offset) { return line.offset <= offset; });
+	auto it = lower_bound(lines.begin(), lines.end(), offset, [](const Line& line, size_t offset) { return line.offset <= offset; });
 	assert(it != lines.begin());
 
 	auto line = it - 1;

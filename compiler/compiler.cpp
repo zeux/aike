@@ -125,7 +125,7 @@ Str getModuleName(const char* path)
 {
 	const char* fs = strrchr(path, '/');
 	const char* bs = strrchr(path, '\\');
-	const char* slash = (fs && bs) ? std::min(fs, bs) : fs ? fs : bs;
+	const char* slash = (fs && bs) ? min(fs, bs) : fs ? fs : bs;
 
 	const char* dot = strrchr(path, '.');
 

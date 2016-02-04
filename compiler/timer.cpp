@@ -5,7 +5,9 @@
 
 static unsigned long long now()
 {
-	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+	using namespace chrono;
+
+	return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
 }
 
 Timer::Timer(): lasttime(0)
