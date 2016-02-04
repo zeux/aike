@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 #include <string>
+#include <vector>
 #include <sstream>
 
 int system(const char* command, std::string& output)
@@ -197,6 +199,47 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 	return true;
 }
 
+void gatherFilesRec(std::vector<std::string>& result, const std::string& base, const std::string& rpath)
+{
+	std::string path = base + "/" + rpath;
+
+	DIR* dir = opendir(path.c_str());
+	if (!dir) return;
+
+	while (dirent* entry = readdir(dir))
+	{
+		if (entry->d_name[0] == '.')
+			continue;
+
+		std::string epath = rpath + "/" + entry->d_name;
+
+		if (entry->d_type == DT_DIR)
+			gatherFilesRec(result, base, epath);
+		else
+			result.push_back(epath);
+	}
+
+	closedir(dir);
+}
+
+bool runTests(const std::string& source, const std::string& target, const std::string& compiler, const std::string& extraFlags)
+{
+	std::vector<std::string> files;
+	gatherFilesRec(files, source, ".");
+
+	bool result = true;
+
+	for (auto& f: files)
+	{
+		if (f.rfind(".aike") + 5 != f.length())
+			continue;
+
+		result &= runTest(source + "/" + f, target, compiler, extraFlags);
+	}
+
+	return result;
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 4)
@@ -217,5 +260,8 @@ int main(int argc, char** argv)
 		extraFlags += argv[i];
 	}
 
-	return runTest(source, target, compiler, extraFlags) ? 0 : 1;
+	if (source.back() == '/')
+		return runTests(source, target, compiler, extraFlags) ? 0 : 1;
+	else
+		return runTest(source, target, compiler, extraFlags) ? 0 : 1;
 }
