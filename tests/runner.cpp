@@ -117,6 +117,8 @@ string sanitizeErrors(const string& output, const string& source)
 	return result;
 }
 
+mutex outputMutex;
+
 enum class TestResult
 {
 	Pass,
@@ -149,6 +151,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (rc != 0)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: compilation failed with code %d\n", source.c_str(), rc);
 			fprintf(stderr, "Errors:\n%s", output.c_str());
 			return TestResult::Fail;
@@ -158,6 +162,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (re != 0)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: running failed with code %d\n", source.c_str(), re);
 			fprintf(stderr, "Output:\n%s", output.c_str());
 			return TestResult::Fail;
@@ -165,6 +171,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (output != expectedOutput)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected output:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual output:\n%s", output.c_str());
@@ -180,6 +188,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (rc == 0)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
 			if (!output.empty())
 				fprintf(stderr, "Output:\n%s", output.c_str());
@@ -190,6 +200,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (errors != expectedOutput)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: error output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected errors:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual errors:\n%s", errors.c_str());
@@ -205,6 +217,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		if (rc == 0)
 		{
+			lock_guard<mutex> lock(outputMutex);
+
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
 			return TestResult::Fail;
 		}
@@ -213,6 +227,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 	}
 	else
 	{
+		lock_guard<mutex> lock(outputMutex);
+
 		fprintf(stderr, "Test %s failed: no valid test output detected\n", source.c_str());
 		return TestResult::Fail;
 	}
