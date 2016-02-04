@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -112,7 +114,14 @@ string sanitizeErrors(const string& output, const string& source)
 	return result;
 }
 
-bool runTest(const string& source, const string& target, const string& compiler, const string& extraFlags)
+enum class TestResult
+{
+	Pass,
+	Fail,
+	XFail
+};
+
+TestResult runTest(const string& source, const string& target, const string& compiler, const string& extraFlags)
 {
 	// parse expected test results
 	string expectedOutput;
@@ -139,7 +148,7 @@ bool runTest(const string& source, const string& target, const string& compiler,
 		{
 			fprintf(stderr, "Test %s failed: compilation failed with code %d\n", source.c_str(), rc);
 			fprintf(stderr, "Errors:\n%s", output.c_str());
-			return false;
+			return TestResult::Fail;
 		}
 
 		int re = system(target.c_str(), output);
@@ -148,7 +157,7 @@ bool runTest(const string& source, const string& target, const string& compiler,
 		{
 			fprintf(stderr, "Test %s failed: running failed with code %d\n", source.c_str(), re);
 			fprintf(stderr, "Output:\n%s", output.c_str());
-			return false;
+			return TestResult::Fail;
 		}
 
 		if (output != expectedOutput)
@@ -156,8 +165,10 @@ bool runTest(const string& source, const string& target, const string& compiler,
 			fprintf(stderr, "Test %s failed: output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected output:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual output:\n%s", output.c_str());
-			return false;
+			return TestResult::Fail;
 		}
+
+		return TestResult::Pass;
 	}
 	else if (testType == TestType::Fail)
 	{
@@ -169,7 +180,7 @@ bool runTest(const string& source, const string& target, const string& compiler,
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
 			if (!output.empty())
 				fprintf(stderr, "Output:\n%s", output.c_str());
-			return false;
+			return TestResult::Fail;
 		}
 
 		string errors = sanitizeErrors(output, source);
@@ -179,8 +190,10 @@ bool runTest(const string& source, const string& target, const string& compiler,
 			fprintf(stderr, "Test %s failed: error output mismatch\n", source.c_str());
 			fprintf(stderr, "Expected errors:\n%s", expectedOutput.c_str());
 			fprintf(stderr, "Actual errors:\n%s", errors.c_str());
-			return false;
+			return TestResult::Fail;
 		}
+
+		return TestResult::Pass;
 	}
 	else if (testType == TestType::XFail)
 	{
@@ -190,16 +203,16 @@ bool runTest(const string& source, const string& target, const string& compiler,
 		if (rc == 0)
 		{
 			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
-			return false;
+			return TestResult::Fail;
 		}
+
+		return TestResult::XFail;
 	}
 	else
 	{
 		fprintf(stderr, "Test %s failed: no valid test output detected\n", source.c_str());
-		return false;
+		return TestResult::Fail;
 	}
-
-	return true;
 }
 
 string joinPath(const string& left, const string& right)
@@ -252,12 +265,17 @@ void createPathRec(const string& path)
 		}
 }
 
-bool runTests(const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags)
+struct Stats
+{
+	unsigned int total, passed, failed, xfail;
+};
+
+Stats runTests(const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags)
 {
 	vector<string> files;
 	gatherFilesRec(files, sourcePath, "");
 
-	bool result = true;
+	Stats stats = {};
 
 	for (auto& f: files)
 	{
@@ -269,10 +287,28 @@ bool runTests(const string& sourcePath, const string& targetPath, const string& 
 
 		createPathRec(target);
 
-		result &= runTest(source, target, compiler, extraFlags);
+		stats.total++;
+
+		switch (runTest(source, target, compiler, extraFlags))
+		{
+		case TestResult::Pass:
+			stats.passed++;
+			break;
+
+		case TestResult::Fail:
+			stats.failed++;
+			break;
+
+		case TestResult::XFail:
+			stats.xfail++;
+			break;
+
+		default:
+			assert(false);
+		}
 	}
 
-	return result;
+	return stats;
 }
 
 int main(int argc, char** argv)
@@ -295,8 +331,18 @@ int main(int argc, char** argv)
 		extraFlags += argv[i];
 	}
 
-	if (source.back() == '/')
-		return runTests(source, target, compiler, extraFlags) ? 0 : 1;
+	if (source.back() != '/')
+		return runTest(source, target, compiler, extraFlags) == TestResult::Fail;
+
+	Stats stats = runTests(source, target, compiler, extraFlags);
+
+	if (stats.failed != 0)
+		printf("FAILURE: %u out of %u tests failed.\n", stats.failed, stats.total);
 	else
-		return runTest(source, target, compiler, extraFlags) ? 0 : 1;
+		printf("Success: %u tests passed.\n", stats.total);
+
+	if (stats.xfail != 0)
+		printf("%u tests failed as expected\n", stats.xfail);
+
+	return stats.failed != 0;
 }
