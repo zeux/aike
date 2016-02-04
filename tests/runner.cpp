@@ -10,6 +10,9 @@
 #include <vector>
 #include <sstream>
 
+#include <atomic>
+#include <thread>
+
 using namespace std;
 
 int system(const char* command, string& output)
@@ -267,48 +270,63 @@ void createPathRec(const string& path)
 
 struct Stats
 {
-	unsigned int total, passed, failed, xfail;
+	atomic<unsigned int> total, passed, failed, xfail;
 };
 
-Stats runTests(const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags)
+void runTests(Stats& stats, const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags, unsigned int jobs)
 {
 	vector<string> files;
 	gatherFilesRec(files, sourcePath, "");
 
-	Stats stats = {};
+	atomic<unsigned int> index(0);
 
-	for (auto& f: files)
+	vector<thread> threads;
+
+	for (unsigned int i = 0; i < jobs; ++i)
 	{
-		if (f.rfind(".aike") + 5 != f.length())
-			continue;
-
-		string source = joinPath(sourcePath, f);
-		string target = joinPath(targetPath, f.substr(0, f.length() - 5));
-
-		createPathRec(target);
-
-		stats.total++;
-
-		switch (runTest(source, target, compiler, extraFlags))
+		threads.emplace_back([&]()
 		{
-		case TestResult::Pass:
-			stats.passed++;
-			break;
+			for (;;)
+			{
+				unsigned int i = index++;
+				if (i >= files.size())
+					break;
 
-		case TestResult::Fail:
-			stats.failed++;
-			break;
+				const string& f = files[i];
 
-		case TestResult::XFail:
-			stats.xfail++;
-			break;
+				if (f.rfind(".aike") + 5 != f.length())
+					continue;
 
-		default:
-			assert(false);
-		}
+				string source = joinPath(sourcePath, f);
+				string target = joinPath(targetPath, f.substr(0, f.length() - 5));
+
+				createPathRec(target);
+
+				stats.total++;
+
+				switch (runTest(source, target, compiler, extraFlags))
+				{
+				case TestResult::Pass:
+					stats.passed++;
+					break;
+
+				case TestResult::Fail:
+					stats.failed++;
+					break;
+
+				case TestResult::XFail:
+					stats.xfail++;
+					break;
+
+				default:
+					assert(false);
+				}
+			}
+		});
 	}
 
-	return stats;
+	for (auto& t: threads)
+		t.join();
 }
 
 int main(int argc, char** argv)
@@ -334,15 +352,18 @@ int main(int argc, char** argv)
 	if (source.back() != '/')
 		return runTest(source, target, compiler, extraFlags) == TestResult::Fail;
 
-	Stats stats = runTests(source, target, compiler, extraFlags);
+	unsigned int jobs = std::thread::hardware_concurrency();
+
+	Stats stats = {};
+	runTests(stats, source, target, compiler, extraFlags, jobs);
 
 	if (stats.failed != 0)
-		printf("FAILURE: %u out of %u tests failed.\n", stats.failed, stats.total);
+		printf("FAILURE: %u out of %u tests failed.\n", stats.failed.load(), stats.total.load());
 	else
-		printf("Success: %u tests passed.\n", stats.total);
+		printf("Success: %u tests passed.\n", stats.total.load());
 
-	if (stats.xfail != 0)
-		printf("%u tests failed as expected\n", stats.xfail);
+	if (stats.xfail.load() != 0)
+		printf("%u tests failed as expected\n", stats.xfail.load());
 
 	return stats.failed != 0;
 }
