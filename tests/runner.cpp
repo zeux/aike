@@ -8,7 +8,9 @@
 #include <vector>
 #include <sstream>
 
-int system(const char* command, std::string& output)
+using namespace std;
+
+int system(const char* command, string& output)
 {
 	FILE* p = popen(command, "r");
 	if (!p)
@@ -35,7 +37,7 @@ enum class TestType
 	XFail
 };
 
-TestType parseTest(const char* path, std::string& output, std::string& extraFlags)
+TestType parseTest(const char* path, string& output, string& extraFlags)
 {
 	FILE* f = fopen(path, "r");
 	if (!f)
@@ -92,13 +94,13 @@ TestType parseTest(const char* path, std::string& output, std::string& extraFlag
 	return error ? TestType::Unknown : type;
 }
 
-std::string sanitizeErrors(const std::string& output, const std::string& source)
+string sanitizeErrors(const string& output, const string& source)
 {
-	std::istringstream iss(output);
-	std::string result;
+	istringstream iss(output);
+	string result;
 
-	std::string line;
-	while (std::getline(iss, line))
+	string line;
+	while (getline(iss, line))
 	{
 		if (line.compare(0, source.length(), source) != 0)
 			continue;
@@ -110,15 +112,15 @@ std::string sanitizeErrors(const std::string& output, const std::string& source)
 	return result;
 }
 
-bool runTest(const std::string& source, const std::string& target, const std::string& compiler, const std::string& extraFlags)
+bool runTest(const string& source, const string& target, const string& compiler, const string& extraFlags)
 {
 	// parse expected test results
-	std::string expectedOutput;
-	std::string testFlags;
+	string expectedOutput;
+	string testFlags;
 	TestType testType = parseTest(source.c_str(), expectedOutput, testFlags);
 
 	// build command line
-	std::string command = compiler;
+	string command = compiler;
 
 	command += extraFlags;
 	command += testFlags;
@@ -130,7 +132,7 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 
 	if (testType == TestType::Ok)
 	{
-		std::string output;
+		string output;
 		int rc = system(command.c_str(), output);
 
 		if (rc != 0)
@@ -159,7 +161,7 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 	}
 	else if (testType == TestType::Fail)
 	{
-		std::string output;
+		string output;
 		int rc = system(command.c_str(), output);
 
 		if (rc == 0)
@@ -170,7 +172,7 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 			return false;
 		}
 
-		std::string errors = sanitizeErrors(output, source);
+		string errors = sanitizeErrors(output, source);
 
 		if (errors != expectedOutput)
 		{
@@ -182,7 +184,7 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 	}
 	else if (testType == TestType::XFail)
 	{
-		std::string output;
+		string output;
 		int rc = system(command.c_str(), output);
 
 		if (rc == 0)
@@ -200,9 +202,9 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 	return true;
 }
 
-std::string joinPath(const std::string& left, const std::string& right)
+string joinPath(const string& left, const string& right)
 {
-	std::string result = left;
+	string result = left;
 
 	if (!result.empty() && result.back() != '/')
 		result += '/';
@@ -212,9 +214,9 @@ std::string joinPath(const std::string& left, const std::string& right)
 	return result;
 }
 
-void gatherFilesRec(std::vector<std::string>& result, const std::string& base, const std::string& rpath)
+void gatherFilesRec(vector<string>& result, const string& base, const string& rpath)
 {
-	std::string path = joinPath(base, rpath);
+	string path = joinPath(base, rpath);
 
 	DIR* dir = opendir(path.c_str());
 	if (!dir) return;
@@ -224,7 +226,7 @@ void gatherFilesRec(std::vector<std::string>& result, const std::string& base, c
 		if (entry->d_name[0] == '.')
 			continue;
 
-		std::string epath = joinPath(rpath, entry->d_name);
+		string epath = joinPath(rpath, entry->d_name);
 
 		if (entry->d_type == DT_DIR)
 			gatherFilesRec(result, base, epath);
@@ -235,9 +237,9 @@ void gatherFilesRec(std::vector<std::string>& result, const std::string& base, c
 	closedir(dir);
 }
 
-void createPathRec(const std::string& path)
+void createPathRec(const string& path)
 {
-	std::string copy = path;
+	string copy = path;
 
 	for (size_t i = 1; i < copy.size(); ++i)
 		if (copy[i] == '/')
@@ -250,9 +252,9 @@ void createPathRec(const std::string& path)
 		}
 }
 
-bool runTests(const std::string& sourcePath, const std::string& targetPath, const std::string& compiler, const std::string& extraFlags)
+bool runTests(const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags)
 {
-	std::vector<std::string> files;
+	vector<string> files;
 	gatherFilesRec(files, sourcePath, "");
 
 	bool result = true;
@@ -262,8 +264,8 @@ bool runTests(const std::string& sourcePath, const std::string& targetPath, cons
 		if (f.rfind(".aike") + 5 != f.length())
 			continue;
 
-		std::string source = joinPath(sourcePath, f);
-		std::string target = joinPath(targetPath, f.substr(0, f.length() - 5));
+		string source = joinPath(sourcePath, f);
+		string target = joinPath(targetPath, f.substr(0, f.length() - 5));
 
 		createPathRec(target);
 
@@ -282,10 +284,10 @@ int main(int argc, char** argv)
 	}
 
 	// get options
-	std::string source = argv[1];
-	std::string target = argv[2];
-	std::string compiler = argv[3];
-	std::string extraFlags;
+	string source = argv[1];
+	string target = argv[2];
+	string compiler = argv[3];
+	string extraFlags;
 
 	for (int i = 4; i < argc; ++i)
 	{
