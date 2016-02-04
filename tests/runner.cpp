@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <string>
 #include <vector>
@@ -199,9 +200,21 @@ bool runTest(const std::string& source, const std::string& target, const std::st
 	return true;
 }
 
+std::string joinPath(const std::string& left, const std::string& right)
+{
+	std::string result = left;
+
+	if (!result.empty() && result.back() != '/')
+		result += '/';
+
+	result += right;
+
+	return result;
+}
+
 void gatherFilesRec(std::vector<std::string>& result, const std::string& base, const std::string& rpath)
 {
-	std::string path = base + "/" + rpath;
+	std::string path = joinPath(base, rpath);
 
 	DIR* dir = opendir(path.c_str());
 	if (!dir) return;
@@ -211,7 +224,7 @@ void gatherFilesRec(std::vector<std::string>& result, const std::string& base, c
 		if (entry->d_name[0] == '.')
 			continue;
 
-		std::string epath = rpath + "/" + entry->d_name;
+		std::string epath = joinPath(rpath, entry->d_name);
 
 		if (entry->d_type == DT_DIR)
 			gatherFilesRec(result, base, epath);
@@ -222,10 +235,25 @@ void gatherFilesRec(std::vector<std::string>& result, const std::string& base, c
 	closedir(dir);
 }
 
-bool runTests(const std::string& source, const std::string& target, const std::string& compiler, const std::string& extraFlags)
+void createPathRec(const std::string& path)
+{
+	std::string copy = path;
+
+	for (size_t i = 1; i < copy.size(); ++i)
+		if (copy[i] == '/')
+		{
+			copy[i] = 0;
+
+			mkdir(copy.c_str(), 0755);
+
+			copy[i] = '/';
+		}
+}
+
+bool runTests(const std::string& sourcePath, const std::string& targetPath, const std::string& compiler, const std::string& extraFlags)
 {
 	std::vector<std::string> files;
-	gatherFilesRec(files, source, ".");
+	gatherFilesRec(files, sourcePath, "");
 
 	bool result = true;
 
@@ -234,7 +262,12 @@ bool runTests(const std::string& source, const std::string& target, const std::s
 		if (f.rfind(".aike") + 5 != f.length())
 			continue;
 
-		result &= runTest(source + "/" + f, target, compiler, extraFlags);
+		std::string source = joinPath(sourcePath, f);
+		std::string target = joinPath(targetPath, f.substr(0, f.length() - 5));
+
+		createPathRec(target);
+
+		result &= runTest(source, target, compiler, extraFlags);
 	}
 
 	return result;
