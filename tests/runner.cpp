@@ -20,6 +20,9 @@ using namespace std;
 
 int system(const char* command, string& output, string& error)
 {
+	output.clear();
+	error.clear();
+
 	int pout[2], perr[2];
 	if (pipe(pout) < 0 || pipe(perr) < 0)
 		return -1;
