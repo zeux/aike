@@ -311,7 +311,7 @@ void runTests(Stats& stats, const string& sourcePath, const string& targetPath, 
 
 				const string& f = files[i];
 
-				if (f.rfind(".aike") + 5 != f.length())
+				if (f.length() < 5 || f.rfind(".aike") != f.length() - 5)
 					continue;
 
 				string source = joinPath(sourcePath, f);
