@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include <dirent.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #include <string>
@@ -16,23 +17,70 @@
 
 using namespace std;
 
-int system(const char* command, string& output)
+int system(const char* command, string& output, string& error)
 {
-	FILE* p = popen(command, "r");
-	if (!p)
+	int pout[2], perr[2];
+	if (pipe(pout) < 0 || pipe(perr) < 0)
 		return -1;
 
-	output.clear();
-
-	while (!feof(p))
+	const char* argv[] =
 	{
-		char buf[256];
-		size_t bytes = fread(buf, 1, sizeof(buf), p);
+		"sh",
+		"-c",
+		command,
+		0
+	};
 
-		output.append(buf, bytes);
+	pid_t pid = fork();
+	if (pid < 0)
+		return -1;
+
+	if (pid == 0)
+	{
+		// close other ends of the pipe
+		close(pout[0]);
+		close(perr[0]);
+
+		// redirect stdout/stderr
+		dup2(pout[1], 1);
+		dup2(perr[1], 2);
+
+		// call sh and exit if execvp fails
+		_exit(execvp("sh", (char**)argv));
 	}
 
-	return pclose(p);
+	// close output ends of the pipe
+	close(pout[1]);
+	close(perr[1]);
+
+	char buf[4096];
+
+	// this should use select...
+	for (;;)
+	{
+		ssize_t size = read(pout[0], buf, sizeof(buf));
+		if (size <= 0) break;
+
+		output.append(buf, size);
+	}
+
+	for (;;)
+	{
+		ssize_t size = read(perr[0], buf, sizeof(buf));
+		if (size <= 0) break;
+
+		error.append(buf, size);
+	}
+
+	// close input ends of the pipe
+	close(pout[0]);
+	close(perr[0]);
+
+	// get process exit code
+	int status = -1;
+	waitpid(pid, &status, 0);
+
+	return status;
 }
 
 enum class TestType
@@ -143,12 +191,11 @@ TestResult runTest(const string& source, const string& target, const string& com
 	command += source;
 	command += " -o ";
 	command += target;
-	command += " 2>&1";
 
 	if (testType == TestType::Ok)
 	{
-		string output;
-		int rc = system(command.c_str(), output);
+		string output, error;
+		int rc = system(command.c_str(), output, error);
 
 		if (rc != 0)
 		{
@@ -159,7 +206,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 			return TestResult::Fail;
 		}
 
-		int re = system(target.c_str(), output);
+		int re = system(target.c_str(), output, error);
 
 		if (re != 0)
 		{
@@ -184,8 +231,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 	}
 	else if (testType == TestType::Fail)
 	{
-		string output;
-		int rc = system(command.c_str(), output);
+		string output, error;
+		int rc = system(command.c_str(), output, error);
 
 		if (rc == 0)
 		{
@@ -197,7 +244,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 			return TestResult::Fail;
 		}
 
-		string errors = sanitizeErrors(output, source);
+		string errors = sanitizeErrors(error, source);
 
 		if (errors != expectedOutput)
 		{
@@ -213,8 +260,8 @@ TestResult runTest(const string& source, const string& target, const string& com
 	}
 	else if (testType == TestType::XFail)
 	{
-		string output;
-		int rc = system(command.c_str(), output);
+		string output, error;
+		int rc = system(command.c_str(), output, error);
 
 		if (rc == 0)
 		{
