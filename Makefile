@@ -64,9 +64,6 @@ $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 
 OBJECTS=$(COMPILER_OBJ) $(RUNTIME_OBJ) $(RUNNER_OBJ)
 
-TEST_SRC=$(wildcard tests/*/*.aike)
-TEST_OUT=$(TEST_SRC:%=$(BUILD)/%.out)
-
 all: $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
 
 build-%: all
@@ -76,7 +73,8 @@ run-%: all
 	$(COMPILER_BIN) $*.aike -o $(BUILD)/$* $(flags)
 	./$(BUILD)/$*
 
-test: $(TEST_OUT)
+test: $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
+	$(RUNNER_BIN) tests/ $(BUILD) $(COMPILER_BIN) $(TESTFLAGS)
 
 clean:
 	rm -rf $(BUILD)
@@ -101,11 +99,6 @@ $(BUILD)/%.c.o: %.c
 $(BUILD)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	$(CC) $< -c -o $@
-
-$(BUILD)/%.aike.out: %.aike $(COMPILER_BIN) $(RUNTIME_BIN) $(RUNNER_BIN)
-	@mkdir -p $(dir $@)
-	$(RUNNER_BIN) $< $(BUILD)/$*.aike.o $(COMPILER_BIN) $(TESTFLAGS)
-	@touch $@
 
 -include $(OBJECTS:.o=.d)
 
