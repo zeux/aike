@@ -96,7 +96,7 @@ enum class TestType
 	XFail
 };
 
-TestType parseTest(const char* path, string& output, string& extraFlags)
+TestType parseTest(const char* path, string& output, vector<string>& extraFlags)
 {
 	FILE* f = fopen(path, "r");
 	if (!f)
@@ -134,7 +134,23 @@ TestType parseTest(const char* path, string& output, string& extraFlags)
 			}
 			else if (strncmp(line, "## FLAGS ", 9) == 0)
 			{
-				extraFlags += (line + 8);
+				const char* start = line + 8;
+
+				while (*start)
+				{
+					while (*start == ' ')
+						start++;
+
+					const char* next = start;
+
+					while (*next && *next != ' ')
+						next++;
+
+					if (start != next)
+						extraFlags.push_back(string(start, next));
+
+					start = next;
+				}
 			}
 			else
 			{
@@ -184,16 +200,18 @@ TestResult runTest(const string& source, const string& target, const string& com
 {
 	// parse expected test results
 	string expectedOutput;
-	string testFlags;
+	vector<string> testFlags;
 	TestType testType = parseTest(source.c_str(), expectedOutput, testFlags);
 
 	// build command line args
 	vector<string> compileFlags;
-	// compileFlags.push_back(extraFlags);
-	// compileFlags.push_back(testFlags);
+
 	compileFlags.push_back(source);
 	compileFlags.push_back("-o");
 	compileFlags.push_back(target);
+
+	for (auto& f: testFlags)
+		compileFlags.push_back(f);
 
 	if (testType == TestType::Ok)
 	{
