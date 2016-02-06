@@ -18,7 +18,7 @@
 
 using namespace std;
 
-int system(const char* command, string& output, string& error)
+int system(const string& file, const vector<string>& args, string& output, string& error)
 {
 	output.clear();
 	error.clear();
@@ -26,14 +26,6 @@ int system(const char* command, string& output, string& error)
 	int pout[2], perr[2];
 	if (pipe(pout) < 0 || pipe(perr) < 0)
 		return -1;
-
-	const char* argv[] =
-	{
-		"sh",
-		"-c",
-		command,
-		0
-	};
 
 	pid_t pid = fork();
 	if (pid < 0)
@@ -50,7 +42,16 @@ int system(const char* command, string& output, string& error)
 		dup2(perr[1], 2);
 
 		// call sh and exit if execvp fails
-		_exit(execvp("sh", (char**)argv));
+		vector<char*> argv;
+
+		argv.push_back(const_cast<char*>(file.c_str()));
+
+		for (auto& a: args)
+			argv.push_back(const_cast<char*>(a.c_str()));
+
+		argv.push_back(nullptr);
+
+		_exit(execvp(file.c_str(), argv.data()));
 	}
 
 	// close output ends of the pipe
@@ -186,20 +187,18 @@ TestResult runTest(const string& source, const string& target, const string& com
 	string testFlags;
 	TestType testType = parseTest(source.c_str(), expectedOutput, testFlags);
 
-	// build command line
-	string command = compiler;
-
-	command += extraFlags;
-	command += testFlags;
-	command += " ";
-	command += source;
-	command += " -o ";
-	command += target;
+	// build command line args
+	vector<string> compileFlags;
+	// compileFlags.push_back(extraFlags);
+	// compileFlags.push_back(testFlags);
+	compileFlags.push_back(source);
+	compileFlags.push_back("-o");
+	compileFlags.push_back(target);
 
 	if (testType == TestType::Ok)
 	{
 		string output, error;
-		int rc = system(command.c_str(), output, error);
+		int rc = system(compiler, compileFlags, output, error);
 
 		if (rc != 0)
 		{
@@ -210,7 +209,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 			return TestResult::Fail;
 		}
 
-		int re = system(target.c_str(), output, error);
+		int re = system(target, {}, output, error);
 
 		if (re != 0)
 		{
@@ -236,7 +235,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 	else if (testType == TestType::Fail)
 	{
 		string output, error;
-		int rc = system(command.c_str(), output, error);
+		int rc = system(compiler, compileFlags, output, error);
 
 		if (rc == 0)
 		{
@@ -265,7 +264,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 	else if (testType == TestType::XFail)
 	{
 		string output, error;
-		int rc = system(command.c_str(), output, error);
+		int rc = system(compiler, compileFlags, output, error);
 
 		if (rc == 0)
 		{
