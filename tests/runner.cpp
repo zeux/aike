@@ -196,7 +196,7 @@ enum class TestResult
 	XFail
 };
 
-TestResult runTest(const string& source, const string& target, const string& compiler, const string& extraFlags)
+TestResult runTest(const string& source, const string& target, const string& compiler, const vector<string>& extraFlags)
 {
 	// parse expected test results
 	string expectedOutput;
@@ -209,6 +209,9 @@ TestResult runTest(const string& source, const string& target, const string& com
 	compileFlags.push_back(source);
 	compileFlags.push_back("-o");
 	compileFlags.push_back(target);
+
+	for (auto& f: extraFlags)
+		compileFlags.push_back(f);
 
 	for (auto& f: testFlags)
 		compileFlags.push_back(f);
@@ -358,7 +361,7 @@ struct Stats
 	atomic<unsigned int> total, passed, failed, xfail;
 };
 
-void runTests(Stats& stats, const string& sourcePath, const string& targetPath, const string& compiler, const string& extraFlags, unsigned int jobs)
+void runTests(Stats& stats, const string& sourcePath, const string& targetPath, const string& compiler, const vector<string>& extraFlags, unsigned int jobs)
 {
 	vector<string> files;
 	gatherFilesRec(files, sourcePath, "");
@@ -426,13 +429,11 @@ int main(int argc, char** argv)
 	string source = argv[1];
 	string target = argv[2];
 	string compiler = argv[3];
-	string extraFlags;
+
+	vector<string> extraFlags;
 
 	for (int i = 4; i < argc; ++i)
-	{
-		extraFlags += " ";
-		extraFlags += argv[i];
-	}
+		extraFlags.push_back(argv[i]);
 
 	if (source.back() != '/')
 		return runTest(source, target, compiler, extraFlags) == TestResult::Fail;
