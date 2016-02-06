@@ -58,23 +58,34 @@ int system(const string& file, const vector<string>& args, string& output, strin
 	close(pout[1]);
 	close(perr[1]);
 
-	char buf[4096];
+	fd_set set;
+	FD_ZERO(&set);
+	FD_SET(pout[0], &set);
+	FD_SET(perr[0], &set);
 
-	// this should use select...
-	for (;;)
+	while ((FD_ISSET(pout[0], &set) || FD_ISSET(perr[0], &set)) && select(FD_SETSIZE, &set, nullptr, nullptr, nullptr) > 0)
 	{
-		ssize_t size = read(pout[0], buf, sizeof(buf));
-		if (size <= 0) break;
+		char buf[4096];
 
-		output.append(buf, size);
-	}
+		if (FD_ISSET(pout[0], &set))
+		{
+			ssize_t size = read(pout[0], buf, sizeof(buf));
 
-	for (;;)
-	{
-		ssize_t size = read(perr[0], buf, sizeof(buf));
-		if (size <= 0) break;
+			if (size > 0)
+				output.append(buf, size);
+			else
+				FD_CLR(pout[0], &set);
+		}
 
-		error.append(buf, size);
+		if (FD_ISSET(perr[0], &set))
+		{
+			ssize_t size = read(perr[0], buf, sizeof(buf));
+
+			if (size > 0)
+				error.append(buf, size);
+			else
+				FD_CLR(perr[0], &set);
+		}
 	}
 
 	// close input ends of the pipe
