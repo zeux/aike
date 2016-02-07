@@ -103,7 +103,7 @@ enum class TestType
 {
 	Unknown,
 	Ok,
-	Fail,
+	Error,
 	XFail
 };
 
@@ -133,10 +133,10 @@ TestType parseTest(const char* path, string& output, vector<string>& extraFlags)
 				error |= (type != TestType::Unknown);
 				type = TestType::Ok;
 			}
-			else if (strcmp(line, "## FAIL") == 0)
+			else if (strcmp(line, "## ERROR") == 0)
 			{
 				error |= (type != TestType::Unknown);
-				type = TestType::Fail;
+				type = TestType::Error;
 			}
 			else if (strcmp(line, "## XFAIL") == 0)
 			{
@@ -264,7 +264,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 
 		return TestResult::Pass;
 	}
-	else if (testType == TestType::Fail)
+	else if (testType == TestType::Error)
 	{
 		string output, error;
 		int rc = system(compiler, compileFlags, output, error);
@@ -273,7 +273,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 		{
 			lock_guard<mutex> lock(outputMutex);
 
-			fprintf(stderr, "Test %s failed: compilation should have failed but did not\n", source.c_str());
+			fprintf(stderr, "Test %s failed: compilation should have resulted in errors but did not\n", source.c_str());
 			if (!output.empty())
 				fprintf(stderr, "Output:\n%s", output.c_str());
 			return TestResult::Fail;

@@ -3,5 +3,5 @@ for i in [0,1,3]
 
 assert(i >= 0)
 
-## FAIL
+## ERROR
 # (4,8): Unresolved identifier i

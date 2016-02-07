@@ -6,5 +6,5 @@ fn foo(a: float, b: float, c: float)
 
 foo()
 
-## FAIL
+## ERROR
 # (7,1): Unable to deduce the type of foo

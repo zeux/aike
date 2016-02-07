@@ -4,5 +4,5 @@ struct Point
 
 var p = Point {}
 
-## FAIL
+## ERROR
 # (5,9): Field y does not have an initializer

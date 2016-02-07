@@ -1,4 +1,4 @@
 import circular
 
-## FAIL
+## ERROR
 # (1,8): Circular dependency detected: module circular transitively imports itself

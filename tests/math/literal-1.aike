@@ -1,4 +1,4 @@
 var foo = 2x
 
-## FAIL
+## ERROR
 # (1,12): Expected newline, got 'x'

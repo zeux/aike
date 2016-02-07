@@ -6,5 +6,5 @@ fn foo(a: [float])
 
 foo([])
 
-## FAIL
+## ERROR
 # (7,1): Ambiguous identifier foo
