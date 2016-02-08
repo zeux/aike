@@ -6,6 +6,7 @@
 struct Output
 {
 	unordered_map<const char*, Str> sources;
+	vector<string> messages;
 	int errors = 0;
 	int warnings = 0;
 
@@ -13,4 +14,6 @@ struct Output
 
 	ATTR_PRINTF(3, 4) void error(Location loc, const char* format, ...);
 	ATTR_PRINTF(3, 4) void warning(Location loc, const char* format, ...);
+
+	void flush();
 };

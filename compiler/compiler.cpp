@@ -387,6 +387,8 @@ int main(int argc, const char** argv)
 		}
 	}
 
+	output.flush();
+
 	if (options.time)
 	{
 		timer.dump();

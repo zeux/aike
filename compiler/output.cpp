@@ -18,11 +18,30 @@ static pair<size_t, size_t> findLine(const Str& data, size_t offset)
 	return make_pair(begin, end);
 }
 
-static void print(FILE* file, Output* output, Location loc, const char* format, va_list args)
+static void strprintfv(string& result, const char* format, va_list args)
 {
-	fprintf(file, "%s(%d,%d): ", loc.source, loc.line + 1, loc.column + 1);
-	vfprintf(file, format, args);
-	fputc('\n', file);
+	char buf[4096];
+	int c = vsnprintf(buf, sizeof(buf), format, args);
+	assert(c >= 0);
+
+	result += buf;
+}
+
+static void strprintf(string& result, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	strprintfv(result, format, args);
+	va_end(args);
+}
+
+static string print(Output* output, Location loc, const char* format, va_list args)
+{
+	string result;
+
+	strprintf(result, "%s(%d,%d): ", loc.source, loc.line + 1, loc.column + 1);
+	strprintfv(result, format, args);
+	result.append("\n");
 
 	auto it = output->sources.find(loc.source);
 
@@ -34,41 +53,28 @@ static void print(FILE* file, Output* output, Location loc, const char* format, 
 
 		auto line = findLine(contents, loc.offset);
 
-		fputc('\n', file);
+		result.append("\n\t");
+		result.append(contents.data + line.first, line.second - line.first);
 
-		fputc('\t', file);
+		result.append("\n\t");
+		result.append(loc.offset - line.first, ' ');
 
-		for (size_t i = line.first; i < line.second; ++i)
-			fputc(contents[i], file);
+		result.append(max(size_t(1), min(loc.length, line.second - loc.offset)), '^');
 
-		fputc('\n', file);
-
-		fputc('\t', file);
-
-		for (size_t i = line.first; i < loc.offset; ++i)
-			fputc(' ', file);
-
-		if (loc.length == 0)
-		{
-			fputc('^', file);
-		}
-		else
-		{
-			for (size_t i = loc.offset; i < line.second && i < loc.offset + loc.length; ++i)
-				fputc('^', file);
-		}
-
-		fputc('\n', file);
+		result.append("\n");
 	}
+
+	return result;
 }
 
 void Output::panic(Location loc, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	print(stderr, this, loc, format, args);
+	messages.push_back(print(this, loc, format, args));
 	va_end(args);
 
+	flush();
 	exit(1);
 }
 
@@ -76,7 +82,7 @@ void Output::error(Location loc, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	print(stderr, this, loc, format, args);
+	messages.push_back(print(this, loc, format, args));
 	va_end(args);
 
 	errors++;
@@ -86,8 +92,16 @@ void Output::warning(Location loc, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	print(stderr, this, loc, format, args);
+	messages.push_back(print(this, loc, format, args));
 	va_end(args);
 
 	warnings++;
+}
+
+void Output::flush()
+{
+	for (auto& m: messages)
+		fputs(m.c_str(), stderr);
+
+	messages.clear();
 }
