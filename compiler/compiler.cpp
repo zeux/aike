@@ -177,6 +177,9 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 
 	resolveNames(output, root, moduleResolver);
 
+	if (output.errors)
+		return nullptr;
+
 	timer.checkpoint("resolveNames");
 
 	int fixpoint;
@@ -189,9 +192,15 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 
 		fixpoint += typeckPropagate(output, root);
 
+		if (output.errors)
+			return nullptr;
+
 		timer.checkpoint("typeckPropagate");
 
 		fixpoint += resolveMembers(output, root);
+
+		if (output.errors)
+			return nullptr;
 
 		timer.checkpoint("resolveMembers");
 	}
@@ -205,6 +214,9 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 	timer.checkpoint();
 
 	typeckVerify(output, root);
+
+	if (output.errors)
+		return nullptr;
 
 	timer.checkpoint("typeckVerify");
 
@@ -317,6 +329,13 @@ int main(int argc, const char** argv)
 	for (auto& i: moduleOrder)
 	{
 		llvm::Value* entrypoint = compileModule(timer, output, module, modules[i], &resolver, options);
+
+		if (!entrypoint)
+		{
+			assert(output.errors);
+			output.flush();
+			return 1;
+		}
 
 		entries.push_back(entrypoint);
 	}

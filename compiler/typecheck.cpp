@@ -7,17 +7,17 @@
 
 static void typeMustKnow(Ty* type, Output& output, const Location& location)
 {
-	if (!typeKnown(type))
-		output.panic(location, "Expected a known type but given %s", typeName(type).c_str());
+	if (!typeKnown(type) && output.errors == 0)
+		output.error(location, "Expected a known type but given %s", typeName(type).c_str());
 }
 
 static void typeMustEqual(Ty* type, Ty* expected, TypeConstraints* constraints, Output& output, const Location& location)
 {
 	if (!typeUnify(type, expected, constraints) && !constraints)
-		output.panic(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
+		output.error(location, "Type mismatch: expected %s but given %s", typeName(expected).c_str(), typeName(type).c_str());
 
-	if (!constraints && !typeKnown(type))
-		output.panic(location, "Type mismatch: expected a known type but given %s", typeName(type).c_str());
+	if (!constraints)
+		typeMustKnow(type, output, location);
 }
 
 static void typeMustEqual(Ast* node, Ty* expected, TypeConstraints* constraints, Output& output)
@@ -38,9 +38,9 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 				assert(f.first.index >= 0);
 
 				if (fields[f.first.index])
-					output.panic(f.first.location, "Field %s already has an initializer", f.first.name.str().c_str());
-
-				fields[f.first.index] = true;
+					output.error(f.first.location, "Field %s already has an initializer", f.first.name.str().c_str());
+				else
+					fields[f.first.index] = true;
 			}
 
 			for (size_t i = 0; i < def->fields.size; ++i)
@@ -48,14 +48,14 @@ static void validateLiteralStruct(Output& output, Ast::LiteralStruct* n)
 				const StructField& f = def->fields[i];
 
 				if (!fields[i] && !f.expr)
-					output.panic(n->location, "Field %s does not have an initializer", f.name.str().c_str());
+					output.error(n->location, "Field %s does not have an initializer", f.name.str().c_str());
 			}
+
+			return;
 		}
-		else
-			output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
 	}
-	else
-		output.panic(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
+
+	output.error(n->location, "Type mismatch: expected a struct type but given %s", typeName(n->type).c_str());
 }
 
 static string getCandidates(const Arr<Variable*>& targets)
@@ -233,10 +233,10 @@ static void typeIdent(Output& output, Ast::Ident* n, TypeConstraints* constraint
 		n->type = UNION_NEW(Ty, Unknown, {});
 
 	if (n->targets.size == 0 && !constraints)
-		output.panic(n->location, "Unable to deduce the type of %s", n->name.str().c_str());
+		output.error(n->location, "Unable to deduce the type of %s", n->name.str().c_str());
 
 	if (n->targets.size > 1 && !constraints)
-		output.panic(n->location, "Ambiguous identifier %s\n%s", n->name.str().c_str(), getCandidates(n->targets).c_str());
+		output.error(n->location, "Ambiguous identifier %s\n%s", n->name.str().c_str(), getCandidates(n->targets).c_str());
 
 	if (!constraints)
 		for (auto& a: n->tyargs)
@@ -249,7 +249,7 @@ static void typeIdent(Output& output, Ast::Ident* n, TypeConstraints* constraint
 					inst += typeName(a);
 				}
 
-				output.panic(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
+				output.error(n->location, "Unable to instantiate %s<%s>: all argument types must be known", n->name.str().c_str(), inst.c_str());
 			}
 }
 
@@ -265,7 +265,7 @@ static void typeMember(Output& output, Ast::Member* n, TypeConstraints* constrai
 	if (n->field.index >= 0)
 		n->type = typeMember(exprty, n->field.index);
 	else if (!constraints)
-		output.panic(astLocation(n->expr), "%s does not have a field %s", typeName(exprty).c_str(), n->field.name.str().c_str());
+		output.error(astLocation(n->expr), "%s does not have a field %s", typeName(exprty).c_str(), n->field.name.str().c_str());
 }
 
 static void typeBlock(Output& output, Ast::Block* n, TypeConstraints* constraints)
@@ -312,7 +312,7 @@ static void typeCall(Output& output, Ast::Call* n, TypeConstraints* constraints)
 				typeMustEqual(n->args[i], fnty->args[i], constraints, output);
 		}
 		else if (!constraints)
-			output.panic(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
+			output.error(n->location, "Expected %d arguments but given %d", int(fnty->args.size), int(n->args.size));
 
 		n->type = fnty->ret;
 	}
@@ -410,7 +410,7 @@ static void typeAssign(Output& output, Ast::Assign* n, TypeConstraints* constrai
 	typeMustEqual(n->right, astType(n->left), constraints, output);
 
 	if (!isAssignable(n->left) && !constraints)
-		output.panic(n->location, "Expression is not assignable");
+		output.error(n->location, "Expression is not assignable");
 
 	if (!n->type)
 		n->type = UNION_NEW(Ty, Void, {});
@@ -615,7 +615,7 @@ static void instantiateType(Output& output, Ty* type)
 				else
 				{
 					if (t->tyargs.size != def->tyargs.size)
-						output.panic(t->location, "Expected %d type arguments but given %d", int(def->tyargs.size), int(t->tyargs.size));
+						output.error(t->location, "Expected %d type arguments but given %d", int(def->tyargs.size), int(t->tyargs.size));
 				}
 			}
 			else
@@ -624,7 +624,7 @@ static void instantiateType(Output& output, Ty* type)
 		else
 		{
 			if (t->tyargs.size != 0)
-				output.panic(t->location, "Expected 0 type arguments but given %d", int(t->tyargs.size));
+				output.error(t->location, "Expected 0 type arguments but given %d", int(t->tyargs.size));
 		}
 	}
 }
@@ -656,7 +656,7 @@ static bool instantiateNode(Output& output, Ast* node, TypeConstraints* constrai
 			else
 			{
 				if (n->tyargs.size != decl->tyargs.size)
-					output.panic(n->location, "Expected %d type arguments but given %d", int(decl->tyargs.size), int(n->tyargs.size));
+					output.error(n->location, "Expected %d type arguments but given %d", int(decl->tyargs.size), int(n->tyargs.size));
 			}
 		}
 
@@ -715,14 +715,6 @@ static bool verifyNode(Output& output, Ast* node)
 
 		typeMustKnow(ty, output, astLocation(node));
 	});
-
-	if (UNION_CASE(Ident, n, node))
-	{
-		if (n->targets.size == 0)
-			ICE("Unresolved identifier %s", n->name.str().c_str());
-		else if (n->targets.size > 1)
-			ICE("Ambiguous identifier %s", n->name.str().c_str());
-	}
 
 	return false;
 }
