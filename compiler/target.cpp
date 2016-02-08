@@ -149,6 +149,9 @@ static void targetLinkFillArgs(const Triple& triple, vector<const char*>& args)
 		args.push_back("-arch");
 		args.push_back("x86_64");
 
+		args.push_back("-sdk_version");
+		args.push_back("10.10");
+
 		args.push_back("-macosx_version_min");
 		args.push_back("10.10");
 
