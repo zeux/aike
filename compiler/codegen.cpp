@@ -770,15 +770,26 @@ static Value* codegenIdent(Codegen& cg, Ast::Ident* n, CodegenKind kind)
 
 		return codegenFunctionDecl(cg, decl, 0, n->type, n->tyargs);
 	}
-	else
+	else if (target->kind == Variable::KindVariable)
 	{
 		auto it = cg.vars.find(target);
 		assert(it != cg.vars.end());
 
-		if (target->kind == Variable::KindVariable && kind != KindRef)
+		if (kind != KindRef)
 			return cg.ir->CreateLoad(it->second);
 		else
 			return it->second;
+	}
+	else if (target->kind == Variable::KindValue || target->kind == Variable::KindArgument)
+	{
+		auto it = cg.vars.find(target);
+		assert(it != cg.vars.end());
+
+		return it->second;
+	}
+	else
+	{
+		ICE("Unknown Variable kind %d", target->kind);
 	}
 }
 
