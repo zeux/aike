@@ -122,7 +122,7 @@ static void resolveTypeInstance(ResolveNames& rs, Ty* type)
 			else if (Ty* generic = rs.generics.find(t->name))
 				t->generic = generic;
 			else
-				rs.output->panic(t->location, "Unresolved type %s", t->name.str().c_str());
+				rs.output->error(t->location, "Unresolved type %s", t->name.str().c_str());
 		}
 	}
 }
@@ -182,7 +182,7 @@ static bool resolveNamesNode(ResolveNames& rs, Ast* root)
 		n->targets = resolveBindings(rs.variables.findAll(n->name));
 
 		if (n->targets.size == 0)
-			rs.output->panic(n->location, "Unresolved identifier %s", n->name.str().c_str());
+			rs.output->error(n->location, "Unresolved identifier %s", n->name.str().c_str());
 	}
 	else if (UNION_CASE(Block, n, root))
 	{
@@ -349,10 +349,10 @@ static bool resolveFieldRef(Output* output, FieldRef& f, Ty* ty)
 	{
 		f.index = findMember(ty, f.name);
 
-		if (f.index < 0)
-			output->panic(f.location, "No member named '%s' in %s", f.name.str().c_str(), typeName(ty).c_str());
+		if (f.index >= 0)
+			return true;
 
-		return true;
+		output->error(f.location, "No member named '%s' in %s", f.name.str().c_str(), typeName(ty).c_str());
 	}
 
 	return false;

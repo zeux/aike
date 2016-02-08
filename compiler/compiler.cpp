@@ -222,6 +222,9 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 
 	llvm::Value* entry = codegen(output, root, module, { options.debugInfo });
 
+	if (output.errors)
+		return nullptr;
+
 	timer.checkpoint("codegen");
 
 	return entry;
