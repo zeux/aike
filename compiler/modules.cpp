@@ -109,7 +109,10 @@ static vector<unsigned int> moduleSort(Output& output, const unordered_map<Str, 
 			auto import = findCircularDependency(make_pair(pending[0]->name, Location()), modules);
 			assert(import.first.size);
 
-			output.panic(import.second, "Circular dependency detected: module %s transitively imports itself", import.first.str().c_str());
+			output.error(import.second, "Circular dependency detected: module %s transitively imports itself", import.first.str().c_str());
+
+			// break the cycle to proceed with the sorting
+			visited.insert(import.first);
 		}
 
 		pending.resize(write);
@@ -130,7 +133,10 @@ vector<unsigned int> moduleSort(Output& output, const vector<Ast*>& modules)
 		assert(m);
 
 		if (moduleMap.count(m->name))
-			output.panic(m->location, "Duplicate module name %s", m->name.str().c_str());
+		{
+			output.error(m->location, "Duplicate module name %s", m->name.str().c_str());
+			continue;
+		}
 
 		vector<pair<Str, Location>> imports;
 		moduleGatherImports(root, [&](Str name, Location location) { imports.push_back(make_pair(name, location)); });

@@ -307,7 +307,7 @@ bool compileModules(vector<llvm::Value*>& entries, Timer& timer, Output& output,
 		entries.push_back(entrypoint);
 	}
 
-	return true;
+	return output.errors == 0;
 }
 
 string getRuntimePath(const string& compilerPath)
