@@ -67,6 +67,16 @@ static string print(Output* output, Location loc, const char* format, va_list ar
 	return result;
 }
 
+static string print(Output* output, const char* format, va_list args)
+{
+	string result;
+
+	strprintfv(result, format, args);
+	result.append("\n");
+
+	return result;
+}
+
 void Output::panic(Location loc, const char* format, ...)
 {
 	va_list args;
@@ -93,6 +103,26 @@ void Output::warning(Location loc, const char* format, ...)
 	va_list args;
 	va_start(args, format);
 	messages.push_back(print(this, loc, format, args));
+	va_end(args);
+
+	warnings++;
+}
+
+void Output::error(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	messages.push_back(print(this, format, args));
+	va_end(args);
+
+	errors++;
+}
+
+void Output::warning(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	messages.push_back(print(this, format, args));
 	va_end(args);
 
 	warnings++;
