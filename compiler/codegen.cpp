@@ -1280,7 +1280,7 @@ static void codegenFunctionBuiltin(Codegen& cg, const FunctionInstance& inst)
 		cg.ir->CreateRetVoid();
 	}
 	else
-		cg.output->panic(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
+		cg.output->error(inst.decl->var->location, "Unknown builtin function %s", name.str().c_str());
 }
 
 static string llvmGetTypeName(Type* type)
@@ -1371,7 +1371,8 @@ static void codegenFunctionLLVM(Codegen& cg, const FunctionInstance& inst)
 				location.column = err.getColumnNo() - 1;
 		}
 
-		cg.output->panic(location, "Error parsing LLVM: %s", err.getMessage().str().c_str());
+		cg.output->error(location, "Error parsing LLVM: %s", err.getMessage().str().c_str());
+		return;
 	}
 
 	Function* fun = cast<Function>(cg.module->getFunction(name));
