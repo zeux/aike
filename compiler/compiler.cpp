@@ -230,42 +230,8 @@ llvm::Value* compileModule(Timer& timer, Output& output, llvm::Module* module, A
 	return entry;
 }
 
-string getRuntimePath(const string& compilerPath)
+bool compileModules(vector<llvm::Value*>& entries, Timer& timer, Output& output, llvm::Module* module, const Options& options)
 {
-	string::size_type slash = compilerPath.find_last_of('/');
-
-	string path = (slash == string::npos) ? "" : compilerPath.substr(0, slash + 1);
-
-	return path + "aike-runtime.so";
-}
-
-int main(int argc, const char** argv)
-{
-	Options options = parseOptions(argc, argv);
-
-	Timer timer;
-
-	Output output;
-
-	targetInitialize();
-
-	string triple = options.triple.empty() ? targetHostTriple() : options.triple;
-
-	llvm::LLVMContext context;
-
-	llvm::Module* module = new llvm::Module("main", context);
-
-	module->setTargetTriple(triple);
-	module->setDataLayout(targetDataLayout(triple));
-
-	if (options.debugInfo)
-	{
-		module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
-
-		if (llvm::Triple(triple).isOSDarwin())
-			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
-	}
-
 	vector<Ast*> modules;
 	unordered_map<Str, unsigned int> readyModules;
 
@@ -305,7 +271,10 @@ int main(int argc, const char** argv)
 		auto contents = readFile(source);
 
 		if (!contents.first)
-			output.panic(pm.import, "Cannot find module %s", pm.name.str().c_str());
+		{
+			output.error(pm.import, "Cannot find module %s", pm.name.str().c_str());
+			return false;
+		}
 
 		output.sources[source] = contents.second;
 
@@ -327,20 +296,62 @@ int main(int argc, const char** argv)
 	}
 
 	vector<unsigned int> moduleOrder = moduleSort(output, modules);
-	vector<llvm::Value*> entries;
 
 	for (auto& i: moduleOrder)
 	{
 		llvm::Value* entrypoint = compileModule(timer, output, module, modules[i], &resolver, options);
 
 		if (!entrypoint)
-		{
-			assert(output.errors);
-			output.flush();
-			return 1;
-		}
+			return false;
 
 		entries.push_back(entrypoint);
+	}
+
+	return true;
+}
+
+string getRuntimePath(const string& compilerPath)
+{
+	string::size_type slash = compilerPath.find_last_of('/');
+
+	string path = (slash == string::npos) ? "" : compilerPath.substr(0, slash + 1);
+
+	return path + "aike-runtime.so";
+}
+
+int main(int argc, const char** argv)
+{
+	Options options = parseOptions(argc, argv);
+
+	Timer timer;
+
+	Output output;
+
+	targetInitialize();
+
+	string triple = options.triple.empty() ? targetHostTriple() : options.triple;
+
+	llvm::LLVMContext context;
+
+	llvm::Module* module = new llvm::Module("main", context);
+
+	module->setTargetTriple(triple);
+	module->setDataLayout(targetDataLayout(triple));
+
+	if (options.debugInfo)
+	{
+		module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+
+		if (llvm::Triple(triple).isOSDarwin())
+			module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+	}
+
+	vector<llvm::Value*> entries;
+
+	if (!compileModules(entries, timer, output, module, options))
+	{
+		output.flush();
+		return 1;
 	}
 
 	codegenMain(module, entries);
