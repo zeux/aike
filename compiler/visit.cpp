@@ -3,7 +3,7 @@
 
 #include "ast.hpp"
 
-static void visitAstStackless(Ast* root, function<bool (Ast*)> f, Ast* ignore = nullptr)
+static void visitAstStackless(Ast* root, const function<bool (Ast*)>& f, Ast* ignore = nullptr)
 {
 	vector<Ast*> stack;
 	stack.push_back(root);
@@ -117,17 +117,17 @@ static void visitAstStackless(Ast* root, function<bool (Ast*)> f, Ast* ignore = 
 	}
 }
 
-void visitAst(Ast* node, function<bool (Ast*)> f)
+void visitAst(Ast* node, const function<bool (Ast*)>& f)
 {
 	visitAstStackless(node, f);
 }
 
-void visitAstInner(Ast* node, function<bool (Ast*)> f)
+void visitAstInner(Ast* node, const function<bool (Ast*)>& f)
 {
 	visitAstStackless(node, f, /* ignore= */ node);
 }
 
-void visitAstTypes(Ast* node, function<void (Ty*)> f)
+void visitAstTypes(Ast* node, const function<void (Ty*)>& f)
 {
 	if (Ty* type = astType(node))
 		f(type);
@@ -162,7 +162,7 @@ void visitAstTypes(Ast* node, function<void (Ty*)> f)
 	}
 }
 
-void visitType(Ty* type, function<void (Ty*)> f)
+void visitType(Ty* type, const function<void (Ty*)>& f)
 {
 	f(type);
 
