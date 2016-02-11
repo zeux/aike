@@ -1,0 +1,4 @@
+test()
+
+## ERROR
+# (1,1): Unresolved identifier test
