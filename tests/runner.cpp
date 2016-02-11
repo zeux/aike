@@ -237,7 +237,7 @@ TestResult runTest(const string& source, const string& target, const string& com
 			lock_guard<mutex> lock(outputMutex);
 
 			fprintf(stderr, "Test %s failed: compilation failed with code %d\n", source.c_str(), rc);
-			fprintf(stderr, "Errors:\n%s", output.c_str());
+			fprintf(stderr, "Errors:\n%s", error.c_str());
 			return TestResult::Fail;
 		}
 
