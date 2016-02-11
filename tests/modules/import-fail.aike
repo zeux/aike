@@ -1,0 +1,4 @@
+import math
+
+## ERROR
+# (1,8): Cannot find module math
