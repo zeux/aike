@@ -1,0 +1,11 @@
+struct Foo
+    a, b: int
+
+var f = Foo { a = 1, b = 2 }
+
+print(f.c)
+print((1).c)
+
+## ERROR
+# (6,9): No member named 'c' in Foo
+# (7,11): No member named 'c' in int

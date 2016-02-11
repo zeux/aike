@@ -1,0 +1,5 @@
+fn test(a: Foo)
+    ()
+
+## ERROR
+# (1,12): Unresolved type Foo
