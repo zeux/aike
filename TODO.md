@@ -1,0 +1,12 @@
+- don’t resolve types with multiple constraints
+- do more constraint solving in one pass
+- resolve field names and ident types immediately during typing - does this make typing faster?
+- intern all types + cache codegen data based on type ptr
+- parsing indentation needs rethinking.
+- use i8 for void?
+- fixed-size array type? (how’d custom index op work?)
+- overloading can be based on constraints - e.g. gather constraints and run overload reduction step before/after propagation. might lead to rettype-based overloading though which requires mangling support
+- mangling should preserve rettype even for non-generic fns somehow - look into demangler for clues?
+- refactor integer/double parsing (use llvm?)
+- runner has weird issue with capturing out/err - commenting clear() does not break the dump test, as if compiler does not capture stdout.
+- add keywords to tokenizer
