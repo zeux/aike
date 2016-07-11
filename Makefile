@@ -49,7 +49,7 @@ RUNNER_OBJ=$(RUNNER_SRC:%=$(BUILD)/%.o)
 $(RUNNER_BIN): LDFLAGS+=-lpthread
 
 ifeq ($(LLVMCONFIG),)
-LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.7 /usr/local/opt/llvm/bin/llvm-config))
+LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.8 /usr/local/opt/llvm/bin/llvm-config))
 endif
 
 $(COMPILER_OBJ): CXXFLAGS+=-I$(shell $(LLVMCONFIG) --includedir)
