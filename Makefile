@@ -52,15 +52,15 @@ ifeq ($(LLVMCONFIG),)
 LLVMCONFIG:=$(firstword $(shell which llvm-config llvm-config-3.8 /usr/local/opt/llvm/bin/llvm-config))
 endif
 
+ifneq ($(wildcard $(shell $(LLVMCONFIG) --includedir)/lld/.),)
+$(COMPILER_OBJ): CXXFLAGS+=-DAIKE_USE_LLD
+$(COMPILER_BIN): LDFLAGS+=-llldDriver -llldReaderWriter -llldYAML -llldMachO -llldELF -llldCOFF -llldCore -llldCommon
+endif
+
 $(COMPILER_OBJ): CXXFLAGS+=-I$(shell $(LLVMCONFIG) --includedir)
 $(COMPILER_OBJ): CXXFLAGS+=-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --ldflags)
 $(COMPILER_BIN): LDFLAGS+=$(shell $(LLVMCONFIG) --libs all)
-
-ifneq ($(wildcard $(shell $(LLVMCONFIG) --includedir)/lld/.),)
-$(COMPILER_OBJ): CXXFLAGS+=-DAIKE_USE_LLD
-$(COMPILER_BIN): LDFLAGS+=-llldConfig -llldCore -llldDriver -llldReaderWriter -llldYAML -llldMachO -llldELF2
-endif
 
 $(COMPILER_BIN): LDFLAGS+=-lz -lcurses -lpthread -ldl
 

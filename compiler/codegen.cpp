@@ -223,7 +223,8 @@ static GlobalVariable* codegenPrepareTypeInfo(Codegen& cg, const string& name, T
 {
 	GlobalVariable* gv = new GlobalVariable(*cg.module, dataType, /* isConstant= */ true, GlobalValue::PrivateLinkage, nullptr, name);
 
-	gv->setUnnamedAddr(true);
+	// TODO: LLVM6.0
+	// gv->setUnnamedAddr(true);
 
 	return gv;
 }
@@ -309,9 +310,9 @@ static Constant* codegenTypeInfo(Codegen& cg, Ty* type)
 
 		if (UNION_CASE(Struct, d, t->def))
 		{
-			Type* fieldType = StructType::get(Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+			Type* fieldType = StructType::get(Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context));
 			ArrayType* fieldArrType = ArrayType::get(fieldType, d->fields.size);
-			Type* dataType = StructType::get(Type::getInt32Ty(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), fieldArrType, nullptr);
+			Type* dataType = StructType::get(Type::getInt32Ty(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), fieldArrType);
 
 			GlobalVariable* gv = codegenPrepareTypeInfo(cg, name, dataType);
 
@@ -356,34 +357,35 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 		return nullptr;
 
 	if (UNION_CASE(Bool, t, type))
-		return cg.di->createBasicType("bool", 8, 0, dwarf::DW_ATE_boolean);
+		return cg.di->createBasicType("bool", 8, dwarf::DW_ATE_boolean);
 
 	if (UNION_CASE(Integer, t, type))
-		return cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
+		return cg.di->createBasicType("int", 32, dwarf::DW_ATE_signed);
 
 	if (UNION_CASE(Float, t, type))
-		return cg.di->createBasicType("float", 32, 0, dwarf::DW_ATE_float);
+		return cg.di->createBasicType("float", 32, dwarf::DW_ATE_float);
 
 	if (UNION_CASE(String, t, type))
 	{
-		DIType* ety = cg.di->createBasicType("char", 8, 0, dwarf::DW_ATE_signed_char);
+		DIType* ety = cg.di->createBasicType("char", 8, dwarf::DW_ATE_signed_char);
 		DIType* pty = cg.di->createPointerType(ety, layout.getPointerSizeInBits());
-		DIType* szty = cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
+		DIType* szty = cg.di->createBasicType("int", 32, dwarf::DW_ATE_signed);
 
 		StructType* sty = cast<StructType>(codegenType(cg, type));
 		const StructLayout* sl = layout.getStructLayout(sty);
 
 		Metadata* fields[] =
 		{
-			cg.di->createMemberType(nullptr, "data", nullptr, 0,
-				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, 0, pty),
+			cg.di->createMemberType(
+				nullptr, "data", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, DINode::FlagZero, pty),
 			cg.di->createMemberType(nullptr, "size", nullptr, 0,
-				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, 0, szty),
+				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, DINode::FlagZero, szty),
 		};
 
 		return cg.di->createStructType(
 			nullptr, "string", nullptr, 0,
-			sl->getSizeInBits(), 0, 0,
+			sl->getSizeInBits(), 0, DINode::FlagZero,
 			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
@@ -400,13 +402,12 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 			fields.push_back(cg.di->createMemberType(
 				nullptr, "_" + to_string(i), nullptr, 0,
-				layout.getTypeSizeInBits(sty->getElementType(i)),
-				0, sl->getElementOffset(i) * 8, 0, dty));
+				layout.getTypeSizeInBits(sty->getElementType(i)), 0, sl->getElementOffset(i) * 8, DINode::FlagZero, dty));
 		}
 
 		return cg.di->createStructType(
 			nullptr, "tuple", nullptr, 0,
-			sl->getSizeInBits(), 0, 0,
+			sl->getSizeInBits(), 0, DINode::FlagZero,
 			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
@@ -414,22 +415,24 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 	{
 		DIType* ety = codegenTypeDebug(cg, t->element);
 		DIType* pty = cg.di->createPointerType(ety, layout.getPointerSizeInBits());
-		DIType* szty = cg.di->createBasicType("int", 32, 0, dwarf::DW_ATE_signed);
+		DIType* szty = cg.di->createBasicType("int", 32, dwarf::DW_ATE_signed);
 
 		StructType* sty = cast<StructType>(codegenType(cg, type));
 		const StructLayout* sl = layout.getStructLayout(sty);
 
 		Metadata* fields[] =
 		{
-			cg.di->createMemberType(nullptr, "data", nullptr, 0,
-				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, 0, pty),
-			cg.di->createMemberType(nullptr, "size", nullptr, 0,
-				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, 0, szty),
+			cg.di->createMemberType(
+				nullptr, "data", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(0)), 0, sl->getElementOffset(0) * 8, DINode::FlagZero, pty),
+			cg.di->createMemberType(
+				nullptr, "size", nullptr, 0,
+				layout.getTypeSizeInBits(sty->getElementType(1)), 0, sl->getElementOffset(1) * 8, DINode::FlagZero, szty),
 		};
 
 		return cg.di->createStructType(
 			nullptr, "array", nullptr, 0,
-			sl->getSizeInBits(), 0, 0,
+			sl->getSizeInBits(), 0, DINode::FlagZero,
 			nullptr, cg.di->getOrCreateArray(fields));
 	}
 
@@ -469,7 +472,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 			DICompositeType* result = cg.di->createStructType(
 				nullptr, t->name.str(), nullptr, 0,
-				sl->getSizeInBits(), 0, 0,
+				sl->getSizeInBits(), 0, DINode::FlagZero,
 				nullptr, cg.di->getOrCreateArray({}));
 
 			node->addOperand(result);
@@ -482,8 +485,7 @@ static DIType* codegenTypeDebug(Codegen& cg, Ty* type)
 
 				fields.push_back(cg.di->createMemberType(
 					nullptr, d->fields[i].name.str(), nullptr, 0,
-					layout.getTypeSizeInBits(ty->getElementType(i)),
-					0, sl->getElementOffset(i) * 8, 0, dty));
+					layout.getTypeSizeInBits(ty->getElementType(i)), 0, sl->getElementOffset(i) * 8, DINode::FlagZero, dty));
 			}
 
 			cg.di->replaceArrays(result, cg.di->getOrCreateArray(fields));
@@ -532,7 +534,7 @@ static Value* codegenAlloca(Codegen& cg, Type* type, Constant* arraySize = nullp
 	BasicBlock* ib = cg.ir->GetInsertBlock();
 	BasicBlock* bb = &ib->getParent()->getEntryBlock();
 
-	Instruction* inst = new AllocaInst(type, arraySize);
+	Instruction* inst = new AllocaInst(type, 0, arraySize);
 
 	bb->getInstList().insert(bb->getFirstInsertionPt(), inst);
 	cg.ir->SetInstDebugLocation(inst);
@@ -1173,7 +1175,7 @@ static Value* codegenVarDecl(Codegen& cg, Ast::VarDecl* n, CodegenKind kind)
 		DIType* dty = codegenTypeDebug(cg, n->var->type);
 		DILocalVariable* dvar = cg.di->createAutoVariable(
 			cg.debugBlocks.back(), n->var->name.str(), file, n->var->location.line + 1, dty,
-			/* alwaysPreserve= */ false, /* flags= */ 0);
+			/* alwaysPreserve= */ false, DINode::FlagZero);
 
 		DebugLoc dloc = DebugLoc::get(n->var->location.line + 1, n->var->location.column + 1, cg.debugBlocks.back());
 
@@ -1422,7 +1424,7 @@ static void codegenFunctionBody(Codegen& cg, const FunctionInstance& inst)
 			DIType* dty = codegenTypeDebug(cg, var->type);
 			DILocalVariable* dvar = cg.di->createParameterVariable(
 				cg.debugBlocks.back(), var->name.str(), i + 1, file, var->location.line + 1, dty,
-				/* alwaysPreserve= */ false, /* flags= */ 0);
+				/* alwaysPreserve= */ false, DINode::FlagZero);
 
 			DebugLoc dloc = DebugLoc::get(var->location.line + 1, var->location.column + 1, cg.debugBlocks.back());
 
@@ -1463,8 +1465,6 @@ static void codegenFunctionImpl(Codegen& cg, const FunctionInstance& inst)
 
 static void codegenFunction(Codegen& cg, const FunctionInstance& inst)
 {
-	assert(inst.value->empty());
-
 	if (cg.di)
 	{
 		const Location& loc = inst.decl->var->location;
@@ -1499,8 +1499,8 @@ static void codegenPrepare(Codegen& cg)
 	cg.builtinTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::trap);
 	cg.builtinDebugTrap = Intrinsic::getDeclaration(cg.module, Intrinsic::debugtrap);
 
-	cg.runtimeNew = cg.module->getOrInsertFunction("gcNew", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
-	cg.runtimeNewArray = cg.module->getOrInsertFunction("gcNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context), nullptr);
+	cg.runtimeNew = cg.module->getOrInsertFunction("gcNew", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context));
+	cg.runtimeNewArray = cg.module->getOrInsertFunction("gcNewArray", Type::getInt8PtrTy(*cg.context), Type::getInt8PtrTy(*cg.context), Type::getInt32Ty(*cg.context), Type::getInt32Ty(*cg.context));
 }
 
 llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const CodegenOptions& options)
@@ -1521,11 +1521,11 @@ llvm::Value* codegen(Output& output, Ast* root, llvm::Module* module, const Code
 
 	if (cg.di)
 	{
-		DIBuilder::DebugEmissionKind kind = (options.debugInfo > 1) ? DIBuilder::FullDebug : DIBuilder::LineTablesOnly;
+		DICompileUnit::DebugEmissionKind kind = (options.debugInfo > 1) ? DICompileUnit::FullDebug : DICompileUnit::LineTablesOnly;
 
-		// It's necessary to use "." as the directory instead of an empty string for debug info to work on OSX
+		DIFile* file = cg.di->createFile(entryLocation.source, StringRef());
 		DICompileUnit* cu = cg.di->createCompileUnit(dwarf::DW_LANG_C,
-			entryLocation.source, ".", "aikec", /* isOptimized= */ false, StringRef(), 0, StringRef(), kind);
+			file,  "aikec", /* isOptimized= */ false, StringRef(), 0, StringRef(), kind);
 		cg.debugBlocks.push_back(cu);
 	}
 
@@ -1563,7 +1563,7 @@ void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 	LLVMContext& context = module->getContext();
 	IRBuilder<> ir(context);
 
-	Function* main = cast<Function>(module->getOrInsertFunction("aikeMain", Type::getVoidTy(context), nullptr));
+	Function* main = cast<Function>(module->getOrInsertFunction("aikeMain", Type::getVoidTy(context)));
 
 	BasicBlock* mainbb = BasicBlock::Create(context, "entry", main);
 	ir.SetInsertPoint(mainbb);
@@ -1573,12 +1573,12 @@ void codegenMain(llvm::Module* module, const vector<llvm::Value*>& entries)
 
 	ir.CreateRetVoid();
 
-	Function* entry = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context), nullptr));
+	Function* entry = cast<Function>(module->getOrInsertFunction("main", Type::getInt32Ty(context)));
 
 	BasicBlock* entrybb = BasicBlock::Create(context, "entry", entry);
 	ir.SetInsertPoint(entrybb);
 
-	Constant* runtimeEntry = module->getOrInsertFunction("aikeEntry", Type::getInt32Ty(context), main->getType(), nullptr);
+	Constant* runtimeEntry = module->getOrInsertFunction("aikeEntry", Type::getInt32Ty(context), main->getType());
 
 	Value* ret = ir.CreateCall(runtimeEntry, main);
 

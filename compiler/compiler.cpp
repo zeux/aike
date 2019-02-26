@@ -28,6 +28,11 @@
 #include <fstream>
 #include <deque>
 
+namespace llvm
+{
+int DisableABIBreakingChecks;
+}
+
 struct Options
 {
 	vector<string> inputs;

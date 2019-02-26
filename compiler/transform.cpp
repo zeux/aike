@@ -7,6 +7,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 using namespace llvm;
@@ -42,6 +43,8 @@ void transformMergeDebugInfo(Module* module)
 	if (!culist || culist->getNumOperands() == 0)
 		return;
 
+/*
+	TODO LLVM 6.0
 	vector<Metadata*> enumTypes, retainedTypes, subprograms, globalVariables, importedEntities, macros;
 
 	for (MDNode* node: culist->operands())
@@ -71,6 +74,7 @@ void transformMergeDebugInfo(Module* module)
 	culist->dropAllReferences();
 
 	culist->addOperand(mergedcu);
+*/
 }
 
 void transformOptimize(Module* module, int level)
@@ -79,7 +83,7 @@ void transformOptimize(Module* module, int level)
 
 	pmb.OptLevel = level;
 
-	pmb.Inliner = (level > 1) ? createFunctionInliningPass(level, 0) : createAlwaysInlinerPass();
+	pmb.Inliner = (level > 1) ? createFunctionInliningPass(level, 0, false) : createAlwaysInlinerLegacyPass();
 
 	pmb.LoopVectorize = level > 2;
 	pmb.SLPVectorize = level > 2;

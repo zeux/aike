@@ -14,7 +14,7 @@
 #include <fstream>
 
 #ifdef AIKE_USE_LLD
-#include "lld/Driver/Driver.h"
+#include "lld/Common/Driver.h"
 #endif
 
 using namespace llvm;
@@ -46,7 +46,7 @@ static unique_ptr<TargetMachine> createTargetMachine(const string& triple, CodeG
 	TargetOptions options;
 
 	return unique_ptr<TargetMachine>(target->createTargetMachine(
-		triple, StringRef(), StringRef(), options, Reloc::Default, CodeModel::Default, optimizationLevel));
+		triple, StringRef(), StringRef(), options, Reloc::Static, CodeModel::Large, optimizationLevel));
 }
 
 void targetInitialize()
@@ -213,9 +213,9 @@ static void targetLinkLLD(const Triple& triple, const string& outputPath, const 
 	bool result = false;
 
 	if (triple.getObjectFormat() == Triple::MachO)
-		result = DarwinLdDriver::linkMachO(args);
+		result = mach_o::link(args);
 	else if (triple.getObjectFormat() == Triple::ELF)
-		result = (elf2::link(args), true); // elf2 does not have error handling support yet
+		result = elf::link(args, /* CanExitEarly= */ false);
 
 	if (!result)
 		panic("Error linking output");

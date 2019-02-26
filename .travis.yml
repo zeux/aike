@@ -4,7 +4,7 @@ language: cpp
 script: make config=coverage test -k -j2
 
 before_install:
- - export LLVM=3.8.0
+ - export LLVM=6.0.0
  - export LLVMCONFIG=./clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04/bin/llvm-config
  - if [ ! -f $LLVMCONFIG ]; then wget -nv -O- http://llvm.org/releases/$LLVM/clang+llvm-$LLVM-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar xJ; fi
 after_success:
